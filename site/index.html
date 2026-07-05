@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Tab Pad — your daily notepad, in every new tab</title>
+<meta name="description" content="Tab Pad replaces your new tab with a daily notepad. One page per day, instant saving, everything stays on your device." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;620;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #fafaf7;
+    --surface: #ffffff;
+    --ink: #1c1c1a;
+    --muted: #6e6e6a;
+    --faint: #a6a6a1;
+    --line: #e8e8e3;
+    --accent: #2f6bff;
+    --accent-soft: rgba(47, 107, 255, 0.1);
+    --measure: 680px;
+    --sans: Inter, ui-sans-serif, system-ui, sans-serif;
+    --serif: "Newsreader", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #111113;
+      --surface: #19191c;
+      --ink: #ededea;
+      --muted: #9c9c99;
+      --faint: #5e5e5c;
+      --line: #26262a;
+      --accent: #6b94ff;
+      --accent-soft: rgba(107, 148, 255, 0.14);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.7;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--accent-soft); }
+
+  a { color: inherit; }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .page {
+    width: min(100% - 48px, var(--measure));
+    margin: 0 auto;
+  }
+
+  /* ---- top bar ---- */
+  .bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 26px 0 0;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 14px;
+    font-weight: 620;
+    text-decoration: none;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+
+  .bar-install {
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1px;
+  }
+  .bar-install:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+  /* ---- day entries: the whole page is the notepad ---- */
+  .day {
+    padding: 72px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .day-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 26px;
+  }
+
+  .day-date {
+    font-size: 22px;
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+
+  .day-wd {
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 550;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .today .day-date { color: var(--accent); }
+  .today-dot {
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--accent);
+    align-self: center;
+  }
+
+  /* ---- hero (today) ---- */
+  .hero { padding-top: 84px; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(38px, 7vw, 58px);
+    font-weight: 500;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0 0 22px;
+    min-height: 2.24em;
+  }
+
+  .caret {
+    display: inline-block;
+    width: 2px;
+    height: 0.95em;
+    margin-left: 3px;
+    background: var(--accent);
+    vertical-align: -0.12em;
+    animation: blink 1.1s steps(1) infinite;
+  }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .lede {
+    max-width: 34em;
+    margin: 0 0 34px;
+    color: var(--muted);
+    font-size: 18px;
+  }
+
+  /* the CTA is a task list, like in the app */
+  .tasks { display: grid; gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; font-size: 16px; }
+
+  .task { display: flex; align-items: center; gap: 12px; }
+
+  .box {
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--faint);
+    border-radius: 4px;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+
+  .task.done .box { background: var(--accent); border-color: var(--accent); }
+  .task.done .box::after {
+    content: "";
+    width: 8px; height: 5px;
+    border: 2px solid #fff;
+    border-top: 0; border-right: 0;
+    transform: translateY(-1px) rotate(-45deg);
+  }
+  @media (prefers-color-scheme: dark) {
+    .task.done .box::after { border-color: #111113; }
+  }
+  .task.done span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--faint); }
+
+  .cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 26px; }
+
+  .install {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    border: 0;
+    border-radius: 999px;
+    padding: 13px 26px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 620;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+  @media (prefers-color-scheme: dark) { .install { color: #111113; } }
+  .install:hover { transform: translateY(-1px); box-shadow: 0 6px 18px var(--accent-soft); }
+
+  .cta-note { color: var(--faint); font-size: 13px; }
+
+  /* ---- screenshot placeholders ---- */
+  .shot {
+    margin-top: 46px;
+    border: 1.5px dashed var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    display: grid;
+    place-items: center;
+    color: var(--faint);
+    font-size: 13px;
+    text-align: center;
+    padding: 16px;
+  }
+  .shot.big { aspect-ratio: 16 / 10; }
+  .shot.wide { aspect-ratio: 21 / 9; }
+  .shot em { font-style: normal; color: var(--muted); font-weight: 620; display: block; margin-bottom: 4px; }
+
+  /* ---- feature days ---- */
+  h2 {
+    font-family: var(--serif);
+    font-size: clamp(24px, 4vw, 31px);
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+  }
+
+  .day p { max-width: 36em; margin: 0 0 10px; color: var(--muted); }
+  .day p strong { color: var(--ink); font-weight: 620; }
+
+  .kbd-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 18px; color: var(--muted); font-size: 13.5px; }
+  kbd {
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 2px 7px;
+    background: var(--surface);
+  }
+
+  .md-sample {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-top: 20px;
+    line-height: 2;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .md-sample b { color: var(--ink); }
+  .md-sample .syn { color: var(--accent); }
+
+  .swatches { display: flex; gap: 10px; margin-top: 20px; }
+  .swatch { width: 20px; height: 20px; border-radius: 999px; }
+
+  .quiet-list { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--muted); }
+  .quiet-list li { padding-left: 20px; position: relative; }
+  .quiet-list li::before {
+    content: "";
+    position: absolute; left: 2px; top: 0.72em;
+    width: 5px; height: 5px; border-radius: 999px;
+    background: var(--accent);
+  }
+
+  /* ---- closing ---- */
+  .close { text-align: center; padding: 96px 0 88px; border-bottom: 0; }
+  .close h2 { font-size: clamp(30px, 5.4vw, 42px); margin-bottom: 26px; }
+  .close h2 em { font-style: italic; color: var(--accent); }
+
+  footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 0 0 40px;
+    color: var(--faint);
+    font-size: 13px;
+  }
+  footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+  footer a:hover { color: var(--ink); }
+  footer nav { display: flex; gap: 18px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .caret { animation: none; }
+    .install { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="bar">
+    <a class="brand" href="/"><span class="dot"></span>tab pad</a>
+    <a class="bar-install" href="#install">add to chrome ↗</a>
+  </header>
+
+  <!-- today: the hero is today's page -->
+  <main>
+  <section class="day hero today" aria-label="today">
+    <div class="day-head">
+      <span class="day-date" id="today-date">7/5</span>
+      <span class="day-wd" id="today-wd">sun</span>
+      <span class="today-dot" aria-hidden="true"></span>
+    </div>
+
+    <h1><span id="typed">every new tab is today's page.</span><span class="caret" aria-hidden="true"></span></h1>
+
+    <p class="lede">tab pad replaces your new tab with a daily notepad. open a tab, start typing — no clicks, no account, no loading. yesterday is one scroll away.</p>
+
+    <ul class="tasks" aria-label="what you get">
+      <li class="task done"><span class="box" aria-hidden="true"></span><span>saves every keystroke, instantly</span></li>
+      <li class="task done"><span class="box" aria-hidden="true"></span><span>100% on your device — nothing leaves your computer</span></li>
+      <li class="task" id="cta-task"><span class="box" aria-hidden="true"></span><span>add tab pad to chrome</span></li>
+    </ul>
+
+    <div class="cta-row">
+      <a class="install" id="install" href="https://chrome.google.com/webstore" rel="noopener">add to chrome — free</a>
+      <span class="cta-note">no account · zero permissions · works offline</span>
+    </div>
+
+    <div class="shot big" role="img" aria-label="screenshot placeholder: today's page ready to write">
+      <div><em>screenshot</em>a fresh tab: today's page, cursor blinking, half-written note</div>
+    </div>
+  </section>
+
+  <!-- the features are the previous days -->
+  <section class="day" aria-label="yesterday">
+    <div class="day-head"><span class="day-date" data-ago="1">7/4</span><span class="day-wd" data-ago-wd="1">sat</span></div>
+    <h2>every day you've written, one scroll away</h2>
+    <p>your notes live on a single continuous timeline. scroll down through last week, last month, last year — or jump straight there.</p>
+    <div class="kbd-row">
+      <span><kbd>⌘K</kbd> "two weeks ago", "friday", "nov 12"</span>
+      <span><kbd>alt</kbd> + <kbd>↑</kbd><kbd>↓</kbd> step between days</span>
+    </div>
+    <div class="shot wide" role="img" aria-label="screenshot placeholder: the timeline mid-scroll">
+      <div><em>screenshot</em>the timeline mid-scroll — three days flowing past</div>
+    </div>
+  </section>
+
+  <section class="day" aria-label="two days ago">
+    <div class="day-head"><span class="day-date" data-ago="2">7/3</span><span class="day-wd" data-ago-wd="2">fri</span></div>
+    <h2>markdown that stays out of the way</h2>
+    <p>type plain text and it quietly becomes structure. checkboxes you can tick off on any day, headings, lists, links — the syntax fades once you move on.</p>
+    <div class="md-sample" aria-label="markdown example"><span class="syn">#</span> <b>friday</b>
+<span class="syn">- [x]</span> ship the proposal
+<span class="syn">- [ ]</span> call mom
+this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</span>, written like you think.</div>
+  </section>
+
+  <section class="day" aria-label="three days ago">
+    <div class="day-head"><span class="day-date" data-ago="3">7/2</span><span class="day-wd" data-ago-wd="3">thu</span></div>
+    <h2>your notes never leave your computer</h2>
+    <p><strong>there is no server.</strong> tab pad requests zero browser permissions and makes zero network requests. your words are stored on your device, and only there.</p>
+    <ul class="quiet-list">
+      <li>one-click backup — export everything as a single file</li>
+      <li>optional folder mirror: each day saved as a plain <span style="font-family:var(--mono);font-size:0.9em">.md</span> file, ready for obsidian or anything else</li>
+    </ul>
+    <div class="shot wide" role="img" aria-label="screenshot placeholder: storage settings">
+      <div><em>screenshot</em>settings → storage: export + folder mirror</div>
+    </div>
+  </section>
+
+  <section class="day" aria-label="four days ago">
+    <div class="day-head"><span class="day-date" data-ago="4">7/1</span><span class="day-wd" data-ago-wd="4">wed</span></div>
+    <h2>a page that looks like yours</h2>
+    <p>light or dark, six accent colors, serif · sans · monospace. keep a floating scratchpad beside your days, give every day its own margin, or hide it all.</p>
+    <div class="swatches" aria-label="accent colors">
+      <span class="swatch" style="background:#2f6bff"></span>
+      <span class="swatch" style="background:#16a34a"></span>
+      <span class="swatch" style="background:#dc2626"></span>
+      <span class="swatch" style="background:#ca8a04"></span>
+      <span class="swatch" style="background:#ea580c"></span>
+      <span class="swatch" style="background:#7c3aed"></span>
+    </div>
+    <div class="shot wide" role="img" aria-label="screenshot placeholder: dark theme with margin layout">
+      <div><em>screenshot</em>dark theme, purple accent, per-day margin</div>
+    </div>
+  </section>
+
+  <section class="day close" aria-label="install">
+    <h2>your first page is <em>waiting.</em></h2>
+    <div class="cta-row" style="justify-content:center">
+      <a class="install" href="https://chrome.google.com/webstore" rel="noopener">add tab pad to chrome</a>
+    </div>
+    <p class="cta-note" style="margin-top:18px">free · no account · 100% local</p>
+  </section>
+  </main>
+
+  <footer>
+    <span>© <span id="year">2026</span> tab pad</span>
+    <nav>
+      <a href="/privacy.html">privacy</a>
+      <a href="https://chrome.google.com/webstore" rel="noopener">chrome web store</a>
+      <a href="mailto:hello@tabpad.app">contact</a>
+    </nav>
+  </footer>
+
+</div>
+
+<script>
+  // real dates: today in the hero, real previous days on the feature entries
+  const fmt = (d) => (d.getMonth() + 1) + "/" + d.getDate();
+  const wd = (d) => d.toLocaleDateString(undefined, { weekday: "short" }).toLowerCase();
+  const now = new Date();
+  document.getElementById("today-date").textContent = fmt(now);
+  document.getElementById("today-wd").textContent = wd(now);
+  document.querySelectorAll("[data-ago]").forEach((el) => {
+    const d = new Date(now); d.setDate(d.getDate() - Number(el.dataset.ago));
+    el.textContent = fmt(d);
+  });
+  document.querySelectorAll("[data-ago-wd]").forEach((el) => {
+    const d = new Date(now); d.setDate(d.getDate() - Number(el.dataset.agoWd));
+    el.textContent = wd(d);
+  });
+  document.getElementById("year").textContent = String(now.getFullYear());
+
+  // the headline types itself into today's page (skipped for reduced motion)
+  const typed = document.getElementById("typed");
+  const full = typed.textContent;
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    typed.textContent = "";
+    let i = 0;
+    const tick = () => {
+      typed.textContent = full.slice(0, ++i);
+      if (i < full.length) setTimeout(tick, 34 + Math.random() * 46);
+    };
+    setTimeout(tick, 350);
+  }
+
+  // hovering install checks off the last task
+  const cta = document.getElementById("cta-task");
+  document.querySelectorAll(".install").forEach((btn) => {
+    btn.addEventListener("mouseenter", () => cta.classList.add("done"));
+    btn.addEventListener("mouseleave", () => cta.classList.remove("done"));
+  });
+</script>
+
+</body>
+</html>

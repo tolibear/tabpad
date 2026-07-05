@@ -1,0 +1,1357 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "Daybook Chrome Extension"
+  slug: "daybook-chrome-extension"
+  kind: existing_plan
+  tranche: "Validate the supplied build pack, then complete successive safe verified Daybook implementation packages until v1 is complete."
+  status: done
+  oracle:
+    signal: "A local Daybook Chrome extension build passes its tests and checks, loads unpacked as the Chrome new tab page with zero permissions and zero network requests, and a final Judge or PM audit maps the verified behavior to acceptance criteria A1-A20 from /Users/tonym/Downloads/daybook-build-pack-v1.md."
+    cadence: "after each Worker package and at final audit"
+    final_proof: "Receipt-backed tests, checks, extension walkthrough evidence, chrome://extensions zero-permissions evidence, network-panel zero-request evidence, and A1-A20 audit with full_outcome_complete: true."
+  intake:
+    original_request: "Use GoalBuddy goal prep for the Daybook build pack."
+    interpreted_outcome: "Prepare a GoalBuddy board that preserves the Daybook build pack and enables safe autonomous implementation."
+    input_shape: existing_plan
+    audience: "Toli"
+    authority: requested
+    proof_type: demo
+    completion_proof: "All A1-A20 acceptance criteria pass against a local unpacked Chrome extension with no requested permissions and no network requests."
+    likely_misfire: "Shipping a generic note app scaffold or editor demo while missing the new-tab extension behavior, zero-permissions constraint, timeline model, right-panel modes, mirror behavior, performance targets, or A1-A20 proof."
+    blind_spots_considered:
+      - "New tab focus and paint timing can differ from dev-server behavior."
+      - "The CodeMirror live preview and static markdown renderer can drift visually."
+      - "Optional file mirror must stay off by default and never become a silent sync service."
+      - "A pleasant scaffold is not complete unless the extension is verified in Chrome as the new tab page."
+    existing_plan_facts:
+      - "Source plan: /Users/tonym/Downloads/daybook-build-pack-v1.md."
+      - "Daybook replaces the Chrome new tab page with a daily markdown notepad."
+      - "The center timeline is the product: today opens at the top with focus, future placeholders scroll upward, and past empty days are omitted unless jumped to."
+      - "The left rail provides a quiet calendar, blue content dots, noted-day jumps, today, and settings."
+      - "The right side supports scratchpad, master list, per-day margin, and hidden modes; switching modes must never destroy content."
+      - "The editor is CodeMirror 6 source-mode markdown with live preview, task checkboxes, list continuation, syntax concealment, links, quotes, code, and static-render parity."
+      - "Storage is local-first: Dexie over IndexedDB, BroadcastChannel sync, JSON export/import, and an optional File System Access mirror that is off by default."
+      - "The folder mirror is one-way app-to-files in v1, writes plain markdown files, never deletes files, and handles permission loss softly."
+      - "Manifest V3 uses only chrome_url_overrides.newtab with no background worker, no content scripts, no permissions, no telemetry, and no network requests."
+      - "Stack: Vite, React 18+, TypeScript strict, Tailwind v4, CodeMirror 6, Dexie, markdown-it, and local bundled assets."
+      - "Performance targets: shell first paint under 100ms, today's content under 150ms, and first keystroke in today's note under 200ms on a warm profile."
+      - "Design direction: quiet paper, one blue accent, all colors and sizes from CSS tokens, no gradients, no heavy shadows, no decorative motion."
+      - "Milestones M1-M7 and acceptance criteria A1-A20 define v1 completion."
+      - "The v1.1 backlog, including full-text search and mirror read-back, is out of scope for v1."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  exact_human_approval_can_terminal_wait: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  goal_pressure_requires_oracle: true
+  no_completion_on_weak_proof: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+
+agents:
+  scout: installed
+  worker: installed
+  judge: installed
+
+visual_board:
+  selected: local
+  local:
+    status: live
+    url: "http://goalbuddy.localhost:41737/daybook-chrome-extension/"
+    command: "node /Users/tonym/.codex/plugins/cache/goalbuddy/goalbuddy/0.3.9/skills/goalbuddy/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal /Users/tonym/projects/tolibear/daybook/docs/goals/daybook-chrome-extension"
+
+active_task: null
+
+tasks:
+  - id: T001
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Validate the supplied Daybook build pack against the current repo surface and choose the first safe implementation package."
+    inputs:
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+      - "Current repo root"
+    constraints:
+      - "Read-only."
+      - "Do not implement."
+      - "Preserve the build pack as source truth unless current repo evidence contradicts it."
+    expected_output:
+      - "Decision"
+      - "Plan facts confirmed or corrected"
+      - "Repo evidence"
+      - "First Worker objective"
+      - "allowed_files"
+      - "verify"
+      - "stop_if"
+    receipt:
+      result: done
+      decision: approved
+      full_outcome_complete: false
+      summary: "Validated the supplied build pack against the current repo surface and selected M1 shell as the first safe implementation package."
+      evidence:
+        - "/Users/tonym/Downloads/daybook-build-pack-v1.md:173"
+        - "/Users/tonym/Downloads/daybook-build-pack-v1.md:448"
+        - "/Users/tonym/Downloads/daybook-build-pack-v1.md:494"
+        - "repo root contains only docs/ before implementation"
+      rationale: "The repo has no product files yet, so the largest safe useful first slice is the Vite React TypeScript extension shell with static Manifest V3, three-column Daybook layout, design tokens, theme switching, and M1 verification. Editor, storage, timeline, mirror, and A2-A20 behavior remain later packages."
+      selected_worker:
+        task: T002
+        objective: "Deliver M1 shell: Vite React TypeScript Tailwind app, static Manifest V3 new-tab override, Daybook three-column shell with dummy content, design tokens, theme switching, icons, and M1 checks."
+        allowed_files:
+          - ".gitignore"
+          - "package.json"
+          - "package-lock.json"
+          - "index.html"
+          - "manifest.json"
+          - "vite.config.ts"
+          - "tsconfig.json"
+          - "tsconfig.app.json"
+          - "tsconfig.node.json"
+          - "src/**"
+          - "public/**"
+          - "scripts/**"
+          - "node_modules/**"
+        verify:
+          - "npm install"
+          - "npm run typecheck"
+          - "npm run build"
+          - "npm run verify:m1"
+        stop_if:
+          - "Need to implement editor, storage, timeline persistence, folder mirror, or Chrome manual testing outside M1 shell."
+          - "The extension manifest needs any permission, background worker, content script, telemetry, or network dependency."
+          - "Build or typecheck fails twice for the same reason."
+  - id: T002
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Deliver M1 shell: Vite React TypeScript Tailwind app, static Manifest V3 new-tab override, Daybook three-column shell with dummy content, design tokens, theme switching, icons, and M1 checks."
+    inputs:
+      - "T001 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Keep the build pack constraints intact."
+      - "Prefer one coherent milestone package over tiny helper-only edits."
+      - "Do not change files outside allowed_files."
+    allowed_files:
+      - ".gitignore"
+      - "package.json"
+      - "package-lock.json"
+      - "index.html"
+      - "manifest.json"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+      - "tsconfig.node.json"
+      - "src/**"
+      - "public/**"
+      - "scripts/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Need to implement editor, storage, timeline persistence, folder mirror, or Chrome manual testing outside M1 shell."
+      - "The extension manifest needs any permission, background worker, content script, telemetry, or network dependency."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      changed_files:
+        - ".gitignore"
+        - "package.json"
+        - "package-lock.json"
+        - "index.html"
+        - "manifest.json"
+        - "vite.config.ts"
+        - "tsconfig.json"
+        - "tsconfig.app.json"
+        - "tsconfig.node.json"
+        - "src/main.tsx"
+        - "src/app.tsx"
+        - "src/lib/dates.ts"
+        - "src/lib/theme.ts"
+        - "src/styles/tokens.css"
+        - "src/styles/app.css"
+        - "src/vite-env.d.ts"
+        - "scripts/create-icons.mjs"
+        - "scripts/verify-m1.mjs"
+        - "public/icons/16.png"
+        - "public/icons/48.png"
+        - "public/icons/128.png"
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "Chrome headless screenshot at http://127.0.0.1:5173/"
+          status: pass
+      summary: "Delivered the M1 extension shell: Vite React TypeScript Tailwind app, Manifest V3 new-tab override with zero permissions, generated PNG icons, three-column Daybook shell, design tokens, theme persistence/system tracking, and M1 verification."
+      full_outcome_complete: false
+  - id: T003
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "After the first verified package, advance the board to the next largest safe Daybook package from the build pack."
+    inputs:
+      - "T001 receipt"
+      - "T002 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Only update GoalBuddy control files."
+      - "Keep state.yaml as board truth."
+      - "Do not mark the goal complete if required Worker work remains."
+    expected_output:
+      - "Next active task"
+      - "Updated Worker package or phase-boundary Judge task"
+      - "Receipt for board advancement"
+    receipt:
+      result: done
+      summary: "Advanced the board from the verified M1 shell to the M2 local data package."
+      next_active_task: T004
+      rationale: "M1 is verified and the build pack sequence calls for Dexie schema, settings, day/panel CRUD, debounced writes, BroadcastChannel, and JSON import/export before the full editor and timeline packages."
+      full_outcome_complete: false
+  - id: T004
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Deliver M2 data: Dexie schema, settings store, day and panel CRUD, debounced writes from the current note surfaces, BroadcastChannel refresh, and JSON export/import."
+    inputs:
+      - "T002 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Keep IndexedDB as the source of truth."
+      - "Keep localStorage use minimal and limited to no-flicker theme boot support."
+      - "Whitespace-only days count as empty for dots and noted-days lists."
+      - "Do not implement CodeMirror, full timeline windowing, folder mirror, or Chrome manual testing in this slice."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "src/**"
+      - "scripts/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Need CodeMirror live preview, timeline virtualization, folder mirror, or Chrome extension manual testing."
+      - "IndexedDB, BroadcastChannel, or import/export behavior is ambiguous against the build pack."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      changed_files:
+        - "package.json"
+        - "package-lock.json"
+        - "src/app.tsx"
+        - "src/lib/dates.ts"
+        - "src/db/db.ts"
+        - "src/db/days.ts"
+        - "src/db/panels.ts"
+        - "src/db/settings.ts"
+        - "src/db/broadcast.ts"
+        - "src/db/export.ts"
+        - "src/styles/app.css"
+        - "scripts/verify-m2-runtime.ts"
+        - "scripts/verify-m2.mjs"
+      commands:
+        - cmd: "npm install dexie && npm install -D fake-indexeddb"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "Chrome headless screenshot at http://127.0.0.1:5173/"
+          status: pass
+      summary: "Delivered M2 data: Dexie schema, day and panel CRUD, settings store, debounced saves from current note surfaces, BroadcastChannel refresh, JSON export/import controls, and runtime verification against fake IndexedDB."
+      full_outcome_complete: false
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Deliver M3 editor: replace the textarea surfaces with the shared CodeMirror 6 markdown factory, live preview rules, checkbox toggles, input rules, list keymap, and editor verification."
+    inputs:
+      - "T004 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Keep source-mode markdown as the editing model."
+      - "Use one shared editor factory for day and panel surfaces."
+      - "Typing must continue to save through the M2 Dexie path."
+      - "Do not implement full timeline windowing, rail jump behavior, folder mirror, or right-panel mode switching in this slice."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "src/app.tsx"
+      - "src/editor/**"
+      - "src/styles/**"
+      - "scripts/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Need full timeline virtualization, folder mirror, right-panel mode switching, or Chrome extension manual testing."
+      - "The CodeMirror live-preview contract cannot be verified without narrowing acceptance."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      changed_files:
+        - "package.json"
+        - "package-lock.json"
+        - "src/app.tsx"
+        - "src/editor/EditorSurface.tsx"
+        - "src/editor/checkbox.ts"
+        - "src/editor/createEditor.ts"
+        - "src/editor/inputRules.ts"
+        - "src/editor/listKeymap.ts"
+        - "src/editor/livePreview.ts"
+        - "src/editor/theme.ts"
+        - "src/styles/app.css"
+        - "src/styles/tokens.css"
+        - "scripts/verify-m1.mjs"
+        - "scripts/verify-m3-runtime.ts"
+        - "scripts/verify-m3.mjs"
+      commands:
+        - cmd: "npm install @codemirror/state @codemirror/view @codemirror/language @codemirror/lang-markdown @codemirror/commands @lezer/markdown"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+          note: "Vite warns that the single CodeMirror bundle exceeds 500 kB; defer chunking/perf hardening to the performance package."
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "Chrome headless screenshot at http://127.0.0.1:5173/"
+          status: pass
+      summary: "Delivered M3 editor: shared CodeMirror factory, markdown parser with task/strikethrough extensions, live preview decorations, checkbox widgets, task shortcut input rule, list keymap, markdown wrap shortcuts, CSS-token theme, and app wiring for day and scratchpad surfaces."
+      full_outcome_complete: false
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Deliver M4 timeline: future placeholders, content-day past window, scroll anchoring, today autofocus, midnight rollover, jumpTo date behavior, and static rendered far-day fallback."
+    inputs:
+      - "T005 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Keep today's live editor mounted and focused on load."
+      - "Persist future placeholders only after content is added."
+      - "Past timeline should show only content days plus today unless a jump inserts an empty in-session placeholder."
+      - "Do not implement Cmd+K palette, full rail month navigation, right-panel mode switching, or folder mirror in this slice."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "src/app.tsx"
+      - "src/timeline/**"
+      - "src/lib/**"
+      - "src/db/**"
+      - "src/styles/**"
+      - "scripts/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Need Cmd+K palette, right-panel mode switching, folder mirror, or unpacked Chrome manual testing."
+      - "Scroll anchoring or jump behavior cannot be verified without narrowing the acceptance criteria."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      changed_files:
+        - "package.json"
+        - "package-lock.json"
+        - "src/app.tsx"
+        - "src/timeline/Timeline.tsx"
+        - "src/timeline/DaySection.tsx"
+        - "src/timeline/StaticDay.tsx"
+        - "src/timeline/jump.ts"
+        - "src/timeline/useToday.ts"
+        - "src/styles/app.css"
+        - "scripts/verify-m1.mjs"
+        - "scripts/verify-m4-runtime.ts"
+        - "scripts/verify-m4.mjs"
+      commands:
+        - cmd: "npm install markdown-it && npm install -D @types/markdown-it"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+          note: "Vite still warns that the single editor/timeline bundle exceeds 500 kB; defer chunking/perf hardening to the performance package."
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "Chrome headless screenshot at http://127.0.0.1:5173/"
+          status: pass
+      summary: "Delivered M4 timeline: today opens at the top with the live editor focused, upward scrolling can create anchored future placeholders, past rows come from content days, empty past date jumps insert in-session placeholders, midnight rollover updates today, and far content rows can render through the static markdown fallback with task toggles."
+      full_outcome_complete: false
+  - id: T007
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Deliver M5 rail and date palette: working calendar month navigation, dotted-day jumps, noted-day scroll spy/jumps, today button, and cmd/ctrl+K date jump palette."
+    inputs:
+      - "T006 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Keep the rail visually quiet and navigation-only."
+      - "Calendar dots must stay tied to content-day state."
+      - "Cmd/ctrl+K parses date jumps only; do not add full-text search in v1."
+      - "Do not implement right-panel modes, settings modal, folder mirror, or unpacked Chrome manual testing in this slice."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "src/app.tsx"
+      - "src/rail/**"
+      - "src/palette/**"
+      - "src/timeline/**"
+      - "src/lib/**"
+      - "src/styles/**"
+      - "scripts/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+      - "npm run verify:m5"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Need right-panel mode switching, settings modal, folder mirror, or unpacked Chrome manual testing."
+      - "Calendar or palette behavior cannot be verified without narrowing acceptance."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      changed_files:
+        - "package.json"
+        - "src/app.tsx"
+        - "src/lib/dates.ts"
+        - "src/rail/Rail.tsx"
+        - "src/palette/CommandK.tsx"
+        - "src/timeline/Timeline.tsx"
+        - "src/styles/app.css"
+        - "scripts/verify-m5-runtime.ts"
+        - "scripts/verify-m5.mjs"
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+          note: "Vite still warns that the single editor/timeline bundle exceeds 500 kB; defer chunking/perf hardening to the performance package."
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "npm run verify:m5"
+          status: pass
+        - cmd: "Chrome headless screenshot at http://127.0.0.1:5173/"
+          status: pass
+          note: "Screenshot saved at /tmp/daybook-m5.png; temporary Vite and headless Chrome processes were stopped afterward."
+      summary: "Delivered M5 rail and date palette: calendar month navigation, week-start-aware calendar grid, content-driven date dots, clickable noted-days list with scroll-spy highlighting, today jump, cmd/ctrl+K date palette, date parsing, and M5 verification."
+      full_outcome_complete: false
+  - id: T008
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Deliver M6 right panel and settings: all four right-panel modes, complete settings UI, persisted and broadcast settings, editor-size and week-start controls, and mode-switch content integrity."
+    inputs:
+      - "T007 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Keep the settings UI plain and consistent with the quiet Daybook surface."
+      - "Mode switching must never lose scratchpad, master list, or per-day margin content."
+      - "Margin-only days must count as content for dots and the timeline."
+      - "Do not implement folder mirror, reconnect chip, performance pass, or unpacked Chrome manual testing in this slice."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "src/app.tsx"
+      - "src/panel/**"
+      - "src/settings/**"
+      - "src/rail/**"
+      - "src/timeline/**"
+      - "src/db/**"
+      - "src/editor/**"
+      - "src/lib/**"
+      - "src/styles/**"
+      - "scripts/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+      - "npm run verify:m5"
+      - "npm run verify:m6"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Need folder mirror, reconnect chip, perf pass, or unpacked Chrome manual testing."
+      - "Right-panel mode behavior or settings copy conflicts with the build pack."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      changed_files:
+        - "package.json"
+        - "src/app.tsx"
+        - "src/editor/theme.ts"
+        - "src/panel/RightPanel.tsx"
+        - "src/settings/SettingsOverlay.tsx"
+        - "src/rail/Rail.tsx"
+        - "src/timeline/DaySection.tsx"
+        - "src/timeline/Timeline.tsx"
+        - "src/styles/app.css"
+        - "scripts/verify-m3.mjs"
+        - "scripts/verify-m6-runtime.ts"
+        - "scripts/verify-m6.mjs"
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+          note: "Vite still warns that the single editor/timeline bundle exceeds 500 kB; defer chunking/perf hardening to the performance package."
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "npm run verify:m5"
+          status: pass
+        - cmd: "npm run verify:m6"
+          status: pass
+        - cmd: "Chrome DevTools smoke at http://127.0.0.1:5173/"
+          status: pass
+          note: "Captured /tmp/daybook-m6-default.png, /tmp/daybook-m6-settings.png, and /tmp/daybook-m6-margin.png; confirmed settings sheet, panel-margin shell class, and margin editor; temporary Chrome and Vite processes were stopped."
+      summary: "Delivered M6 right panel and settings: scratchpad/master list/hidden/margin modes, mode-safe fixed panel state, per-day margin editors saved through day margin rows, margin-only days counted as content, settings sheet with theme/text/layout/calendar/storage/data controls, persisted and broadcast settings, and editor-size CSS tokens."
+      full_outcome_complete: false
+  - id: T009
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: high
+    objective: "Deliver M7 mirror and polish: optional File System Access folder mirror, reconnect/status UI, performance/chunking pass, unpacked Chrome zero-permissions and zero-network evidence, and full build-pack checklist sweep preparation."
+    inputs:
+      - "T008 receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Folder mirror stays off by default and requires an explicit user folder choice."
+      - "Mirror direction is one-way app to files in v1; never delete user files and do not implement read-back sync."
+      - "The app remains fully functional from IndexedDB if mirror permission is missing or revoked."
+      - "Manifest must keep zero permissions, no background worker, no content scripts, no telemetry, and no network dependency."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "manifest.json"
+      - "vite.config.ts"
+      - "src/app.tsx"
+      - "src/mirror/**"
+      - "src/settings/**"
+      - "src/db/**"
+      - "src/rail/**"
+      - "src/timeline/**"
+      - "src/editor/**"
+      - "src/panel/**"
+      - "src/lib/**"
+      - "src/styles/**"
+      - "public/**"
+      - "scripts/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+      - "npm run verify:m5"
+      - "npm run verify:m6"
+      - "npm run verify:m7"
+      - "Chrome unpacked-extension zero-permissions check"
+      - "Chrome network-panel or equivalent zero-request evidence"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "File System Access cannot be safely verified in the current browser context."
+      - "Mirror behavior would require requesting manifest permissions, background workers, content scripts, telemetry, or network access."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      changed_files:
+        - "package.json"
+        - "vite.config.ts"
+        - "src/app.tsx"
+        - "src/mirror/mirror.ts"
+        - "src/settings/SettingsOverlay.tsx"
+        - "src/rail/Rail.tsx"
+        - "src/timeline/DaySection.tsx"
+        - "src/styles/app.css"
+        - "scripts/verify-m7-runtime.ts"
+        - "scripts/verify-m7.mjs"
+        - "scripts/verify-extension-cft.mjs"
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+          note: "Vite output is split into index, markdown, vendor, and editor chunks without the previous large-chunk warning."
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "npm run verify:m5"
+          status: pass
+        - cmd: "npm run verify:m6"
+          status: pass
+        - cmd: "npm run verify:m7"
+          status: pass
+        - cmd: "npm run verify:extension"
+          status: pass
+          note: "Chrome for Testing loaded dist as the new-tab extension, runtime manifest permissions were [], no background/content scripts were present, page reload made zero HTTP(S) requests, today was first visible, today's editor was focused, and a first keystroke landed without a click. Evidence: /tmp/daybook-extension-cft-evidence.json and /tmp/daybook-extension-cft.png."
+      summary: "Delivered M7 mirror and polish: optional off-by-default one-way File System Access mirror with full export, debounced day/panel writes, reconnect/status UI, storage persistence request, non-destructive mirror helpers, manual chunking, static zero-permission/no-network checks, and repeatable Chrome for Testing unpacked-extension proof."
+      full_outcome_complete: false
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit whether the Daybook v1 extension satisfies the full build-pack outcome."
+    inputs:
+      - "All done task receipts"
+      - "Last verification"
+      - "Current dirty diff"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Do not implement."
+      - "Reject completion if any A1-A20 criterion lacks current evidence."
+      - "Reject completion if the unpacked Chrome extension has permissions or network requests."
+      - "Reject completion if required Worker work is still queued or active."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "Acceptance criteria evidence"
+      - "Missing evidence"
+      - "Next task if not complete"
+    receipt:
+      result: done
+      decision: not_complete
+      full_outcome_complete: false
+      summary: "M1-M7 implementation and Chrome for Testing extension proof are green, but the final A1-A20 audit still lacks sufficiently broad browser-level acceptance evidence for performance, long-document smoothness, and several interactive workflows."
+      proven:
+        - "Built extension loads as the Chrome for Testing new-tab page from dist with runtime manifest permissions []."
+        - "The extension page reload made zero HTTP(S) requests in the Chrome for Testing page target."
+        - "Milestone verifiers M1-M7 pass, including Dexie/BroadcastChannel/export-import primitives, editor static behavior, timeline windows, rail/palette parsing, right-panel settings, and mirror file-layout/runtime helpers."
+      missing_or_weak:
+        - "A1 has focused-editor proof and first-keystroke proof, but not measured shell/content/keystroke timing against the <100ms/<150ms/<200ms thresholds."
+        - "A2-A4 have parser/static verifier coverage, but lack browser-level CodeMirror interaction proof for rendered heading/task/list behavior and undo."
+        - "A5-A8 have unit/static coverage, but need browser-driven scroll/calendar/palette proof against the built extension."
+        - "A9-A11 have storage/runtime/static coverage and one settings smoke, but need browser-driven mode/theme persistence proof."
+        - "A12-A13 mirror behavior is covered by fake runtime handles and static UI checks, but the browser UI flow and reconnect chip need stronger evidence where possible."
+        - "A14-A16 have storage/export/import primitives, but need browser-driven two-tab/persistence/import-export proof."
+        - "A19-A20 need browser-driven static checkbox persistence and long-day/100-day smoothness evidence."
+      next_active_task: T010
+  - id: T010
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: high
+    objective: "Deliver final acceptance proof: a Chrome for Testing browser-level acceptance harness for A1-A20 where automatable, plus any implementation fixes it exposes, then prepare a final audit-ready receipt."
+    inputs:
+      - "T009 receipt"
+      - "T999 not_complete audit"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Preserve the build-pack scope and do not weaken acceptance criteria."
+      - "Use the built unpacked extension in Chrome for Testing for browser-level evidence."
+      - "Do not add network calls, extension permissions, background workers, content scripts, telemetry, or read-back folder sync."
+      - "If real File System Access folder picking cannot be automated, provide the strongest browser-level mock proof and keep the residual manual evidence gap explicit for final audit."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "manifest.json"
+      - "vite.config.ts"
+      - "src/**"
+      - "scripts/**"
+      - "public/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+      - "npm run verify:m5"
+      - "npm run verify:m6"
+      - "npm run verify:m7"
+      - "npm run verify:extension"
+      - "npm run verify:acceptance"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "A required acceptance proof cannot be automated or simulated safely in Chrome for Testing."
+      - "Meeting an acceptance criterion would require forbidden permissions, network calls, background workers, content scripts, telemetry, or v1.1 read-back sync."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      decision: final_audit_ready
+      full_outcome_complete: false
+      summary: "Delivered Chrome for Testing browser-level acceptance proof and fixes exposed by the harness: keychain-safe browser launch, no-click first printable key routing into today's editor, checked-task live-preview line decoration ordering, robust palette submit from live input value, timeline jump scrolling for already-rendered dates, and deterministic browser proof for heading/task/list, future placeholders, rail/calendar/palette, right-panel modes, margins, theme persistence, long-note typing, long-scroll performance, zero permissions, and zero network requests."
+      changed_files:
+        - "package.json"
+        - "scripts/verify-acceptance.mjs"
+        - "scripts/verify-extension-cft.mjs"
+        - "src/editor/EditorSurface.tsx"
+        - "src/editor/livePreview.ts"
+        - "src/palette/CommandK.tsx"
+        - "src/timeline/Timeline.tsx"
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "npm run verify:m5"
+          status: pass
+        - cmd: "npm run verify:m6"
+          status: pass
+        - cmd: "npm run verify:m7"
+          status: pass
+        - cmd: "npm run verify:extension"
+          status: pass
+        - cmd: "npm run verify:acceptance"
+          status: pass
+      implementation:
+        - "Added scripts/verify-acceptance.mjs and npm script verify:acceptance."
+        - "Updated scripts/verify-extension-cft.mjs and scripts/verify-acceptance.mjs to launch Chrome for Testing with --use-mock-keychain."
+        - "Added document-level first printable key routing in src/editor/EditorSurface.tsx."
+        - "Fixed checked task preview class ordering in src/editor/livePreview.ts."
+        - "Made src/palette/CommandK.tsx submit from the live input value."
+        - "Added an explicit jump tick in src/timeline/Timeline.tsx so jumps to already-rendered days still scroll."
+      verification:
+        commands:
+          - "npm install"
+          - "npm run typecheck"
+          - "npm run build"
+          - "npm run verify:m1"
+          - "npm run verify:m2"
+          - "npm run verify:m3"
+          - "npm run verify:m4"
+          - "npm run verify:m5"
+          - "npm run verify:m6"
+          - "npm run verify:m7"
+          - "npm run verify:extension"
+          - "npm run verify:acceptance"
+        result: pass
+        evidence:
+          - "/tmp/daybook-extension-cft-evidence.json"
+          - "/tmp/daybook-extension-cft.png"
+          - "/tmp/daybook-acceptance-evidence.json"
+          - "/tmp/daybook-acceptance.png"
+      residual_audit_items:
+        - "A1 browser evidence has first printable key landing and saving in 97ms in the final run, but Chrome for Testing paint/navigation metrics were still above the strict <100ms shell and <150ms today-content targets in the fresh-profile harness."
+        - "A12-A13 File System Access folder picking cannot be completed safely by Chrome for Testing without a real user folder chooser; M7 fake-handle/runtime proof remains the primary automated evidence."
+        - "A14-A16 have storage, BroadcastChannel, reload, and import/export primitive coverage from M2 plus browser reload behavior in acceptance, but still need a final audit call on whether that is enough browser-level proof."
+        - "A19 static checkbox proof remains primarily covered by M4 runtime verification; the broad acceptance viewport recorded the target date but did not reach a static-rendered checkbox."
+      next_active_task: T011
+  - id: T011
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Final audit: map current receipts, verifier outputs, Chrome for Testing evidence, and the Daybook build-pack A1-A20 criteria to a completion decision."
+    inputs:
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+      - "T001-T010 receipts"
+      - "/tmp/daybook-extension-cft-evidence.json"
+      - "/tmp/daybook-acceptance-evidence.json"
+    constraints:
+      - "Read-only."
+      - "Do not weaken acceptance criteria."
+      - "Call out any remaining evidence gap with the exact A-number and the next safe task."
+      - "Only mark full_outcome_complete true if every A1-A20 criterion has adequate current proof."
+    expected_output:
+      - "A1-A20 audit table"
+      - "Completion decision"
+      - "Remaining gaps if any"
+      - "Next Worker task if not complete"
+    receipt:
+      result: done
+      decision: not_complete
+      full_outcome_complete: false
+      summary: "Current implementation is substantially proven but not yet complete against the strict A1-A20 build-pack audit. Browser acceptance now directly proves A2-A11, A18, and A20, while milestone/runtime verifiers cover M2/M4/M7 primitives. Remaining completion risk is concentrated in strict A1 paint timing, browser-level proof depth for A12-A17, and static-rendered checkbox proof for A19."
+      audit:
+        - "A1: partial. First printable key landed and saved in 97ms, but Chrome for Testing evidence recorded navigation 138.6ms, first-paint 176ms, and first-contentful-paint 196ms, above the <100ms and <150ms thresholds."
+        - "A2: pass. Browser evidence shows h1 class, rendered text without '#', and stored source '# plans\\nbody'."
+        - "A3: pass. Browser evidence covers task shortcut, checkbox click to checked styling/source, and Cmd+Z uncheck."
+        - "A4: pass. Browser evidence covers task continuation and list exit source."
+        - "A5: pass. Browser evidence shows upward future placeholders and stable scroll state."
+        - "A6: pass. Browser evidence shows 7/5 content creates calendar dot and noted-days row."
+        - "A7: pass. Browser evidence shows June navigation, dotted date, and undotted empty past section."
+        - "A8: partial. Browser evidence shows 6/15 target visible after Cmd+K; M5 verifier covers parser variants, but tomorrow/yesterday need browser-level assertion."
+        - "A9: pass. Browser evidence shows scratchpad and master list rows persist independently and hidden mode removes the panel without loss."
+        - "A10: partial. Browser evidence shows margin mode and per-day margin save; margin-only dot still needs direct browser assertion."
+        - "A11: partial. Browser evidence shows dark theme applies and persists; system-mode OS tracking still relies on earlier implementation proof."
+        - "A12: partial. M7 fake-handle runtime proves mirror file layout and write behavior; real folder picker remains unautomated."
+        - "A13: partial. M7 runtime/UI checks prove reconnect surfaces; browser-level permission-revoke/reconnect flow remains unproven."
+        - "A14: partial. M2 runtime proves BroadcastChannel primitives; two real extension tabs need browser-level proof."
+        - "A15: partial. Browser harness reloads and preserves data during the run; quit/reopen profile proof should be made explicit."
+        - "A16: partial. M2 runtime proves export/import primitives; browser-level export/fresh-profile/import identity needs proof."
+        - "A17: partial. M4 runtime proves midnight rollover behavior; browser-level refocus proof remains absent."
+        - "A18: pass. Chrome for Testing evidence shows MV3 new-tab page, permissions [], no background/content scripts, and zero HTTP(S) requests."
+        - "A19: partial. M4 runtime proves static checkbox toggle persistence; browser acceptance did not reach a static-rendered checkbox."
+        - "A20: pass. Browser evidence shows long-note typing and 100+ day scroll performance."
+      next_active_task: T012
+  - id: T012
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: high
+    objective: "Close final audit gaps: strengthen browser acceptance for A1, A8, A10-A17, and A19 where automatable, implement only fixes exposed by that proof, and prepare the next final audit receipt."
+    inputs:
+      - "T011 audit receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+      - "/tmp/daybook-acceptance-evidence.json"
+      - "/tmp/daybook-extension-cft-evidence.json"
+    constraints:
+      - "Use Chrome for Testing with --use-mock-keychain for every browser run."
+      - "Do not request macOS Keychain access."
+      - "Do not add permissions, background workers, content scripts, telemetry, or network requests."
+      - "Keep real File System Access folder picking manual if Chrome for Testing cannot safely automate it; use a page-level fake handle only for browser UI proof and label it as such."
+      - "Do not weaken acceptance criteria; separate measured proof from residual manual gaps."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "manifest.json"
+      - "vite.config.ts"
+      - "src/**"
+      - "scripts/**"
+      - "public/**"
+      - "node_modules/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+      - "npm run verify:m5"
+      - "npm run verify:m6"
+      - "npm run verify:m7"
+      - "npm run verify:extension"
+      - "npm run verify:acceptance"
+    stop_if:
+      - "A remaining criterion requires real user interaction that cannot be safely automated in Chrome for Testing."
+      - "Meeting a criterion would require forbidden extension capabilities."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      decision: audit_ready_with_residuals
+      full_outcome_complete: false
+      summary: "Strengthened the Chrome for Testing acceptance harness for the remaining automatable gaps: browser-level tomorrow/yesterday palette parsing, margin-only noted-day status, system theme tracking through emulated OS color scheme, OPFS-backed mirror full writes and edit updates without a real folder picker, and static-rendered checkbox persistence."
+      changed_files:
+        - "scripts/verify-acceptance.mjs"
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "npm run verify:m5"
+          status: pass
+        - cmd: "npm run verify:m6"
+          status: pass
+        - cmd: "npm run verify:m7"
+          status: pass
+        - cmd: "npm run verify:extension"
+          status: pass
+        - cmd: "npm run verify:acceptance"
+          status: pass
+      evidence:
+        - "/tmp/daybook-acceptance-evidence.json"
+        - "/tmp/daybook-acceptance.png"
+        - "/tmp/daybook-extension-cft-evidence.json"
+        - "/tmp/daybook-extension-cft.png"
+      newly_proven:
+        - "A8: tomorrow and yesterday parse through the browser palette."
+        - "A10: margin-only day saves with empty main content and appears in noted-days/calendar dot state."
+        - "A11: system mode tracks emulated dark and light OS color schemes."
+        - "A12: OPFS-backed directory handle receives existing day, scratchpad, master-list, and subsequent day edit mirror writes."
+        - "A19: far static-rendered checkbox toggles to - [x] and persists."
+      residual_audit_items:
+        - "A1 remains above strict build-pack timing in the final Chrome for Testing run: navigation 113.1ms and external DevTools key round trip 261ms, though first key landing/save was verified separately."
+        - "A13 real permission revoke and one-click restore remains manual or runtime-only; OPFS does not expose the same Chrome permission revocation path."
+        - "A14-A16 and A17 still rely primarily on runtime/milestone proof rather than a dedicated multi-tab, fresh-profile import/export, and midnight browser scenario."
+      next_active_task: T013
+  - id: T013
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Final audit after T012: decide whether the expanded browser evidence plus milestone proof is enough for A1-A20, or define the smallest remaining Worker task."
+    inputs:
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+      - "T011 audit receipt"
+      - "T012 receipt"
+      - "/tmp/daybook-acceptance-evidence.json"
+      - "/tmp/daybook-extension-cft-evidence.json"
+    constraints:
+      - "Read-only."
+      - "Do not weaken acceptance criteria."
+      - "Only mark full_outcome_complete true if every A1-A20 item has adequate current proof."
+    expected_output:
+      - "Completion decision"
+      - "A1-A20 status"
+      - "Remaining Worker task if not complete"
+    receipt:
+      result: done
+      decision: not_complete
+      full_outcome_complete: false
+      summary: "Expanded acceptance proof closes most previous browser-level gaps, but the build-pack outcome still cannot be marked complete because A1 strict warm-profile timing remains above target in current Chrome for Testing evidence, and A13/A14-A17 still need either dedicated browser scenarios or explicit manual acceptance."
+      pass:
+        - "A2-A12, A18-A20 have current browser-level or OPFS-backed acceptance evidence plus green milestone verifiers."
+        - "A8 tomorrow/yesterday, A10 margin-only dot, A11 system theme tracking, A12 mirror writes, and A19 static checkbox are now directly covered by /tmp/daybook-acceptance-evidence.json."
+        - "A18 remains green: extension new-tab URL, manifest permissions [], no background/content scripts, and zero HTTP(S) requests."
+      not_complete:
+        - "A1: current evidence still misses strict timing. Final T012 run recorded navigation 113.1ms and an external DevTools first-key round trip of 261ms; the target is shell <100ms, today content <150ms, first key <200ms."
+        - "A13: real Chrome folder-permission revoke/reconnect is not reproduced by OPFS; needs manual proof or a safe automation strategy."
+        - "A14-A16: runtime primitives are green, but there is no dedicated browser scenario for two tabs, quit/reopen profile, and export/wipe/import identity."
+        - "A17: midnight rollover is covered by runtime verifier, not a browser refocus scenario."
+      next_active_task: T014
+  - id: T014
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: high
+    objective: "Resolve the final completion blockers: produce defensible A1 timing evidence or performance fixes, add dedicated browser scenarios for A14-A17 where safe, and define the manual-only A13 permission-revoke receipt if automation cannot safely reproduce it."
+    inputs:
+      - "T013 audit receipt"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+      - "/tmp/daybook-acceptance-evidence.json"
+      - "/tmp/daybook-extension-cft-evidence.json"
+    constraints:
+      - "Use Chrome for Testing with --use-mock-keychain for all browser runs."
+      - "Do not request macOS Keychain access."
+      - "Do not add extension permissions, background workers, content scripts, telemetry, or network requests."
+      - "Do not weaken A1 timing thresholds; if the current app cannot meet them, implement a performance fix or keep the goal not complete."
+      - "If A13 requires real Chrome UI permission revocation, write the exact manual proof protocol and keep full_outcome_complete false until it is performed."
+    allowed_files:
+      - "package.json"
+      - "package-lock.json"
+      - "manifest.json"
+      - "vite.config.ts"
+      - "src/**"
+      - "scripts/**"
+      - "public/**"
+      - "node_modules/**"
+      - "docs/goals/daybook-chrome-extension/notes/**"
+    verify:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+      - "npm run verify:m5"
+      - "npm run verify:m6"
+      - "npm run verify:m7"
+      - "npm run verify:extension"
+      - "npm run verify:acceptance"
+    stop_if:
+      - "A1 cannot be brought under threshold without a product architecture change larger than the current safe slice."
+      - "A13 requires manual Chrome permission UI interaction."
+      - "Verification fails twice for the same reason."
+    receipt:
+      result: done
+      decision: final_audit_ready_with_manual_a13
+      full_outcome_complete: false
+      summary: "Resolved the automatable final blockers: A1 now has warm-profile browser timing evidence under the strict thresholds, A14-A17 have dedicated Chrome for Testing browser scenarios, and A13 has a manual Chrome permission-revoke receipt because the real File System Access permission UI cannot be safely reproduced by OPFS automation."
+      changed_files:
+        - "package.json"
+        - "src/app.tsx"
+        - "scripts/verify-acceptance.mjs"
+        - "scripts/verify-final-browser.mjs"
+        - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "npm run verify:m5"
+          status: pass
+        - cmd: "npm run verify:m6"
+          status: pass
+        - cmd: "npm run verify:m7"
+          status: pass
+        - cmd: "npm run verify:extension"
+          status: pass
+        - cmd: "npm run verify:acceptance"
+          status: pass
+      evidence:
+        - "/tmp/daybook-acceptance-evidence.json"
+        - "/tmp/daybook-acceptance.png"
+        - "/tmp/daybook-final-browser-evidence.json"
+        - "/tmp/daybook-extension-cft-evidence.json"
+        - "/tmp/daybook-extension-cft.png"
+        - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      proven:
+        - "A1: warm-profile shell-ready 32ms, today-content-ready 61ms, first key landing 35.5ms, and no-click first key save verified in Chrome for Testing."
+        - "A14: two extension tabs in one profile sync an unfocused editor through BroadcastChannel."
+        - "A15: same profile reopened in Chrome for Testing preserves saved content."
+        - "A16: browser fresh-profile data round trip restores content and non-default settings."
+        - "A17: browser fake-clock refocus rolls today from 2026-07-03 to 2026-07-04 and keeps the new today first and focused."
+      residual_audit_items:
+        - "A13 still requires real Chrome permission UI evidence. OPFS-backed mirror automation proves writes, but not Chrome folder-permission revocation and one-click restore."
+      next_active_task: T015
+  - id: T015
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Final audit after T014: map A1-A20 against current automated evidence and the A13 manual receipt boundary, then decide whether the goal is complete or waiting for manual A13 evidence."
+    inputs:
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+      - "T014 receipt"
+      - "/tmp/daybook-acceptance-evidence.json"
+      - "/tmp/daybook-final-browser-evidence.json"
+      - "/tmp/daybook-extension-cft-evidence.json"
+      - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+    constraints:
+      - "Read-only."
+      - "Do not weaken acceptance criteria."
+      - "Only mark full_outcome_complete true if A13 has real Chrome permission-revoke evidence, not just the manual receipt template."
+    expected_output:
+      - "Completion decision"
+      - "A1-A20 status"
+      - "Manual A13 status"
+      - "Next board state"
+    receipt:
+      result: done
+      decision: not_complete
+      full_outcome_complete: false
+      summary: "A1-A12 and A14-A20 now have current automated evidence, including Chrome for Testing extension proof, broad browser acceptance, final multi-tab/restart/import/midnight browser scenarios, and zero HTTP(S) requests. The goal still cannot be marked complete because A13 specifically requires real Chrome folder-permission revocation and one-click restore evidence, and the current automated OPFS mirror proof does not reproduce that Chrome UI permission state."
+      status:
+        - "A1: pass. Warm-profile shell-ready 32ms, today-content-ready 61ms, first key landing 35.5ms."
+        - "A2-A12: pass with current automated browser/runtime evidence; A12 uses OPFS-backed browser folder mirror proof."
+        - "A13: missing real Chrome permission-revoke evidence."
+        - "A14: pass. Two extension tabs sync an unfocused editor."
+        - "A15: pass. Same-profile browser reopen preserves content."
+        - "A16: pass. Fresh-profile browser import restores content and non-default settings."
+        - "A17: pass. Browser fake-clock refocus rolls today to 2026-07-04."
+        - "A18: pass. Manifest permissions [], no background/content scripts, zero HTTP(S) requests."
+        - "A19: pass. Static-rendered checkbox toggles and persists."
+        - "A20: pass. Long-note typing and 100+ day scrolling stay responsive."
+      blocking_evidence:
+        - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md is a receipt template, not completed evidence."
+      next_active_task: T016
+  - id: T016
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Capture the real Chrome A13 folder-permission revoke/reconnect receipt, then run the final completion audit."
+    inputs:
+      - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      - "/tmp/daybook-acceptance-evidence.json"
+      - "/tmp/daybook-final-browser-evidence.json"
+      - "/tmp/daybook-extension-cft-evidence.json"
+    constraints:
+      - "Do not mark full_outcome_complete true until the A13 receipt template is filled with real Chrome permission-revoke evidence."
+      - "Do not request macOS Keychain access."
+      - "Do not weaken A13 to OPFS-only automation."
+    expected_output:
+      - "Completed A13 receipt or explicit waiting state"
+      - "Final audit activation"
+    receipt:
+      result: done
+      full_outcome_complete: false
+      summary: "Captured the real Chrome A13 evidence that can be gathered without a visible permission prompt: the real folder grant wrote day, scratchpad, and master-list markdown files; removing Chrome's persisted File System Access chooser grant made the saved handle return prompt; Daybook reloaded from IndexedDB with no content loss and showed the reconnect chip."
+      evidence:
+        - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+        - "/tmp/daybook-a13-headless-revoke-probe.json"
+        - "/Users/tonym/Documents/daybook-a13-real-folder/2026-07-03.md"
+        - "/Users/tonym/Documents/daybook-a13-real-folder/scratchpad.md"
+        - "/Users/tonym/Documents/daybook-a13-real-folder/master-list.md"
+      verified:
+        - "Chrome profile Preferences contained file_system_access_chooser_data for chrome-extension://nafjdkbohflicoaihlhkclckmohmbali/,* pointing at /Users/tonym/Documents/daybook-a13-real-folder."
+        - "After deleting that chooser grant in a copied profile, Daybook loaded, settings kept mirrorEnabled true, the saved handle name stayed daybook-a13-real-folder, queryPermission({ mode: readwrite }) returned prompt, and the reconnect chip was visible."
+        - "Headless requestPermission timed out with permission still prompt, so the one-click restore still requires a visible Chrome permission approval."
+      waiting_state: "A13 one-click reconnect and post-reconnect writeback remain unverified. Do not request macOS Keychain access; the remaining approval must be captured only in Chrome for Testing launched with --use-mock-keychain."
+      next_active_task: T017
+  - id: T017
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Audit the current A1-A20 proof after the partial A13 receipt and preserve the exact remaining completion condition."
+    inputs:
+      - "T015 receipt"
+      - "T016 receipt"
+      - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      - "/tmp/daybook-acceptance-evidence.json"
+      - "/tmp/daybook-final-browser-evidence.json"
+      - "/tmp/daybook-extension-cft-evidence.json"
+      - "/tmp/daybook-a13-headless-revoke-probe.json"
+    constraints:
+      - "Read-only except GoalBuddy control files."
+      - "Do not mark full_outcome_complete true unless A13 has one-click reconnect and post-reconnect writeback evidence."
+      - "Do not request macOS Keychain access."
+    expected_output:
+      - "A1-A20 completion decision"
+      - "Exact remaining condition if incomplete"
+    receipt:
+      result: done
+      decision: incomplete
+      full_outcome_complete: false
+      summary: "Final audit remains incomplete only because A13 lacks one-click reconnect and post-reconnect writeback evidence after the real Chrome File System Access grant is revoked."
+      passed_items:
+        - "A1: pass. /tmp/daybook-acceptance-evidence.json records warm-profile first keystroke at 35.5ms and DevTools round trip at 112ms; /tmp/daybook-extension-cft-evidence.json confirms today is first visible and focused."
+        - "A2-A4: pass. /tmp/daybook-acceptance-evidence.json covers heading concealment, task checkbox mutation/undo, and task list continuation/exit/indent behavior."
+        - "A5-A8: pass. /tmp/daybook-acceptance-evidence.json covers future placeholders, noted-day/calendar dots, calendar jumps, and command palette date parsing."
+        - "A9-A11: pass. /tmp/daybook-acceptance-evidence.json covers right-panel content integrity, per-day margins, and theme persistence."
+        - "A12: pass. Automated OPFS mirror evidence covers existing day, scratchpad, master list, and subsequent edit writes; T016 also records real local files written by the Chrome folder grant."
+        - "A14-A17: pass. /tmp/daybook-final-browser-evidence.json covers two-tab sync, restart persistence, export/import to a fresh profile, and midnight rollover."
+        - "A18: pass. /tmp/daybook-extension-cft-evidence.json records the unpacked Chrome extension URL, runtime permissions [], no background/content scripts, and zero HTTP(S) requests."
+        - "A19-A20: pass. /tmp/daybook-acceptance-evidence.json covers static-rendered checkbox persistence and long-note/100+ day performance."
+      incomplete_items:
+        - "A13: partial. /tmp/daybook-a13-headless-revoke-probe.json proves Chrome permission-loss behavior and reconnect UI after removing the real file_system_access_chooser_data grant, but requestPermission cannot be approved in headless Chrome; one-click reconnect and post-reconnect writeback remain missing."
+      evidence:
+        - "/Users/tonym/Downloads/daybook-build-pack-v1.md:510"
+        - "/Users/tonym/Downloads/daybook-build-pack-v1.md:529"
+        - "/tmp/daybook-acceptance-evidence.json"
+        - "/tmp/daybook-final-browser-evidence.json"
+        - "/tmp/daybook-extension-cft-evidence.json"
+        - "/tmp/daybook-a13-headless-revoke-probe.json"
+        - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      exact_remaining_condition: "Launch Chrome for Testing with --use-mock-keychain, use the saved Daybook profile/folder state or repeat the folder grant, revoke the File System Access folder grant, reload Daybook, click reconnect notes folder, approve the Chrome permission prompt, then prove a subsequent edit writes back to the selected folder. Stop immediately if macOS requests Keychain access."
+      next_active_task: T018
+  - id: T018
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Capture the final A13 one-click reconnect and post-reconnect writeback proof without macOS Keychain access."
+    inputs:
+      - "T017 receipt"
+      - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      - "/tmp/daybook-a13-headless-revoke-probe.json"
+      - "/Users/tonym/Documents/daybook-a13-real-folder"
+    constraints:
+      - "Use Chrome for Testing with --use-mock-keychain only."
+      - "Stop immediately if macOS requests Keychain access."
+      - "Do not mark full_outcome_complete true until one-click reconnect and post-reconnect writeback are proven."
+    expected_output:
+      - "Completed A13 reconnect/writeback evidence, or a waiting receipt that preserves the no-Keychain boundary."
+    receipt:
+      result: done
+      full_outcome_complete: false
+      summary: "Completed A13: using a copied Chrome for Testing profile launched with --use-mock-keychain, the revoked File System Access handle showed the reconnect chip; clicking reconnect restored the saved folder handle to granted, removed the chip, restored Chrome's chooser grant, and a subsequent edit wrote back to the selected folder."
+      evidence:
+        - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+        - "/tmp/daybook-a13-final-reconnect-evidence.json"
+        - "/tmp/daybook-a13-final-reconnect.png"
+        - "/Users/tonym/Documents/daybook-a13-real-folder/2026-07-03.md"
+      verified:
+        - "No macOS Keychain prompt appeared during the headed Chrome for Testing reconnect run."
+        - "Daybook loaded from chrome-extension://nafjdkbohflicoaihlhkclckmohmbali/index.html with mirrorEnabled true."
+        - "After reconnect, queryPermission({ mode: readwrite }) returned granted and the rail reconnect chip was absent."
+        - "Chrome Preferences restored file_system_access_chooser_data for /Users/tonym/Documents/daybook-a13-real-folder."
+        - "The post-reconnect edit token a13 reconnect write 1783105312944 was written to 2026-07-03.md within 402ms."
+      next_active_task: T019
+  - id: T019
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Final completion audit: verify A1-A20 against current evidence and mark the Daybook goal complete only if the oracle is fully proven."
+    inputs:
+      - "T001-T018 receipts"
+      - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      - "/tmp/daybook-acceptance-evidence.json"
+      - "/tmp/daybook-final-browser-evidence.json"
+      - "/tmp/daybook-extension-cft-evidence.json"
+      - "/tmp/daybook-a13-final-reconnect-evidence.json"
+      - "/Users/tonym/Downloads/daybook-build-pack-v1.md"
+    constraints:
+      - "Read-only except GoalBuddy control files."
+      - "Run the relevant verification before marking complete."
+      - "Do not mark full_outcome_complete true if any A1-A20 item lacks direct evidence."
+    expected_output:
+      - "A1-A20 proof map"
+      - "Verification commands"
+      - "full_outcome_complete: true | false"
+    receipt:
+      result: done
+      decision: complete
+      full_outcome_complete: true
+      summary: "The Daybook Chrome extension satisfies the v1 acceptance criteria A1-A20 from the build pack as a local unpacked Chrome extension with no requested permissions and zero HTTP(S) requests."
+      commands:
+        - cmd: "npm install"
+          status: pass
+        - cmd: "npm run typecheck"
+          status: pass
+        - cmd: "npm run build"
+          status: pass
+        - cmd: "npm run verify:m1"
+          status: pass
+        - cmd: "npm run verify:m2"
+          status: pass
+        - cmd: "npm run verify:m3"
+          status: pass
+        - cmd: "npm run verify:m4"
+          status: pass
+        - cmd: "npm run verify:m5"
+          status: pass
+        - cmd: "npm run verify:m6"
+          status: pass
+        - cmd: "npm run verify:m7"
+          status: pass
+        - cmd: "npm run verify:extension"
+          status: pass
+        - cmd: "npm run verify:acceptance"
+          status: pass
+      proof_map:
+        - "A1: pass. /tmp/daybook-acceptance-evidence.json records first keystroke at 21.9ms and DevTools first-key round trip at 102ms; /tmp/daybook-extension-cft-evidence.json records today first visible and focused."
+        - "A2-A4: pass. /tmp/daybook-acceptance-evidence.json covers heading concealment, task checkbox/check/undo styling, and task list continuation, exit, indent, and outdent."
+        - "A5-A8: pass. /tmp/daybook-acceptance-evidence.json covers future placeholders, content-day dots/listing, calendar jumps, and command palette date parsing for 6/15, tomorrow, and yesterday."
+        - "A9-A11: pass. /tmp/daybook-acceptance-evidence.json covers scratchpad/master/hidden mode integrity, per-day margins and margin-only dots, and persisted/system-aware theme changes."
+        - "A12: pass. /tmp/daybook-acceptance-evidence.json covers mirror file creation and update behavior; /Users/tonym/Documents/daybook-a13-real-folder also contains real Chrome File System Access mirror files for day, scratchpad, and master list."
+        - "A13: pass. /tmp/daybook-a13-final-reconnect-evidence.json proves revoked-folder reconnect: permission restored to granted, reconnect chip removed, Chrome chooser grant restored, and the post-reconnect edit token wrote to 2026-07-03.md within 402ms."
+        - "A14-A17: pass. /tmp/daybook-final-browser-evidence.json covers two-tab sync, restart persistence, export/import into a fresh profile, and midnight rollover."
+        - "A18: pass. /tmp/daybook-extension-cft-evidence.json records chrome-extension new-tab load, runtime permissions [], no background/content scripts, and zero HTTP(S) requests."
+        - "A19-A20: pass. /tmp/daybook-acceptance-evidence.json covers static-rendered checkbox persistence, 1,000-line typing, and 100+ day scrolling."
+      evidence:
+        - "/Users/tonym/Downloads/daybook-build-pack-v1.md:510"
+        - "/Users/tonym/Downloads/daybook-build-pack-v1.md:529"
+        - "/tmp/daybook-acceptance-evidence.json"
+        - "/tmp/daybook-final-browser-evidence.json"
+        - "/tmp/daybook-extension-cft-evidence.json"
+        - "/tmp/daybook-a13-final-reconnect-evidence.json"
+        - "docs/goals/daybook-chrome-extension/notes/T014-a13-folder-permission-receipt.md"
+      oracle_result: "The extension builds and passes tests/checks, loads unpacked as the Chrome new-tab page, has zero runtime permissions, makes zero HTTP(S) requests, and has direct A1-A20 proof."
+
+checks:
+  dirty_fingerprint: unknown
+  last_verification:
+    result: pass
+    task: T019
+    commands:
+      - "npm install"
+      - "npm run typecheck"
+      - "npm run build"
+      - "npm run verify:m1"
+      - "npm run verify:m2"
+      - "npm run verify:m3"
+      - "npm run verify:m4"
+      - "npm run verify:m5"
+      - "npm run verify:m6"
+      - "npm run verify:m7"
+      - "npm run verify:extension"
+      - "npm run verify:acceptance"
