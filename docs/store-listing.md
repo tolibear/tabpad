@@ -61,7 +61,7 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 - Notes typed by the user are stored **only** in the browser's local IndexedDB and, if the user opts in, mirrored to a local folder they explicitly choose. Nothing is transmitted anywhere.
 - Certify: data is not sold, not used for unrelated purposes, not used for creditworthiness.
 
-**Privacy policy** (the store requires a URL; host `docs/privacy-policy.md` anywhere public — GitHub Pages/gist works).
+**Privacy policy URL:** https://tabpad.app/privacy.html (live via GitHub Pages from `site/privacy.html`).
 
 ---
 
