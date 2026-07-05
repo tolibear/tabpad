@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": 1783283537206,
+  "days": [
+    {
+      "date": "2026-06-11",
+      "main": "# quarterly planning kickoff\n- [x] block focus time for the roadmap doc\n- [x] pull last quarter's numbers\n- [ ] draft three candidate themes\n\n> \"plans are worthless, but planning is everything\"\n\nrandom: the coffee place on 5th has oat milk cold brew now. dangerous.",
+      "margin": "Q3 themes so far:\n- speed\n- fewer, better features",
+      "createdAt": 1781213400000,
+      "updatedAt": 1781217000000
+    },
+    {
+      "date": "2026-06-13",
+      "main": "ran 5k before work — 27:41, new best\n\n**meeting notes / infra sync**\n- migration is ~80% done\n- postgres upgrade slated for the 19th\n- *ask sam about the staging env*\n\n- [x] send invoice #204\n- [ ] renew domain",
+      "margin": "27:41 (!!)\nprev best 28:15",
+      "createdAt": 1781386200000,
+      "updatedAt": 1781389800000
+    },
+    {
+      "date": "2026-06-16",
+      "main": "# ideas parking lot\n- a tiny cli that turns screenshots into diagrams\n- \"focus mode\" for the browser — one tab, one hour\n- weekly review template with auto-carryover\n\nreading: *the shape of design* — ch. 3 on improvisation is great",
+      "margin": "",
+      "createdAt": 1781645400000,
+      "updatedAt": 1781649000000
+    },
+    {
+      "date": "2026-06-18",
+      "main": "dentist 9:30\n\n- [x] groceries: salmon, lemons, arborio rice\n- [x] pick up dry cleaning\n- [ ] call the landlord about the radiator\n\ndinner turned out great — risotto needs the full 25 minutes, no shortcuts. write this down so future me stops trying.",
+      "margin": "risotto ratio:\n1 cup rice : 4 cups stock",
+      "createdAt": 1781818200000,
+      "updatedAt": 1781821800000
+    },
+    {
+      "date": "2026-06-21",
+      "main": "# design review — onboarding flow\nstrong reactions to the new empty state. keep the illustration, cut the tooltip tour.\n\n- [x] ship copy changes\n- [x] a/b test the shorter form\n- [ ] follow up with priya on drop-off metrics\n\n---\n\nevening: taught mom how to video call. patience level: heroic.",
+      "margin": "drop-off is at step 3,\nnot step 2 — recheck",
+      "createdAt": 1782077400000,
+      "updatedAt": 1782081000000
+    },
+    {
+      "date": "2026-06-23",
+      "main": "slow day. read in the park for two hours.\n\n> the best thinking happens when you're not trying\n\n- [ ] museum tickets for the 20th",
+      "margin": "",
+      "createdAt": 1782250200000,
+      "updatedAt": 1782253800000
+    },
+    {
+      "date": "2026-06-25",
+      "main": "**travel planning — lisbon**\n- [x] flights booked (out the 12th, back the 19th)\n- [x] airbnb in alfama\n- [ ] restaurant list from marta\n- [ ] travel insurance\n\npack light this time. *actually* light.",
+      "margin": "flight: TP 212\n7:40am — ugh",
+      "createdAt": 1782423000000,
+      "updatedAt": 1782426600000
+    },
+    {
+      "date": "2026-06-27",
+      "main": "# retro notes\nwhat went well:\n- shipped the editor rewrite two days early\n- zero regressions reported\n\nwhat didn't:\n- too many meetings on tuesday\n- code review queue backed up again\n\naction: **no-meeting wednesdays**, starting next week",
+      "margin": "bring up review\nrotation next 1:1",
+      "createdAt": 1782595800000,
+      "updatedAt": 1782599400000
+    },
+    {
+      "date": "2026-06-29",
+      "main": "- [x] morning pages\n- [x] gym — pull day\n- [x] fix the flaky test in ci\n- [ ] write the changelog\n\nthe flaky test was a timezone bug. it's always a timezone bug.",
+      "margin": "TZ bug count\nthis year: 4",
+      "createdAt": 1782768600000,
+      "updatedAt": 1782772200000
+    },
+    {
+      "date": "2026-06-30",
+      "main": "dinner with alex & jordan — the new thai place\n\nthey're moving to portland in september. happy for them, sad for us. start planning a proper sendoff.\n\n- [ ] sendoff ideas doc",
+      "margin": "",
+      "createdAt": 1782855000000,
+      "updatedAt": 1782858600000
+    },
+    {
+      "date": "2026-07-02",
+      "main": "# launch prep\n- [x] store listing copy\n- [x] screenshots (5)\n- [x] privacy policy live\n- [ ] submit for review\n- [ ] hn post draft\n\nkeeping scope tight. v1.1 wishlist goes in the scratchpad, not the roadmap.",
+      "margin": "review usually\ntakes 2-3 days",
+      "createdAt": 1783027800000,
+      "updatedAt": 1783031400000
+    },
+    {
+      "date": "2026-07-03",
+      "main": "quiet saturday.\n\nfarmers market haul: peaches, sourdough, way too many tomatoes. sauce project tomorrow.\n\n*started rewatching the wire.*",
+      "margin": "",
+      "createdAt": 1783114200000,
+      "updatedAt": 1783117800000
+    },
+    {
+      "date": "2026-07-04",
+      "main": "sauce day — 4 hours, 6 jars. kitchen looks like a crime scene, worth it.\n\n- [x] meal prep for the week\n- [x] call grandpa\n- [ ] laundry (moved to monday, obviously)",
+      "margin": "jar count: 6\ngive 2 to neighbors",
+      "createdAt": 1783200600000,
+      "updatedAt": 1783204200000
+    },
+    {
+      "date": "2026-07-05",
+      "main": "# today\n- [x] morning run\n- [ ] finish the launch checklist\n- [ ] review pr #42\n- [ ] book haircut\n\n**focus:** one thing at a time. the list isn't the work.\n\nidea from the run — what if the weekly review auto-collected every unchecked task from the past 7 days?",
+      "margin": "energy: high\ncoffee: 2 (limit!)",
+      "createdAt": 1783279877206,
+      "updatedAt": 1783283477206
+    },
+    {
+      "date": "2026-07-06",
+      "main": "- [ ] no-meeting wednesday — deep work on the sync engine\n- [ ] lunch with dee, 12:30\n- [ ] draft v1.1 notes",
+      "margin": "",
+      "createdAt": 1783279877206,
+      "updatedAt": 1783283477206
+    },
+    {
+      "date": "2026-07-08",
+      "main": "**flight to lisbon — 7:40am**\n- [ ] passport, chargers, kindle\n- [ ] check in online\n- [ ] water the plants (ask neighbor)",
+      "margin": "cab at 5:45",
+      "createdAt": 1783279877206,
+      "updatedAt": 1783283477206
+    },
+    {
+      "date": "2026-07-11",
+      "main": "# lisbon — day 3\nplanned: tram 28 early, then the tile museum\n\n- [ ] pastéis de belém (non-negotiable)",
+      "margin": "",
+      "createdAt": 1783279877206,
+      "updatedAt": 1783283477206
+    },
+    {
+      "date": "2026-07-15",
+      "main": "back home. unpack, reset, grocery run.\n\n- [ ] expense report\n- [ ] photos → shared album",
+      "margin": "",
+      "createdAt": 1783279877206,
+      "updatedAt": 1783283477206
+    },
+    {
+      "date": "2026-07-19",
+      "main": "quarterly review with the team — bring the Q3 themes doc\n\n- [ ] prep slides (keep it to 10)",
+      "margin": "themes: speed,\nfewer better features",
+      "createdAt": 1783279877206,
+      "updatedAt": 1783283477206
+    }
+  ],
+  "panels": [
+    {
+      "id": "scratchpad",
+      "content": "## v1.1 wishlist\n- weekly review view\n- carryover unchecked tasks\n- quick capture from any page\n\n## books queue\n- *piranesi*\n- *the design of everyday things* (reread)\n\n## standing reminders\ngym tue/thu/sat · water the ficus friday\ncall grandpa sundays\n\nrandom string that needs a home:\n\"make the easy path the right path\"",
+      "updatedAt": 1783283417206
+    }
+  ],
+  "settings": {
+    "theme": "system",
+    "accent": "blue",
+    "rightPanel": "scratchpad",
+    "weekStartsOn": 0,
+    "editorSize": "md",
+    "font": "sans",
+    "mirrorEnabled": false
+  }
+}
