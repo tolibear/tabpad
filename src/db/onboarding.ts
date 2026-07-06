@@ -23,13 +23,13 @@ every new tab is your notepad — one page per day. click anywhere and type.
 - [ ] connect a notes folder in settings, so backups (and your AI agent) can read your days
 `;
 
-const REVIEW_NOTE = `- [ ] enjoying tab pad? leave a review → [tabpad.app](https://tabpad.app)
+const REVIEW_NOTE = `- [ ] enjoying tab pad? leave a review → [tabpad.app](https://tabpad.app?ref=app-review)
 `;
 
 const SCRATCHPAD_NOTE = `this is your scratchpad — for things that don't belong to a day.
 
 markdown works everywhere:
-**bold**, *italic*, \`code\`, ~~done~~, [links](https://tabpad.app)
+**bold**, *italic*, \`code\`, ~~done~~, [links](https://tabpad.app?ref=app)
 
 - [ ] checkboxes too
 `;
