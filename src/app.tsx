@@ -19,9 +19,7 @@ import {
   writeAccentPreference,
   writeThemePreference,
 } from "./lib/theme";
-import { EditorSurface } from "./editor/EditorSurface";
 import { CommandK } from "./palette/CommandK";
-import { focusEditorAtEnd } from "./timeline/DaySection";
 import { RightPanel } from "./panel/RightPanel";
 import { Rail } from "./rail/Rail";
 import { SettingsOverlay } from "./settings/SettingsOverlay";
@@ -635,29 +633,6 @@ export function App() {
         jumpTarget={jumpTarget}
         showMargins={rightPanelMode === "margin"}
         layoutMode={rightPanelMode}
-        floatingPanel={
-          rightPanelMode === "scratchpadFloat" ? (
-            <div
-              className="floating-scratchpad"
-              onClick={(event) => {
-                const target = event.target as HTMLElement;
-                if (target.closest(".cm-editor") || target.closest("input")) return;
-                focusEditorAtEnd(event.currentTarget);
-              }}
-            >
-              <EditorSurface
-                className="margin-editor"
-                placeholder="loose thread"
-                value={panelTexts[fixedPanelId]}
-                onBlur={() => void persistPanel(fixedPanelId, true)}
-                onChange={(value) => changePanelText(fixedPanelId, value)}
-                onFocusChange={(focused) => {
-                  focusedPanelRef.current = focused ? fixedPanelId : null;
-                }}
-              />
-            </div>
-          ) : undefined
-        }
         onDayTextChange={changeDayText}
         onDayMarginChange={changeDayMargin}
         onDayBlur={handleDayBlur}

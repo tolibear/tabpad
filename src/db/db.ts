@@ -18,7 +18,7 @@ export interface PanelRow {
 export interface Settings {
   theme: ThemePreference;
   accent: AccentColor;
-  rightPanel: "scratchpad" | "scratchpadFloat" | "margin" | "hidden";
+  rightPanel: "scratchpad" | "margin" | "hidden";
   weekStartsOn: 0 | 1;
   editorSize: "sm" | "md" | "lg";
   font: "sans" | "serif" | "mono";

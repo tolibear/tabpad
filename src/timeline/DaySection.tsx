@@ -10,7 +10,7 @@ export interface DaySectionProps {
   showMargin?: boolean;
   marginValue?: string;
   registerRef?: (node: HTMLElement | null) => void;
-  onActivate?: () => void;
+  onActivate?: (part: "main" | "margin") => void;
   onValueChange: (value: string) => void;
   onMarginChange?: (value: string) => void;
   onBlur?: () => void;
@@ -63,7 +63,7 @@ export function DaySection({
               onClick={(event) => {
                 // checkbox toggles stay in StaticDay; anywhere else activates editing
                 if ((event.target as HTMLElement).closest("input")) return;
-                onActivate?.();
+                onActivate?.("main");
               }}
             >
               {value ? <StaticDay source={value} onChange={onValueChange} /> : <p className="static-empty-day">&nbsp;</p>}
@@ -96,7 +96,7 @@ export function DaySection({
                 className="static-day-shell"
                 onClick={(event) => {
                   if ((event.target as HTMLElement).closest("input")) return;
-                  onActivate?.();
+                  onActivate?.("margin");
                 }}
               >
                 {marginValue ? <StaticDay source={marginValue} onChange={(next) => onMarginChange?.(next)} /> : <p className="static-empty-day">&nbsp;</p>}

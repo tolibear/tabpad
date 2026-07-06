@@ -17,8 +17,7 @@
 }
 
 .app-shell.panel-hidden,
-.app-shell.panel-margin,
-.app-shell.panel-scratchpadFloat {
+.app-shell.panel-margin {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
@@ -691,53 +690,8 @@
 
 /* margin mode widens the column so the main day body keeps its full measure
    and the margin sits beside it */
-.app-shell.panel-margin .timeline-inner,
-.app-shell.panel-scratchpadFloat .timeline-inner {
+.app-shell.panel-margin .timeline-inner {
   width: min(100%, calc(var(--editor-measure) + 304px));
-}
-
-/* floating scratchpad: days keep their measure, the scratchpad rides beside
-   them and stays pinned while the days scroll */
-.app-shell.panel-scratchpadFloat .day-section {
-  margin-right: 304px;
-}
-
-.timeline-float {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  height: 0;
-  overflow: visible;
-}
-
-.timeline-float-inner {
-  position: absolute;
-  top: 24px;
-  right: 0;
-  width: 280px;
-  height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid var(--line);
-  padding-left: 18px;
-  overflow-y: auto;
-  scrollbar-width: none;
-  color: color-mix(in srgb, var(--ink) 85%, var(--muted));
-  cursor: text;
-}
-
-.timeline-float-inner::-webkit-scrollbar {
-  display: none;
-}
-
-.floating-scratchpad {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-
-.floating-scratchpad .editor-host {
-  flex: 1;
 }
 
 .day-content-grid {
@@ -802,8 +756,7 @@
   color: color-mix(in srgb, var(--ink) 85%, var(--muted));
 }
 
-.right-panel,
-.timeline-float-inner {
+.right-panel {
   --editor-font-size: 13.5px;
   font-size: 13.5px;
 }

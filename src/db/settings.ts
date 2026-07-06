@@ -5,8 +5,8 @@ const SETTINGS_ID = "settings";
 export async function getSettings(): Promise<Settings> {
   const row = await db.meta.get(SETTINGS_ID);
   const settings = { ...defaultSettings, ...(isSettingsPartial(row?.value) ? row.value : {}) };
-  // the master list panel was removed; map the legacy stored value to scratchpad
-  if ((settings.rightPanel as string) === "masterList") {
+  // removed panel modes (master list, floating scratchpad) map to scratchpad
+  if ((settings.rightPanel as string) === "masterList" || (settings.rightPanel as string) === "scratchpadFloat") {
     settings.rightPanel = "scratchpad";
   }
   return settings;

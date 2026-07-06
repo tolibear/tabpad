@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DayRow } from "../db/db";
 import { dateKey, daysBetween } from "../lib/dates";
 import { DaySection } from "./DaySection";
@@ -21,7 +21,6 @@ interface TimelineProps {
   jumpTarget: JumpTarget | null;
   showMargins: boolean;
   layoutMode: string;
-  floatingPanel?: ReactNode;
   onDayTextChange: (key: string, value: string) => void;
   onDayMarginChange: (key: string, value: string) => void;
   onDayBlur: (key: string) => void;
@@ -39,7 +38,6 @@ export const Timeline = memo(function Timeline({
   jumpTarget,
   showMargins,
   layoutMode,
-  floatingPanel,
   onDayTextChange,
   onDayMarginChange,
   onDayBlur,
@@ -267,7 +265,7 @@ export const Timeline = memo(function Timeline({
     }
   }, []);
 
-  const activateDay = useCallback((key: string) => {
+  const activateDay = useCallback((key: string, part: "main" | "margin" = "main") => {
     setActivatedKeys((current) => {
       if (current.has(key)) return current;
       const next = new Set(current);
@@ -275,18 +273,19 @@ export const Timeline = memo(function Timeline({
       return next;
     });
     window.requestAnimationFrame(() => {
-      sectionRefs.current.get(key)?.querySelector<HTMLElement>(".cm-content")?.focus({ preventScroll: true });
+      const section = sectionRefs.current.get(key);
+      if (!section) return;
+      // focus the editor the user actually clicked — margin clicks go straight
+      // to the margin, not the day's note
+      const container = part === "margin" ? section.querySelector<HTMLElement>(".day-margin") : section.querySelector<HTMLElement>(".day-body");
+      const content = (container ?? section).querySelector<HTMLElement>(".cm-content");
+      content?.focus({ preventScroll: true });
     });
   }, []);
 
   return (
     <section className="timeline" aria-label="daily notes" ref={scrollerRef}>
       <div className="timeline-inner">
-        {floatingPanel ? (
-          <div className="timeline-float">
-            <div className="timeline-float-inner">{floatingPanel}</div>
-          </div>
-        ) : null}
         <div className="timeline-sentinel" ref={topSentinelRef} aria-hidden="true" />
         {entries.map((entry) => (
           <TimelineDay
@@ -325,7 +324,7 @@ interface TimelineDayProps {
   marginValue: string;
   showMargin: boolean;
   registerSection: (key: string, node: HTMLElement | null) => void;
-  onActivate: (key: string) => void;
+  onActivate: (key: string, part: "main" | "margin") => void;
   onDayTextChange: (key: string, value: string) => void;
   onDayMarginChange: (key: string, value: string) => void;
   onDayBlur: (key: string) => void;
@@ -363,7 +362,7 @@ const TimelineDay = memo(function TimelineDay({
       value={value}
       marginValue={marginValue}
       registerRef={(node) => registerSection(entry.key, node)}
-      onActivate={() => onActivate(entry.key)}
+      onActivate={(part) => onActivate(entry.key, part)}
       onValueChange={(next) => onDayTextChange(entry.key, next)}
       onMarginChange={(next) => onDayMarginChange(entry.key, next)}
       onBlur={() => onDayBlur(entry.key)}

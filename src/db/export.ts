@@ -84,7 +84,7 @@ function sanitizeSettings(value: Record<string, unknown>): Settings {
   return {
     theme: pick("theme", ["system", "light", "dark"]),
     accent: pick("accent", ["blue", "green", "red", "yellow", "orange", "purple"]),
-    rightPanel: pick("rightPanel", ["scratchpad", "scratchpadFloat", "margin", "hidden"]),
+    rightPanel: pick("rightPanel", ["scratchpad", "margin", "hidden"]),
     weekStartsOn: pick("weekStartsOn", [0, 1]),
     editorSize: pick("editorSize", ["sm", "md", "lg"]),
     font: pick("font", ["sans", "serif", "mono"]),

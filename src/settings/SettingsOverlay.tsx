@@ -17,7 +17,6 @@ const panelModes: Array<{
   description: string;
 }> = [
   { value: "scratchpad", label: "scratchpad", description: "one persistent note in a right panel" },
-  { value: "scratchpadFloat", label: "floating scratchpad", description: "the scratchpad rides beside your days like a margin" },
   { value: "margin", label: "per-day margin", description: "every day gets its own side notes" },
   { value: "hidden", label: "hidden", description: "just the timeline" },
 ];

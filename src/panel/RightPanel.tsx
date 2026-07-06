@@ -17,7 +17,7 @@ export function RightPanel({ mode, value, onValueChange, onBlur, onFocusChange }
       <header>scratchpad</header>
       <EditorSurface
         className="side-editor"
-        placeholder="loose thread"
+        placeholder=""
         value={value}
         onBlur={onBlur}
         onChange={onValueChange}
