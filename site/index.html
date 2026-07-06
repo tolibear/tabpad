@@ -368,7 +368,7 @@
     background: var(--surface);
     box-shadow: 0 18px 48px -24px rgba(0, 0, 0, 0.18);
     /* break out of the text measure — the demos deserve the room */
-    width: min(100vw - 40px, 1060px);
+    width: min(100vw - 32px, 1200px);
     position: relative;
     left: 50%;
     transform: translateX(-50%);
@@ -403,8 +403,8 @@
     --m-faint: #a6a6a1; --m-line: #e8e8e3; --m-accent: #2f6bff;
     --m-font: var(--sans);
     display: grid;
-    grid-template-columns: 170px minmax(0, 1fr);
-    height: 580px;
+    grid-template-columns: 180px minmax(0, 1fr);
+    height: 660px;
     background: var(--m-bg);
     color: var(--m-ink);
     font-family: var(--m-font);
@@ -461,7 +461,7 @@
   .mini.focus { grid-template-columns: minmax(0, 1fr); }
   .mini.focus .m-rail, .mini.focus .m-panel { display: none; }
   .mini.focus .m-day:not(.is-today) { display: none; }
-  .mini.focus .m-tl { width: min(100%, 560px); margin: 0 auto; }
+  .mini.focus .m-tl { padding: 0 max(44px, calc((100% - 600px) / 2)); }
   .mini.focus .m-day.is-today { border-bottom: 0; min-height: 100%; }
 
   .m-agent { color: var(--m-faint); font-style: italic; font-size: 0.85em; }
@@ -537,10 +537,14 @@
   }
   .m-cell.today.noted::after { content: none; }
 
+  /* absolutely filling the wrap gives the timeline a REAL constrained height —
+     without it, overflow-y:auto never engages and scrollTop is a silent no-op */
   .m-tl {
+    position: absolute;
+    inset: 0;
     overflow-y: auto;
     scrollbar-width: none;
-    padding: 0 40px;
+    padding: 0 44px;
     scroll-behavior: auto;
   }
   .m-tl::-webkit-scrollbar { display: none; }
@@ -585,29 +589,30 @@
   /* mini command-k palette */
   .m-mini-wrap { position: relative; overflow: hidden; }
   .m-palette {
-    position: absolute; top: 34px; left: 50%; transform: translateX(-50%);
-    width: min(66%, 300px);
-    display: flex; align-items: center; gap: 8px;
-    background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 8px;
-    padding: 9px 13px;
-    font-size: 12px; color: var(--m-ink);
-    box-shadow: 0 10px 32px -12px rgba(0, 0, 0, 0.3);
+    position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%);
+    width: min(80%, 540px);
+    display: flex; align-items: center; gap: 14px;
+    background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 13px;
+    padding: 18px 22px;
+    font-size: 19px; color: var(--m-ink);
+    box-shadow: 0 24px 70px -18px rgba(0, 0, 0, 0.38);
     opacity: 0; pointer-events: none;
     transition: opacity 220ms ease, transform 220ms ease;
     z-index: 3;
   }
   .m-palette.open { opacity: 1; }
   .m-palette .m-pk {
-    font-family: var(--mono); font-size: 9px; color: var(--m-faint);
-    border: 1px solid var(--m-line); border-radius: 4px; padding: 1px 5px; flex: none;
+    font-family: var(--mono); font-size: 13px; color: var(--m-faint);
+    border: 1px solid var(--m-line); border-radius: 6px; padding: 3px 9px; flex: none;
   }
-  .m-palette .m-pinput { min-height: 1.4em; color: var(--m-muted); }
+  .m-palette .m-pinput { min-height: 1.4em; color: var(--m-ink); }
+  .m-palette .m-caret { height: 1.1em; width: 2px; }
 
   .swatch { transition: transform 200ms ease, box-shadow 200ms ease; }
   .swatch.active { transform: scale(1.25); box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--ink); }
 
   @media (max-width: 620px) {
-    .mini, .mini.with-panel { grid-template-columns: 1fr; height: 380px; }
+    .mini, .mini.with-panel { grid-template-columns: 1fr; height: 420px; }
     .m-rail, .m-panel { display: none; }
     .m-daygrid { grid-template-columns: 1fr; }
     .m-margin { display: none; }
@@ -924,17 +929,20 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
   // ---- hero demo: today's full page → jump to the past → schedule in the future → back ----
   {
     // today opens already written-in, like a real day mid-use
-    const todayStart = heading("today") +
+    const todayStart = heading("to-dos") +
       task("standup notes sent", true) +
       task("review maya's pr", false) +
       task("draft the migration plan", false) +
       line("dinner with sam — <span class=\"m-i\">don't be late</span>");
+    // codex reports what it shipped in today's margin
+    const codexNote = line("reviewed pr #482 — lgtm, merged") + line('<span class="m-agent">— codex</span>');
     // EVERY day exists, like the real timeline — jumps scroll through them all
     const fridayOffset = ((5 - new Date().getDay() + 7) % 7) || 7;
     let daysHtml = "";
     for (let o = fridayOffset + 1; o >= -16; o -= 1) {
-      if (o === 0) daysHtml += daySection(0, todayStart);
+      if (o === 0) daysHtml += daySection(0, todayStart, "", " ");
       else if (o === fridayOffset) daysHtml += daySection(o, "");
+      else if (o === -1) daysHtml += daySection(o, pastContent.get(o) ?? "", "", line("6 jars — worth it"));
       else daysHtml += daySection(o, pastContent.get(o) ?? "");
     }
     const mini = buildMini("demo-jump", daysHtml, noted, { palette: true });
@@ -946,6 +954,7 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
       const topOf = (el) => Math.max(0, el.offsetTop - tl.offsetTop - 8);
       const todayEl = dayEl(0);
       const todayBody = todayEl.querySelector(".m-body");
+      const todayMargin = todayEl.querySelector(".m-margin");
       const fridayBody = dayEl(fridayOffset).querySelector(".m-body");
       // land on today immediately — the loop only starts once scrolled into view
       tl.scrollTop = topOf(todayEl);
@@ -976,6 +985,7 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
 
       const staticState = () => {
         fridayBody.innerHTML = task("book flights", false);
+        todayMargin.innerHTML = codexNote;
         tl.scrollTop = topOf(todayEl);
         palette.remove();
       };
@@ -984,6 +994,7 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
       else loopWhenVisible(mini, async (alive) => {
         // reset: today already has its page, friday is still empty
         todayBody.innerHTML = todayStart;
+        todayMargin.innerHTML = " ";
         fridayBody.innerHTML = "";
         pinput.textContent = "";
         palette.classList.remove("open");
@@ -992,7 +1003,13 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
 
         // 1) one more line lands in today
         await typeTask(todayBody, todayStart, "call the venue back", alive); if (!alive()) return;
-        await sleep(900);
+        await sleep(600);
+
+        // 2) codex reports back in the margin — agents type fast
+        todayMargin.innerHTML = "<div><span class='m-t'></span><span class='m-caret'></span></div>";
+        await typeInto(todayMargin.querySelector(".m-t"), "reviewed pr #482 — lgtm, merged", 16); if (!alive()) return;
+        todayMargin.innerHTML = codexNote;
+        await sleep(1100);
 
         // 2) ⌘K into the past to find something — a long scroll DOWN through every day
         if (!(await openPalette("two weeks ago", alive))) return;
