@@ -536,25 +536,24 @@ export function App() {
 
   const reconnectMirror = async () => {
     try {
-      const handle = mirrorHandleRef.current ?? (await getMirrorDirectory());
-      if (!handle) {
-        setMirrorStatus("reconnect");
-        return;
-      }
-
-      const permission = await requestMirrorPermission(handle);
-      if (permission !== "granted") {
-        setMirrorStatus("reconnect");
-        return;
+      let handle = mirrorHandleRef.current ?? (await getMirrorDirectory());
+      const permission = handle ? await requestMirrorPermission(handle) : "denied";
+      if (!handle || permission !== "granted") {
+        // the re-grant didn't come through — fall back to picking the folder
+        // again, which always works from a click
+        handle = await pickMirrorDirectory();
       }
 
       mirrorHandleRef.current = handle;
       setMirrorName(handle.name);
       setMirrorStatus("connected");
+      // pull external edits first (last write wins), then push the full state
+      await syncWithDisk(handle);
       await writeFullMirror(handle);
-      setDataMessage(`mirror connected to ${handle.name}`);
+      await refreshContentDays();
+      setDataMessage(`notes folder: ${handle.name}`);
     } catch (error) {
-      console.warn("Daybook mirror reconnect failed", error);
+      console.warn("Tab Pad folder reconnect failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
   };
