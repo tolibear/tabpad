@@ -196,8 +196,12 @@ export function App() {
 
   const loadDocuments = useCallback(async () => {
     await migrateLegacyDb();
-    // after migration so legacy users are never treated as fresh installs
-    await seedOnboardingIfFirstRun(today);
+    // after migration so legacy users are never treated as fresh installs.
+    // the first session opens in focus mode on the welcome note — writing the
+    // first note comes before discovering the timeline
+    if (await seedOnboardingIfFirstRun(today)) {
+      setFocusDayKey(todayKey);
+    }
     // pull in any file edits (agents, other apps) before loading state below —
     // humans and agents share the same files
     try {

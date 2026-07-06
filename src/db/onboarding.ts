@@ -16,14 +16,14 @@ every new tab is your notepad — one page per day. click anywhere and type.
 
 - [x] install tab pad
 - [ ] write your first note (seriously, just click and type)
+- [ ] you're in focus mode — click the target by the date above to see your timeline
+- [ ] try privacy mode — the little lock in the top left scrambles everything
 - [ ] pick your color — the ⚙ settings, top left
-- [ ] hover this day's date row and hit the target to try focus mode
-- [ ] click the little lock up left — privacy mode for screen sharing
 - [ ] press ⌘K and type "next friday"
 - [ ] connect a notes folder in settings, so backups (and your AI agent) can read your days
 `;
 
-const TOMORROW_NOTE = `- [ ] enjoying tab pad? leave a review → [tabpad.app](https://tabpad.app)
+const REVIEW_NOTE = `- [ ] enjoying tab pad? leave a review → [tabpad.app](https://tabpad.app)
 `;
 
 const SCRATCHPAD_NOTE = `this is your scratchpad — for things that don't belong to a day.
@@ -34,9 +34,11 @@ markdown works everywhere:
 - [ ] checkboxes too
 `;
 
-export async function seedOnboardingIfFirstRun(today: Date): Promise<void> {
+// returns true only when the seed actually ran, so the app can open the
+// first session in focus mode on the welcome note
+export async function seedOnboardingIfFirstRun(today: Date): Promise<boolean> {
   try {
-    if (await db.meta.get(ONBOARDED_ID)) return;
+    if (await db.meta.get(ONBOARDED_ID)) return false;
 
     const [dayCount, panelCount] = await Promise.all([db.days.count(), db.panels.count()]);
     if (dayCount === 0 && panelCount === 0) {
@@ -58,18 +60,20 @@ export async function seedOnboardingIfFirstRun(today: Date): Promise<void> {
         await db.days.bulkPut([
           day(addDays(today, -1), YESTERDAY_NOTE),
           day(today, TODAY_NOTE),
-          day(addDays(today, 1), TOMORROW_NOTE),
+          day(addDays(today, 3), REVIEW_NOTE),
         ]);
         // updatedAt 0 = the explicit "never saved, always yield to the file"
         // marker in the scratchpad sync
         await db.panels.put({ id: "scratchpad", content: SCRATCHPAD_NOTE, updatedAt: 0 });
         await db.meta.put({ id: ONBOARDED_ID, value: Date.now() });
       });
-    } else {
-      // existing data (legacy migration, import) — never seed, just mark done
-      await db.meta.put({ id: ONBOARDED_ID, value: Date.now() });
+      return true;
     }
+    // existing data (legacy migration, import) — never seed, just mark done
+    await db.meta.put({ id: ONBOARDED_ID, value: Date.now() });
+    return false;
   } catch (error) {
     console.warn("Tab Pad onboarding seed failed", error);
+    return false;
   }
 }

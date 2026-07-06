@@ -103,6 +103,9 @@ function addLineDecorations(
       builder.add(lineFrom, lineFrom, Decoration.line({ class: "cm-md-task-checked" }));
     }
     builder.add(lineFrom + task[1].length, markerTo, Decoration.replace({ widget: new CheckboxWidget(task[2].toLowerCase() === "x", markerFrom) }));
+    // the task text still gets bold/links/etc — all inline matches start at or
+    // after the marker, so builder order stays sorted
+    if (!isActive) addInlineMarks(builder, lineFrom, text);
     return;
   }
 

@@ -500,6 +500,12 @@
   padding: 16px 0;
 }
 
+/* cmd/ctrl held: links invite a click */
+body.link-modifier .cm-md-link,
+body.link-modifier .cm-md-link * {
+  cursor: pointer;
+}
+
 .experimental-tag {
   margin-left: 6px;
   padding: 1px 6px;
