@@ -166,11 +166,14 @@ export function SettingsOverlay({
           <h3>shortcuts</h3>
           <dl className="shortcut-list">
             <div><dt>⌘K / Ctrl+K</dt><dd>jump to any date ("friday", "nov 12"...)</dd></div>
-            <div><dt>Alt+↑ / Alt+↓</dt><dd>next / previous day</dd></div>
+            <div><dt>Shift+↑ / Shift+↓</dt><dd>next / previous day (outside a note)</dd></div>
             <div><dt>Tab / Shift+Tab</dt><dd>indent / outdent a list item</dd></div>
             <div><dt>⌘B / ⌘I</dt><dd>bold / italic</dd></div>
             <div><dt>[] + space</dt><dd>make a checkbox</dd></div>
           </dl>
+          <a className="guide-link" href="https://tabpad.app/markdown.html" target="_blank" rel="noreferrer">
+            full markdown guide ↗
+          </a>
         </section>
 
         <section className="settings-section" aria-label="storage">

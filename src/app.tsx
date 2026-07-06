@@ -584,9 +584,11 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      if (!event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
+      // inside an editor, shift+arrows must keep selecting text
+      if ((event.target as HTMLElement)?.closest?.(".cm-editor, input, textarea, [contenteditable='true']")) return;
 
-      // Alt+Up = one day forward (future is above today), Alt+Down = one day back, Alt+T = today
+      // Shift+Up = one day forward (future is above today), Shift+Down = one day back
       if (event.code === "ArrowUp" || event.code === "ArrowDown") {
         // step from the last keyboard jump so rapid presses advance multiple
         // days even before the scroll position catches up

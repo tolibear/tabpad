@@ -31,10 +31,10 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 > • Smooth continuous timeline — scroll up for coming days, down through everything you've written
 > • Mini calendar with dots on noted days; jump anywhere with one click
 > • ⌘K jumps by natural language: "friday", "nov 12", "two weeks ago", "next monday"
-> • Alt+↑ / Alt+↓ steps between days
+> • Shift+↑ / Shift+↓ steps between days
 >
 > MAKE IT YOURS
-> • Scratchpad panel, floating scratchpad, or a per-day margin for side notes
+> • Scratchpad panel or a per-day margin for side notes
 > • Light, dark, or system theme; six accent colors; serif, sans, or monospace
 >
 > YOUR DATA IS YOURS

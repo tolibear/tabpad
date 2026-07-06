@@ -23,7 +23,7 @@ export function CommandK({ today, onJumpToDate }: CommandKProps) {
         return;
       }
       // any other global shortcut dismisses the palette
-      if (event.altKey && (event.code === "ArrowUp" || event.code === "ArrowDown")) {
+      if (event.shiftKey && (event.code === "ArrowUp" || event.code === "ArrowDown")) {
         setOpen(false);
         setValue("");
         setError("");

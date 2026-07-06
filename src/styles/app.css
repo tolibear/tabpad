@@ -514,6 +514,19 @@
   text-align: right;
 }
 
+.guide-link {
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  justify-self: start;
+}
+
+.guide-link:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
 .storage-row {
   display: flex;
   align-items: center;
@@ -701,11 +714,28 @@
   align-items: stretch;
 }
 
+.day-section.with-margin {
+  position: relative;
+}
+
+/* one divider drawn against the day section itself, with identical top/bottom
+   insets — the aside's own border couldn't be symmetric because the day header
+   sits above the content grid */
+.day-section.with-margin::after {
+  content: "";
+  position: absolute;
+  top: 24px;
+  bottom: 24px;
+  right: 280px;
+  width: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+
 .day-margin {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-left: 1px solid var(--line);
   padding-left: 18px;
   color: color-mix(in srgb, var(--ink) 85%, var(--muted));
   cursor: text;
@@ -982,6 +1012,10 @@
 
   .day-content-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .day-section.with-margin::after {
+    display: none;
   }
 
   .day-margin {

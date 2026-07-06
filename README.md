@@ -11,7 +11,7 @@ Tab Pad is a Chrome extension that replaces the new-tab page with a local daily 
 - One page per day on a continuous, smooth-scrolling timeline
 - Markdown as you type: headings, bold/italic, lists, checkboxes (`[] ` + space), links
 - ⌘K natural-language date jumps: "friday", "nov 12", "two weeks ago"
-- Scratchpad panel, floating scratchpad, or per-day margins
+- Scratchpad panel or per-day margins for side notes
 - Light/dark themes, six accent colors, serif/sans/mono
 - 100% local: no server, no account, zero permissions, works offline
 - JSON export/import and an optional plain-`.md` folder mirror

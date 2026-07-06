@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Markdown guide — Tab Pad</title>
+<meta name="description" content="Everything Tab Pad's editor understands: headings, checkboxes, lists, emphasis, links, quotes, and dividers — with the keyboard shortcuts to match." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;620;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #fafaf7; --surface: #ffffff; --ink: #1c1c1a; --muted: #6e6e6a;
+    --faint: #a6a6a1; --line: #e8e8e3; --accent: #2f6bff;
+    --accent-soft: rgba(47, 107, 255, 0.1);
+    --sans: Inter, ui-sans-serif, system-ui, sans-serif;
+    --serif: "Newsreader", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #111113; --surface: #19191c; --ink: #ededea; --muted: #9c9c99; --faint: #5e5e5c; --line: #26262a; --accent: #6b94ff; --accent-soft: rgba(107, 148, 255, 0.14); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--accent-soft); }
+  .page { width: min(100% - 48px, 680px); margin: 0 auto; padding: 26px 0 80px; }
+  .bar { display: flex; align-items: baseline; justify-content: space-between; }
+  .brand { display: inline-flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 620; text-decoration: none; color: inherit; }
+  .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
+  .bar a.back { font-size: 13px; color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .bar a.back:hover { color: var(--ink); }
+
+  h1 { font-family: var(--serif); font-size: clamp(32px, 6vw, 44px); font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; margin: 64px 0 10px; }
+  .lede { color: var(--muted); margin: 0 0 22px; max-width: 36em; }
+  .tip { color: var(--faint); font-size: 13.5px; margin: 0 0 48px; }
+  .tip kbd { font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--surface); }
+
+  section { padding: 34px 0 30px; border-top: 1px solid var(--line); }
+  h2 { font-family: var(--serif); font-size: 24px; font-weight: 500; margin: 0 0 6px; }
+  section > p { color: var(--muted); margin: 0 0 18px; max-width: 38em; }
+
+  .demo { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .demo .you, .demo .get { padding: 16px 20px; }
+  .demo .you { font-family: var(--mono); font-size: 13px; line-height: 2.05; background: var(--surface); color: var(--muted); white-space: pre-wrap; border-right: 1px solid var(--line); }
+  .demo .you .syn { color: var(--accent); }
+  .demo .get { font-size: 15px; line-height: 1.95; }
+  .demo-label { display: grid; grid-template-columns: 1fr 1fr; color: var(--faint); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .demo-label span { padding: 0 4px; }
+
+  /* rendered-side mimics of the app's styles */
+  .get .h1 { font-size: 22px; font-weight: 650; }
+  .get .h2x { font-size: 18px; font-weight: 650; }
+  .get .h3x { font-size: 16px; font-weight: 600; }
+  .get .task { display: flex; align-items: center; gap: 9px; }
+  .get .box { width: 14px; height: 14px; border: 1.5px solid var(--faint); border-radius: 4px; flex: none; display: inline-grid; place-items: center; }
+  .get .task.done .box { background: var(--accent); border-color: var(--accent); }
+  .get .task.done .box::after { content: ""; width: 7px; height: 4px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+  @media (prefers-color-scheme: dark) { .get .task.done .box::after { border-color: #111113; } }
+  .get .task.done span { color: var(--muted); text-decoration: line-through; }
+  .get .bullet { padding-left: 2px; }
+  .get .bullet::before { content: "•"; color: var(--muted); display: inline-block; width: 16px; }
+  .get .quote { border-left: 2px solid var(--accent-soft); padding-left: 9px; color: var(--muted); }
+  .get .rule { height: 1px; background: var(--line); margin: 13px 0; }
+  .get code { font-family: var(--mono); font-size: 0.88em; background: var(--surface); border-radius: 4px; padding: 1px 4px; }
+  .get a { color: var(--accent); }
+  .get .strike { text-decoration: line-through; }
+
+  .kbd-note { color: var(--faint); font-size: 13px; margin-top: 12px; }
+  .kbd-note kbd { font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--surface); }
+
+  table.shortcuts { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.shortcuts td { padding: 9px 4px; border-bottom: 1px solid var(--line); }
+  table.shortcuts td:first-child { white-space: nowrap; padding-right: 24px; }
+  table.shortcuts td:last-child { color: var(--muted); }
+  table.shortcuts kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 2px 7px; background: var(--surface); }
+
+  footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+  footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+  footer a:hover { color: var(--ink); }
+  footer nav { display: flex; gap: 18px; }
+
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+  @media (max-width: 560px) {
+    .demo { grid-template-columns: 1fr; }
+    .demo .you { border-right: 0; border-bottom: 1px solid var(--line); }
+    .demo-label { grid-template-columns: 1fr; }
+    .demo-label span:last-child { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="bar">
+    <a class="brand" href="/"><span class="dot"></span>tab pad</a>
+    <a class="back" href="/">← tabpad.app</a>
+  </header>
+
+  <main>
+  <h1>markdown guide</h1>
+  <p class="lede">tab pad understands plain-text markdown as you type. the syntax stays visible on the line you're editing and quietly fades everywhere else — so your notes read clean but stay portable plain text.</p>
+  <p class="tip">tip: formatting applies as soon as you move to another line. everything below works in day notes, margins, and the scratchpad.</p>
+
+  <section>
+    <h2>checkboxes</h2>
+    <p>type <strong>[]</strong> followed by a space — it becomes a real checkbox you can tick on any day, even weeks later.</p>
+    <div class="demo-label"><span>you type</span><span>you get</span></div>
+    <div class="demo">
+      <div class="you"><span class="syn">[]</span> call the bank
+<span class="syn">- [x]</span> book flights</div>
+      <div class="get">
+        <div class="task"><span class="box"></span><span>call the bank</span></div>
+        <div class="task done"><span class="box"></span><span>book flights</span></div>
+      </div>
+    </div>
+    <p class="kbd-note"><kbd>Enter</kbd> continues the list with a fresh checkbox · <kbd>Enter</kbd> on an empty one ends the list · <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> indent and outdent</p>
+  </section>
+
+  <section>
+    <h2>headings</h2>
+    <p>start a line with 1–4 <strong>#</strong> marks and a space. fewer marks = bigger heading.</p>
+    <div class="demo-label"><span>you type</span><span>you get</span></div>
+    <div class="demo">
+      <div class="you"><span class="syn">#</span> big day
+<span class="syn">##</span> morning
+<span class="syn">###</span> details</div>
+      <div class="get">
+        <div class="h1">big day</div>
+        <div class="h2x">morning</div>
+        <div class="h3x">details</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>lists</h2>
+    <p>start a line with <strong>-</strong> and a space for bullets, or a number and a period for numbered lists.</p>
+    <div class="demo-label"><span>you type</span><span>you get</span></div>
+    <div class="demo">
+      <div class="you"><span class="syn">-</span> peaches
+<span class="syn">-</span> sourdough
+<span class="syn">1.</span> preheat oven
+<span class="syn">2.</span> forget about it</div>
+      <div class="get">
+        <div class="bullet">peaches</div>
+        <div class="bullet">sourdough</div>
+        <div>1. preheat oven</div>
+        <div>2. forget about it</div>
+      </div>
+    </div>
+    <p class="kbd-note"><kbd>Enter</kbd> continues the list (numbers count up on their own) · <kbd>Tab</kbd> indents for nesting</p>
+  </section>
+
+  <section>
+    <h2>emphasis</h2>
+    <p>wrap words in asterisks or tildes. select text first and the shortcut wraps it for you.</p>
+    <div class="demo-label"><span>you type</span><span>you get</span></div>
+    <div class="demo">
+      <div class="you"><span class="syn">**</span>bold<span class="syn">**</span> and <span class="syn">*</span>italic<span class="syn">*</span>
+<span class="syn">~~</span>changed my mind<span class="syn">~~</span>
+<span class="syn">`</span>inline code<span class="syn">`</span></div>
+      <div class="get">
+        <div><strong>bold</strong> and <em>italic</em></div>
+        <div class="strike">changed my mind</div>
+        <div><code>inline code</code></div>
+      </div>
+    </div>
+    <p class="kbd-note"><kbd>⌘B</kbd> bold · <kbd>⌘I</kbd> italic (Ctrl on windows)</p>
+  </section>
+
+  <section>
+    <h2>links</h2>
+    <p>label in square brackets, address in parentheses.</p>
+    <div class="demo-label"><span>you type</span><span>you get</span></div>
+    <div class="demo">
+      <div class="you"><span class="syn">[</span>that recipe<span class="syn">](</span>https://example.com<span class="syn">)</span></div>
+      <div class="get"><a href="#" onclick="return false">that recipe</a></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>quotes &amp; dividers</h2>
+    <p>start a line with <strong>&gt;</strong> for a quote. three dashes on their own line draw a divider.</p>
+    <div class="demo-label"><span>you type</span><span>you get</span></div>
+    <div class="demo">
+      <div class="you"><span class="syn">&gt;</span> plans are worthless,
+<span class="syn">&gt;</span> but planning is everything
+<span class="syn">---</span></div>
+      <div class="get">
+        <div class="quote">plans are worthless,<br />but planning is everything</div>
+        <div class="rule"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>keyboard shortcuts</h2>
+    <table class="shortcuts">
+      <tbody>
+        <tr><td><kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd></td><td>jump to any date — "friday", "nov 12", "two weeks ago"</td></tr>
+        <tr><td><kbd>Shift+↑</kbd> / <kbd>Shift+↓</kbd></td><td>next / previous day (when you're not inside a note)</td></tr>
+        <tr><td><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd></td><td>indent / outdent a list item</td></tr>
+        <tr><td><kbd>⌘B</kbd> / <kbd>⌘I</kbd></td><td>bold / italic</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>continue the current list; on an empty item, end the list</td></tr>
+      </tbody>
+    </table>
+  </section>
+  </main>
+
+  <footer>
+    <span>© <span id="y">2026</span> tab pad</span>
+    <nav>
+      <a href="/">home</a>
+      <a href="/privacy.html">privacy</a>
+      <a href="https://github.com/tolibear/tabpad" rel="noopener">github</a>
+    </nav>
+  </footer>
+
+</div>
+<script>document.getElementById("y").textContent = String(new Date().getFullYear());</script>
+</body>
+</html>
