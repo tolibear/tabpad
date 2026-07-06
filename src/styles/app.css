@@ -909,12 +909,27 @@ body.link-modifier .cm-md-link * {
   font-size: 13.5px;
 }
 
-.day-margin:focus-within {
-  --editor-ink: color-mix(in srgb, var(--muted) 55%, var(--faint));
+/* every markdown element stays whisper-quiet in the margin: headings and
+   links drop their ink/accent colors, checkboxes and quote bars go gray */
+.day-margin .cm-md-heading,
+.day-margin .cm-md-link,
+.day-margin .cm-md-quote,
+.day-margin .cm-bullet-widget,
+.day-margin .cm-md-codeblock,
+.day-margin .static-heading,
+.day-margin .static-line a,
+.day-margin .static-quote {
+  color: var(--editor-ink);
 }
 
-.day-margin .cm-editor {
-  transition: color 160ms ease;
+.day-margin .cm-task-widget input,
+.day-margin .static-task input {
+  accent-color: var(--faint);
+}
+
+.day-margin .cm-md-quote,
+.day-margin .static-quote {
+  border-left-color: var(--line);
 }
 
 .day-margin .editor-host,
