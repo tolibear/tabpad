@@ -1,6 +1,5 @@
-import { EditorSelection, type Command } from "@codemirror/state";
-import { Prec } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
+import { EditorSelection, Prec } from "@codemirror/state";
+import { keymap, type Command } from "@codemirror/view";
 
 type ListKind = "task" | "bullet" | "ordered";
 

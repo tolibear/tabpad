@@ -31,8 +31,11 @@ import {
   pickMirrorDirectory,
   queryMirrorPermission,
   queryMirrorStatus,
+  eraseMirrorFiles,
+  isMirrorSupported,
   requestMirrorPermission,
   syncWithDisk,
+  type FileSystemDirectoryHandleLike,
   type MirrorStatus,
   writeAgentFiles,
   writeDayMirror,
@@ -55,6 +58,7 @@ export function App() {
   const mirrorDayTimers = useRef(new Map<string, number>());
   const mirrorPanelTimers = useRef(new Map<PanelRow["id"], number>());
   const lastKeyJumpRef = useRef<string | null>(null);
+  const queueMirrorDayRef = useRef<(row: DayRow | null) => void>(() => {});
 
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => readThemePreference());
   const [accent, setAccent] = useState<AccentColor>(() => readAccentPreference());
@@ -216,6 +220,8 @@ export function App() {
           setDayMargins((current) =>
             focusedMarginRef.current === message.key ? current : { ...current, [message.key]: row?.margin ?? "" },
           );
+          // if this tab holds the folder connection, mirror the other tab's edit
+          queueMirrorDayRef.current(row ?? null);
         });
       }
       if (message.type === "panel" && message.key === "scratchpad") {
@@ -263,10 +269,37 @@ export function App() {
     applyAccent(accent);
   }, [accent]);
 
+  // shared sync entry point: always uses the mtime cache and always skips
+  // whatever the user currently has focused, then propagates imports to state
+  const syncMtimes = useRef(new Map<string, number>());
+  const syncFailures = useRef(0);
+  const syncFolderNow = useCallback(async (handle: FileSystemDirectoryHandleLike) => {
+    const imported = await syncWithDisk(handle, syncMtimes.current, {
+      day: focusedDayRef.current,
+      margin: focusedMarginRef.current,
+      scratchpad: focusedPanelRef.current === "scratchpad",
+    });
+    if (imported > 0) {
+      await refreshContentDays();
+      const scratch = await getPanel("scratchpad");
+      setPanelTexts((current) =>
+        focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratch.content },
+      );
+    }
+    return imported;
+  }, [refreshContentDays]);
+
+  // deferred (focused-note) changes land the moment the user clicks away
+  const nudgeSync = useCallback(() => {
+    window.setTimeout(() => {
+      const handle = mirrorHandleRef.current;
+      if (handle) void syncFolderNow(handle).catch(() => undefined);
+    }, 350);
+  }, [syncFolderNow]);
+
   // LIVE sync: while the tab is visible, poll the folder every few seconds so
   // external edits (agents, other apps) appear without a refresh. The mtime
   // cache makes unchanged files free to skip.
-  const syncMtimes = useRef(new Map<string, number>());
   useEffect(() => {
     if (!loaded || mirrorStatus !== "connected") return;
 
@@ -278,20 +311,15 @@ export function App() {
       if (!handle) return;
       running = true;
       try {
-        const imported = await syncWithDisk(handle, syncMtimes.current, {
-          day: focusedDayRef.current,
-          margin: focusedMarginRef.current,
-          scratchpad: focusedPanelRef.current === "scratchpad",
-        });
-        if (imported > 0 && !stopped) {
-          await refreshContentDays();
-          const scratch = await getPanel("scratchpad");
-          setPanelTexts((current) =>
-            focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratch.content },
-          );
-        }
+        await syncFolderNow(handle);
+        syncFailures.current = 0;
       } catch (error) {
         console.warn("Tab Pad live sync failed", error);
+        // a deleted/unplugged folder must not stay silently "connected"
+        syncFailures.current += 1;
+        if (syncFailures.current >= 3 && !stopped) {
+          setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
+        }
       } finally {
         running = false;
       }
@@ -303,7 +331,7 @@ export function App() {
       stopped = true;
       window.clearInterval(interval);
     };
-  }, [loaded, mirrorStatus, refreshContentDays]);
+  }, [loaded, mirrorStatus, syncFolderNow]);
 
   // extension reloads and browser restarts silently revoke the folder
   // permission — use the user's first gesture to re-request it automatically
@@ -319,7 +347,8 @@ export function App() {
           mirrorHandleRef.current = handle;
           setMirrorName(handle.name);
           setMirrorStatus("connected");
-          await syncWithDisk(handle, syncMtimes.current);
+          syncFailures.current = 0;
+          await syncFolderNow(handle);
           await writeFullMirror(handle);
           await refreshContentDays();
           setDataMessage(`notes folder reconnected: ${handle.name}`);
@@ -335,7 +364,7 @@ export function App() {
       window.removeEventListener("pointerdown", tryRegrant, { capture: true });
       window.removeEventListener("keydown", tryRegrant, { capture: true });
     };
-  }, [loaded, mirrorStatus, refreshContentDays]);
+  }, [loaded, mirrorStatus, refreshContentDays, syncFolderNow]);
 
   // keep the mirror folder self-describing for agents: which surfaces are on,
   // what today is, and how to write via the inbox
@@ -483,13 +512,21 @@ export function App() {
     queueContentRefresh();
   }, [persistDay, queueContentRefresh]);
 
+  // keep the ref current so the broadcast listener (bound once) can mirror
+  // other tabs' edits through this tab's connection
+  useEffect(() => {
+    queueMirrorDayRef.current = queueMirrorDay;
+  }, [queueMirrorDay]);
+
   const handleDayBlur = useCallback((key: string) => {
     void persistDay(key, true);
-  }, [persistDay]);
+    nudgeSync();
+  }, [nudgeSync, persistDay]);
 
   const handleDayMarginBlur = useCallback((key: string) => {
     void persistDay(key, true);
-  }, [persistDay]);
+    nudgeSync();
+  }, [nudgeSync, persistDay]);
 
   const handleDayFocusChange = useCallback((key: string, focused: boolean) => {
     focusedDayRef.current = focused ? key : null;
@@ -566,7 +603,24 @@ export function App() {
       "erase all notes and scratchpad content from this browser? this cannot be undone. (settings are kept.)",
     );
     if (!confirmed) return;
+    // cancel pending mirror writes so they can't resurrect anything
+    for (const timer of mirrorDayTimers.current.values()) window.clearTimeout(timer);
+    for (const timer of mirrorPanelTimers.current.values()) window.clearTimeout(timer);
+    mirrorDayTimers.current.clear();
+    mirrorPanelTimers.current.clear();
     await eraseAllNotes();
+    // the folder is the source of truth — erase the files too, or the next
+    // sync would silently restore every note
+    const handle = mirrorHandleRef.current;
+    if (handle) {
+      try {
+        await eraseMirrorFiles(handle);
+      } catch (error) {
+        console.warn("Tab Pad folder erase failed", error);
+        setDataMessage("notes erased here, but some files in the notes folder could not be removed");
+      }
+    }
+    syncMtimes.current.clear();
     setDayTexts({});
     setDayMargins({});
     setPanelTexts({ scratchpad: "" } as Record<PanelRow["id"], string>);
@@ -583,6 +637,12 @@ export function App() {
     try {
       const payload = JSON.parse(await file.text()) as unknown;
       const result = await importPayload(payload);
+      // imported days must reach the folder too, or agents never see them and
+      // a later file write would erase them
+      const handle = mirrorHandleRef.current;
+      if (handle && mirrorStatus === "connected") {
+        await writeFullMirror(handle).catch((error) => console.warn("Tab Pad post-import mirror failed", error));
+      }
       await loadDocuments();
       channelRef.current?.post({ type: "import", key: "all", updatedAt: Date.now() });
       setDataMessage(`imported ${result.daysImported} days, ${result.panelsImported} panels`);
@@ -593,15 +653,22 @@ export function App() {
   };
 
   const enableMirror = async () => {
+    if (!isMirrorSupported()) {
+      setDataMessage("folder sync isn't supported in this browser");
+      return;
+    }
     try {
       const handle = await pickMirrorDirectory();
       mirrorHandleRef.current = handle;
       setMirrorName(handle.name);
       setMirrorStatus("connected");
+      syncFailures.current = 0;
       // pull anything already in the folder first, then push the full state
-      await syncWithDisk(handle);
+      await syncFolderNow(handle);
       await writeFullMirror(handle);
       await refreshContentDays();
+      // tell other open tabs the folder changed so they start mirroring too
+      channelRef.current?.post({ type: "settings", key: "settings", updatedAt: Date.now() });
       setDataMessage(`notes folder: ${handle.name}`);
     } catch (error) {
       console.warn("Tab Pad mirror setup failed", error);
@@ -622,10 +689,12 @@ export function App() {
       mirrorHandleRef.current = handle;
       setMirrorName(handle.name);
       setMirrorStatus("connected");
+      syncFailures.current = 0;
       // pull external edits first (last write wins), then push the full state
-      await syncWithDisk(handle);
+      await syncFolderNow(handle);
       await writeFullMirror(handle);
       await refreshContentDays();
+      channelRef.current?.post({ type: "settings", key: "settings", updatedAt: Date.now() });
       setDataMessage(`notes folder: ${handle.name}`);
     } catch (error) {
       console.warn("Tab Pad folder reconnect failed", error);
@@ -665,7 +734,7 @@ export function App() {
         try {
           const handle = mirrorHandleRef.current;
           if (handle && (await queryMirrorPermission(handle)) === "granted") {
-            await syncWithDisk(handle);
+            await syncFolderNow(handle);
           }
         } catch (error) {
           console.warn("Tab Pad folder sync failed", error);
@@ -793,7 +862,7 @@ export function App() {
         show={showScratchpad}
         value={panelTexts[fixedPanelId]}
         onValueChange={(value) => changePanelText(fixedPanelId, value)}
-        onBlur={() => void persistPanel(fixedPanelId, true)}
+        onBlur={() => { void persistPanel(fixedPanelId, true); nudgeSync(); }}
         onFocusChange={(focused) => {
           focusedPanelRef.current = focused ? fixedPanelId : null;
         }}

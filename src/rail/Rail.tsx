@@ -50,16 +50,20 @@ export function Rail({
           aria-label={
             mirrorStatus === "connected"
               ? `notes folder connected: ${mirrorName}`
-              : needsReconnect
-                ? "notes folder disconnected — click to reconnect"
-                : "no notes folder yet — click to set one up"
+              : mirrorStatus === "unsupported"
+                ? "folder sync isn't supported in this browser"
+                : needsReconnect
+                  ? "notes folder disconnected — click to reconnect"
+                  : "no notes folder yet — click to set one up"
           }
           title={
             mirrorStatus === "connected"
               ? `synced with "${mirrorName}"`
-              : needsReconnect
-                ? "disconnected — click to reconnect"
-                : "choose a notes folder"
+              : mirrorStatus === "unsupported"
+                ? "folder sync isn't supported in this browser"
+                : needsReconnect
+                  ? "disconnected — click to reconnect"
+                  : "choose a notes folder"
           }
           onClick={needsReconnect ? onReconnectMirror : onOpenSettings}
         >

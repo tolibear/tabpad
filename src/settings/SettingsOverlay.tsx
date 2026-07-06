@@ -85,7 +85,10 @@ export function SettingsOverlay({
         setPromptCopied(true);
         window.setTimeout(() => setPromptCopied(false), 2500);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        // clipboard blocked (e.g. enterprise policy) — offer manual copy
+        window.prompt("copy the prompt manually:", buildAgentPrompt(mirrorName));
+      });
   };
 
   return (
@@ -204,16 +207,20 @@ export function SettingsOverlay({
             your days live in this folder as plain .md files — shared with backups, other apps, and ai agents. edits
             made to the files show up here live. see AGENTS.md inside the folder.
           </p>
-          <div className="mirror-actions">
-            <button className="data-button" type="button" onClick={onEnableMirror}>
-              <span>{mirrorName ? "change folder" : "choose folder"}</span>
-            </button>
-            {mirrorStatus === "reconnect" || mirrorStatus === "error" ? (
-              <button className="data-button" type="button" onClick={onReconnectMirror}>
-                <span>reconnect</span>
+          {mirrorStatus === "unsupported" ? (
+            <p className="data-message">folder sync isn't supported in this browser — notes still save locally.</p>
+          ) : (
+            <div className="mirror-actions">
+              <button className="data-button" type="button" onClick={onEnableMirror}>
+                <span>{mirrorName ? "change folder" : "choose folder"}</span>
               </button>
-            ) : null}
-          </div>
+              {mirrorStatus === "reconnect" || mirrorStatus === "error" ? (
+                <button className="data-button" type="button" onClick={onReconnectMirror}>
+                  <span>reconnect</span>
+                </button>
+              ) : null}
+            </div>
+          )}
         </section>
 
         <section className="settings-section" aria-label="your agent">
@@ -301,17 +308,19 @@ Notes folder: \`<NOTES_FOLDER_PATH>\` (contains tabpad.json — verify it exists
 - \`YYYY-MM-DD.md\` — one file per day; create the file to write to any date, past or future
 - \`scratchpad.md\` — persistent notes and running lists
 - \`margins/YYYY-MM-DD.md\` — per-day side notes
-- \`tabpad.json\` — today's date + which surfaces are enabled; check before writing
+- \`tabpad.json\` — which surfaces are enabled (its \`today\` can be stale — compute today from the system clock)
 - \`AGENTS.md\` — the full contract, read it if unsure
 
 ## Rules
 - Edit files directly; the user sees changes live in their open tab within seconds
+- If the user's cursor is inside a note, edits to that note's file are deferred and may lose to their typing — prefer other days
 - Prefer APPENDING lines; re-read a file immediately before writing it (last write wins per file)
-- Never rewrite or delete the user's existing text unless asked
+- Never rewrite or delete the user's existing text unless asked; deleting a file does not delete the note — write it empty instead
+- Compute today's date from the system clock, not tabpad.json
 - Sign what you add: \`— added by <your name>\`
 
 ## Conventions
-- Todos and reminders → \`- [ ] task\` lines on the day they should happen
+- Todos and reminders → \`- [ ] task\` lines on the day they should happen (dates from the system clock)
 - Reference material and running lists → scratchpad.md
 - Keep entries short — the user reads these on every new tab
 - Markdown that renders: \`- [ ]\` checkboxes, \`#\` headings, \`-\` bullets, \`>\` quotes, \`---\` dividers, **bold**, *italic*, \`code\`, [links](url)
