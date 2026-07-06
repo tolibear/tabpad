@@ -284,21 +284,40 @@
   margin-left: 2px;
 }
 
-.link-indicator.ok {
-  color: var(--accent);
-}
-
-.link-indicator.warn {
+.link-indicator.broken {
   color: #dc2626;
   animation: indicator-pulse 1.6s ease infinite;
 }
 
-.link-indicator.none {
-  color: var(--faint);
+:root.dark .link-indicator.broken {
+  color: #f87171;
 }
 
 .link-indicator:hover {
   background: var(--surface);
+}
+
+.privacy-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+}
+
+.privacy-toggle:hover {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.privacy-toggle.locked {
+  color: var(--accent);
 }
 
 @keyframes indicator-pulse {
@@ -306,7 +325,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .link-indicator.warn { animation: none; }
+  .link-indicator.broken { animation: none; }
 }
 
 .rail-settings {
@@ -1175,4 +1194,82 @@
   .timeline-inner {
     padding-inline: 22px;
   }
+}
+
+/* ---- focus mode: one day takes over the whole view ---- */
+
+.focus-toggle {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 0;
+}
+
+.focus-toggle:hover {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.focus-toggle.active {
+  color: var(--accent);
+}
+
+/* the timeline becomes the only column; rail and scratchpad disappear */
+.app-shell.focus-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-shell.focus-mode .rail,
+.app-shell.focus-mode .right-panel {
+  display: none;
+}
+
+/* only the focused day exists; it stretches to fill the viewport so no
+   neighbor can scroll into view */
+.app-shell.focus-mode .day-section,
+.app-shell.focus-mode .timeline-sentinel {
+  display: none;
+}
+
+.app-shell.focus-mode .day-section.focus-day {
+  display: block;
+  min-height: 100vh;
+}
+
+.app-shell.focus-mode .day-section.focus-day.with-margin {
+  display: grid;
+}
+
+/* ---- privacy mode: hide every note behind an opaque cover ---- */
+
+.privacy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.privacy-overlay p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* keep the brand row (with the lock) clickable above the cover */
+.app-shell.privacy-mode .rail-mark {
+  position: relative;
+  z-index: 50;
 }

@@ -1,8 +1,9 @@
 import {
   ChevronLeft,
   ChevronRight,
-  Link2,
   Link2Off,
+  Lock,
+  LockOpen,
   Settings,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -19,9 +20,11 @@ interface RailProps {
   currentTopKey: string;
   mirrorStatus: MirrorStatus;
   mirrorName: string;
+  privacyMode: boolean;
   onJumpToDate: (date: Date) => void;
   onOpenSettings: () => void;
   onReconnectMirror: () => void;
+  onTogglePrivacy: () => void;
 }
 
 export function Rail({
@@ -32,9 +35,11 @@ export function Rail({
   currentTopKey,
   mirrorStatus,
   mirrorName,
+  privacyMode,
   onJumpToDate,
   onOpenSettings,
   onReconnectMirror,
+  onTogglePrivacy,
 }: RailProps) {
   const needsReconnect = mirrorStatus === "reconnect" || mirrorStatus === "error";
   const needsSetup = mirrorStatus === "off";
@@ -44,33 +49,31 @@ export function Rail({
       <div className="rail-mark">
         <span className="brand-dot" aria-hidden="true" />
         <span>tab pad</span>
-        <button
-          className={`link-indicator ${mirrorStatus === "connected" ? "ok" : needsReconnect ? "warn" : "none"}`}
-          type="button"
-          aria-label={
-            mirrorStatus === "connected"
-              ? `notes folder connected: ${mirrorName}`
-              : mirrorStatus === "unsupported"
-                ? "folder sync isn't supported in this browser"
-                : needsReconnect
-                  ? "notes folder disconnected — click to reconnect"
-                  : "no notes folder yet — click to set one up"
-          }
-          title={
-            mirrorStatus === "connected"
-              ? `synced with "${mirrorName}"`
-              : mirrorStatus === "unsupported"
-                ? "folder sync isn't supported in this browser"
-                : needsReconnect
-                  ? "disconnected — click to reconnect"
-                  : "choose a notes folder"
-          }
-          onClick={needsReconnect ? onReconnectMirror : onOpenSettings}
-        >
-          {mirrorStatus === "connected" ? (
-            <Link2 aria-hidden="true" size={13} strokeWidth={2} />
-          ) : (
+        {/* the link icon only appears when something is wrong — a healthy
+            connection needs no chrome */}
+        {needsReconnect ? (
+          <button
+            className="link-indicator broken"
+            type="button"
+            aria-label="notes folder disconnected — click to reconnect"
+            title="disconnected — click to reconnect"
+            onClick={onReconnectMirror}
+          >
             <Link2Off aria-hidden="true" size={13} strokeWidth={2} />
+          </button>
+        ) : null}
+        <button
+          className={privacyMode ? "privacy-toggle locked" : "privacy-toggle"}
+          type="button"
+          aria-label={privacyMode ? "show notes" : "hide notes (privacy mode)"}
+          aria-pressed={privacyMode}
+          title={privacyMode ? "show notes" : "hide notes (privacy mode)"}
+          onClick={onTogglePrivacy}
+        >
+          {privacyMode ? (
+            <Lock aria-hidden="true" size={13} strokeWidth={2} />
+          ) : (
+            <LockOpen aria-hidden="true" size={13} strokeWidth={2} />
           )}
         </button>
         <button className="icon-button rail-settings" type="button" aria-label="settings" onClick={onOpenSettings}>

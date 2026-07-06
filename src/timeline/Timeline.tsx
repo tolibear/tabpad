@@ -21,6 +21,9 @@ interface TimelineProps {
   jumpTarget: JumpTarget | null;
   showMargins: boolean;
   layoutMode: string;
+  focusDayKey: string | null;
+  activeDayKey: string | null;
+  onToggleFocusDay: (key: string) => void;
   onDayTextChange: (key: string, value: string) => void;
   onDayMarginChange: (key: string, value: string) => void;
   onDayBlur: (key: string) => void;
@@ -38,6 +41,9 @@ export const Timeline = memo(function Timeline({
   jumpTarget,
   showMargins,
   layoutMode,
+  focusDayKey,
+  activeDayKey,
+  onToggleFocusDay,
   onDayTextChange,
   onDayMarginChange,
   onDayBlur,
@@ -354,6 +360,9 @@ export const Timeline = memo(function Timeline({
             key={entry.kind === "today" ? `${entry.key}-today` : entry.key}
             today={today}
             activated={activatedKeys.has(entry.key)}
+            isActive={activeDayKey === entry.key}
+            isFocusDay={focusDayKey === entry.key}
+            onToggleFocus={onToggleFocusDay}
             value={dayTexts[entry.key] ?? entry.source?.main ?? ""}
             marginValue={dayMargins[entry.key] ?? entry.source?.margin ?? ""}
             showMargin={showMargins}
@@ -381,6 +390,9 @@ interface TimelineDayProps {
   entry: TimelineEntry;
   today: Date;
   activated: boolean;
+  isActive: boolean;
+  isFocusDay: boolean;
+  onToggleFocus: (key: string) => void;
   value: string;
   marginValue: string;
   showMargin: boolean;
@@ -398,6 +410,9 @@ const TimelineDay = memo(function TimelineDay({
   entry,
   today,
   activated,
+  isActive,
+  isFocusDay,
+  onToggleFocus,
   value,
   marginValue,
   showMargin,
@@ -412,13 +427,17 @@ const TimelineDay = memo(function TimelineDay({
 }: TimelineDayProps) {
   const isToday = entry.kind === "today";
   const nearToday = Math.abs(daysBetween(today, entry.date)) <= EDITABLE_RANGE;
-  const isStatic = !isToday && !nearToday && !activated;
+  // the focused-mode day must be a real editor even if it was a far static day
+  const isStatic = !isToday && !nearToday && !activated && !isFocusDay;
 
   return (
     <DaySection
       date={entry.date}
       isToday={isToday}
       isStatic={isStatic}
+      isActive={isActive}
+      isFocusDay={isFocusDay}
+      onToggleFocus={() => onToggleFocus(entry.key)}
       showMargin={showMargin}
       value={value}
       marginValue={marginValue}

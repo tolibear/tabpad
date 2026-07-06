@@ -1,3 +1,4 @@
+import { Target } from "lucide-react";
 import { dateKey, shortDate, shortWeekday } from "../lib/dates";
 import { EditorSurface } from "../editor/EditorSurface";
 import { StaticDay } from "./StaticDay";
@@ -7,10 +8,13 @@ export interface DaySectionProps {
   value: string;
   isToday?: boolean;
   isStatic?: boolean;
+  isActive?: boolean;
+  isFocusDay?: boolean;
   showMargin?: boolean;
   marginValue?: string;
   registerRef?: (node: HTMLElement | null) => void;
   onActivate?: (part: "main" | "margin") => void;
+  onToggleFocus?: () => void;
   onValueChange: (value: string) => void;
   onMarginChange?: (value: string) => void;
   onBlur?: () => void;
@@ -24,10 +28,13 @@ export function DaySection({
   value,
   isToday = false,
   isStatic = false,
+  isActive = false,
+  isFocusDay = false,
   showMargin = false,
   marginValue = "",
   registerRef,
   onActivate,
+  onToggleFocus,
   onValueChange,
   onMarginChange,
   onBlur,
@@ -37,7 +44,9 @@ export function DaySection({
 }: DaySectionProps) {
   return (
     <article
-      className={["day-section", isToday ? "today" : "", showMargin ? "with-margin" : ""].filter(Boolean).join(" ")}
+      className={["day-section", isToday ? "today" : "", showMargin ? "with-margin" : "", isFocusDay ? "focus-day" : ""]
+        .filter(Boolean)
+        .join(" ")}
       data-date={dateKey(date)}
       ref={registerRef}
     >
@@ -45,6 +54,25 @@ export function DaySection({
         <span className="date-number">{shortDate(date)}</span>
         <span className="weekday">{shortWeekday(date)}</span>
         {isToday ? <span className="today-dot" aria-hidden="true" /> : null}
+        {(isActive || isFocusDay) && onToggleFocus ? (
+          <button
+            className={isFocusDay ? "focus-toggle active" : "focus-toggle"}
+            type="button"
+            aria-label={isFocusDay ? "exit focus mode" : "focus on this day"}
+            aria-pressed={isFocusDay}
+            title={isFocusDay ? "exit focus mode (esc)" : "focus on this day"}
+            // preventDefault keeps the editor's caret — otherwise the click
+            // blurs the editor, isActive drops, and the button vanishes
+            // before its own click lands
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFocus();
+            }}
+          >
+            <Target aria-hidden="true" size={14} strokeWidth={1.8} />
+          </button>
+        ) : null}
       </header>
       <div className={showMargin ? "day-content-grid" : ""}>
         <div

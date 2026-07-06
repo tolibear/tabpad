@@ -1,3 +1,4 @@
+import { Lock } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
 import { migrateLegacyDb, type DayRow, type PanelRow, type Settings } from "./db/db";
@@ -42,6 +43,18 @@ import {
   writeFullMirror,
   writePanelMirror,
 } from "./mirror/mirror";
+
+// privacy mode persists in localStorage (not the settings db) so every new
+// tab opens hidden while it's on — important when screen sharing
+const PRIVACY_KEY = "tabpad:privacy:v1";
+
+function readPrivacyPreference(): boolean {
+  try {
+    return localStorage.getItem(PRIVACY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function App() {
   const today = useToday();
@@ -88,6 +101,10 @@ export function App() {
   const [jumpTarget, setJumpTarget] = useState<JumpTarget | null>(null);
   const [currentTopKey, setCurrentTopKey] = useState(todayKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // focus mode: one day takes over the whole view; active day shows the toggle
+  const [focusDayKey, setFocusDayKey] = useState<string | null>(null);
+  const [activeDayKey, setActiveDayKey] = useState<string | null>(null);
+  const [privacyMode, setPrivacyMode] = useState(() => readPrivacyPreference());
   const resolvedTheme = resolveTheme(themePreference, systemTheme);
   const todayText = dayTexts[todayKey] ?? "";
 
@@ -607,10 +624,38 @@ export function App() {
 
   const handleDayFocusChange = useCallback((key: string, focused: boolean) => {
     focusedDayRef.current = focused ? key : null;
+    // blur of one day can arrive after focus of another — only clear if it's
+    // still ours
+    setActiveDayKey((current) => (focused ? key : current === key ? null : current));
   }, []);
 
   const handleDayMarginFocusChange = useCallback((key: string, focused: boolean) => {
     focusedMarginRef.current = focused ? key : null;
+    setActiveDayKey((current) => (focused ? key : current === key ? null : current));
+  }, []);
+
+  const togglePrivacy = useCallback(() => {
+    setPrivacyMode((current) => !current);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (privacyMode) localStorage.setItem(PRIVACY_KEY, "1");
+      else localStorage.removeItem(PRIVACY_KEY);
+    } catch {
+      // persistence is a convenience; the mode still works in this tab
+    }
+    // drop the caret so nothing keeps typing into hidden notes
+    if (privacyMode) (document.activeElement as HTMLElement | null)?.blur?.();
+  }, [privacyMode]);
+
+  // lock/unlock in one tab applies to every open tab
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === PRIVACY_KEY) setPrivacyMode(event.newValue === "1");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const panelSaveChains = useRef(new Map<PanelRow["id"], Promise<unknown>>());
@@ -859,6 +904,26 @@ export function App() {
     setJumpTarget({ date: clamped, id: Date.now() });
   }, [today]);
 
+  const toggleFocusDay = useCallback((key: string) => {
+    const exiting = focusDayKey === key;
+    setFocusDayKey(exiting ? null : key);
+    if (exiting) {
+      // re-center the timeline on the day we were focused on
+      const date = dateFromKey(key);
+      if (date) jumpToDate(date);
+    }
+  }, [focusDayKey, jumpToDate]);
+
+  // Escape leaves focus mode
+  useEffect(() => {
+    if (!focusDayKey) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") toggleFocusDay(focusDayKey);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusDayKey, toggleFocusDay]);
+
   useEffect(() => {
     // only release the stepping base once the scroll has caught up with it —
     // intermediate positions during the smooth scroll must not reset it
@@ -927,6 +992,8 @@ export function App() {
     "app-shell",
     showScratchpad ? "has-scratchpad" : "",
     showDayMargins ? "has-margins" : "",
+    focusDayKey ? "focus-mode" : "",
+    privacyMode ? "privacy-mode" : "",
     `editor-size-${editorSize}`,
     `font-${font}`,
   ].filter(Boolean).join(" ");
@@ -941,9 +1008,11 @@ export function App() {
         currentTopKey={currentTopKey}
         mirrorStatus={mirrorStatus}
         mirrorName={mirrorName}
+        privacyMode={privacyMode}
         onJumpToDate={jumpToDate}
         onOpenSettings={() => setSettingsOpen(true)}
         onReconnectMirror={() => void reconnectMirror()}
+        onTogglePrivacy={togglePrivacy}
       />
       {/* mount editors only after stored notes are loaded — the today editor
           autofocuses on mount, and a focused editor refuses external content,
@@ -957,6 +1026,9 @@ export function App() {
         jumpTarget={jumpTarget}
         showMargins={showDayMargins}
         layoutMode={`${showScratchpad}-${showDayMargins}`}
+        focusDayKey={focusDayKey}
+        activeDayKey={activeDayKey}
+        onToggleFocusDay={toggleFocusDay}
         onDayTextChange={changeDayText}
         onDayMarginChange={changeDayMargin}
         onDayBlur={handleDayBlur}
@@ -1015,6 +1087,15 @@ export function App() {
           focusedPanelRef.current = focused ? fixedPanelId : null;
         }}
       />
+      ) : null}
+      {privacyMode ? (
+        <div className="privacy-overlay" role="status">
+          <Lock aria-hidden="true" size={26} strokeWidth={1.6} />
+          <p>notes hidden</p>
+          <button className="data-button" type="button" onClick={togglePrivacy}>
+            <span>show notes</span>
+          </button>
+        </div>
       ) : null}
     </main>
   );
