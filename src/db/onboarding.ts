@@ -23,7 +23,7 @@ every new tab is your notepad — one page per day. click anywhere and type.
 - [ ] connect a notes folder in settings, so backups (and your AI agent) can read your days
 `;
 
-const REVIEW_NOTE = `- [ ] enjoying tab pad? leave a review → [tabpad.app](https://tabpad.app?ref=app-review)
+const REVIEW_NOTE = `- [ ] enjoying tab pad? leave a review → [chrome web store](https://chromewebstore.google.com/detail/ffbbcmokfaloblceadooccdcmocdfdeo/reviews)
 `;
 
 const SCRATCHPAD_NOTE = `this is your scratchpad — for things that don't belong to a day.
