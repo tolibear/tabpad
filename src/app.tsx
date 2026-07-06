@@ -3,6 +3,7 @@ import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
 import { migrateLegacyDb, type DayRow, type PanelRow, type Settings } from "./db/db";
 import { eraseAllNotes, getDay, hasDayContent, listAllDays, listContentDays, saveDayFields } from "./db/days";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
+import { seedOnboardingIfFirstRun } from "./db/onboarding";
 import { getPanel, savePanel } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
 import { addDays, dateFromKey, dateKey, daysBetween } from "./lib/dates";
@@ -195,6 +196,8 @@ export function App() {
 
   const loadDocuments = useCallback(async () => {
     await migrateLegacyDb();
+    // after migration so legacy users are never treated as fresh installs
+    await seedOnboardingIfFirstRun(today);
     // pull in any file edits (agents, other apps) before loading state below —
     // humans and agents share the same files
     try {

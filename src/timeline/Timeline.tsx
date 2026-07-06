@@ -342,14 +342,18 @@ export const Timeline = memo(function Timeline({
 
   const lastFocusKey = useRef<string | null>(null);
   useLayoutEffect(() => {
+    // act only on actual enter/exit transitions — this effect also re-runs on
+    // every entries rebuild (reportTopDate identity), and resetting scrollTop
+    // then would pin the view to the top on every keystroke pause
+    if (focusDayKey === lastFocusKey.current) return;
+    const previous = lastFocusKey.current;
+    lastFocusKey.current = focusDayKey;
     const scroller = scrollerRef.current;
     if (!scroller) return;
     if (focusDayKey) {
-      lastFocusKey.current = focusDayKey;
       scroller.scrollTop = 0;
-    } else if (lastFocusKey.current) {
-      const node = sectionRefs.current.get(lastFocusKey.current);
-      lastFocusKey.current = null;
+    } else if (previous) {
+      const node = sectionRefs.current.get(previous);
       if (node) scroller.scrollTop = sectionTop(scroller, node);
       reportTopDate();
     }
