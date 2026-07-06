@@ -305,7 +305,17 @@
   .md-sample .syn { color: var(--accent); }
 
   .swatches { display: flex; gap: 10px; margin-top: 20px; }
-  .swatch { width: 20px; height: 20px; border-radius: 999px; }
+  .swatch { width: 20px; height: 20px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; }
+
+  .theme-controls { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+  .chip-group { display: flex; gap: 4px; border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  .chip {
+    border: 0; background: transparent; color: var(--muted);
+    font: inherit; font-size: 12.5px;
+    border-radius: 999px; padding: 4px 12px; cursor: pointer;
+  }
+  .chip:hover { color: var(--ink); }
+  .chip.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 
   .quiet-list { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--muted); }
   .quiet-list li { padding-left: 20px; position: relative; }
@@ -401,15 +411,42 @@
   .mini.dark[data-accent="green"] { --m-accent: #4ade80; }
   .mini[data-accent="purple"] { --m-accent: #7c3aed; }
   .mini.dark[data-accent="purple"] { --m-accent: #a78bfa; }
+  .mini[data-accent="red"] { --m-accent: #dc2626; }
+  .mini.dark[data-accent="red"] { --m-accent: #f87171; }
+  .mini[data-accent="yellow"] { --m-accent: #ca8a04; }
+  .mini.dark[data-accent="yellow"] { --m-accent: #facc15; }
   .mini[data-accent="orange"] { --m-accent: #ea580c; }
   .mini.dark[data-accent="orange"] { --m-accent: #fb923c; }
   .mini.font-serif { --m-font: var(--serif); }
   .mini.font-mono { --m-font: var(--mono); font-size: 12px; }
 
+  .mini.with-panel { grid-template-columns: 160px minmax(0, 1fr) 150px; }
+
   .m-rail {
     border-right: 1px solid var(--m-line);
     padding: 14px 12px;
     color: var(--m-muted);
+  }
+
+  .m-panel {
+    border-left: 1px solid var(--m-line);
+    padding: 14px 14px;
+    overflow: hidden;
+  }
+  .m-panel-h {
+    font-size: 9px; font-weight: 620; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--m-faint); margin-bottom: 8px;
+  }
+  .m-panel .m-body { font-size: 12px; }
+
+  /* per-day margin column: quiet side notes beside the day's note */
+  .m-daygrid { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 14px; }
+  .m-margin {
+    border-left: 1px solid var(--m-line);
+    padding-left: 10px;
+    color: var(--m-faint);
+    font-size: 11px;
+    line-height: 1.6;
   }
 
   .m-brand {
@@ -516,8 +553,10 @@
   .swatch.active { transform: scale(1.25); box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--ink); }
 
   @media (max-width: 620px) {
-    .mini { grid-template-columns: 1fr; height: 380px; }
-    .m-rail { display: none; }
+    .mini, .mini.with-panel { grid-template-columns: 1fr; height: 380px; }
+    .m-rail, .m-panel { display: none; }
+    .m-daygrid { grid-template-columns: 1fr; }
+    .m-margin { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -610,13 +649,24 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
     <div class="day-head"><span class="day-date" data-ago="4">7/1</span><span class="day-wd" data-ago-wd="4">wed</span></div>
     <h2>a page that looks like yours</h2>
     <p>light or dark, six accent colors, serif · sans · monospace. keep a scratchpad panel beside your days, give every day its own margin, or hide it all.</p>
-    <div class="swatches" id="theme-swatches" aria-label="accent colors">
-      <span class="swatch" data-sw="blue" style="background:#2f6bff"></span>
-      <span class="swatch" data-sw="green" style="background:#16a34a"></span>
-      <span class="swatch" data-sw="red" style="background:#dc2626"></span>
-      <span class="swatch" data-sw="yellow" style="background:#ca8a04"></span>
-      <span class="swatch" data-sw="orange" style="background:#ea580c"></span>
-      <span class="swatch" data-sw="purple" style="background:#7c3aed"></span>
+    <div class="swatches" id="theme-swatches" aria-label="accent colors — click to try">
+      <button class="swatch" type="button" data-sw="blue" style="background:#2f6bff" aria-label="blue"></button>
+      <button class="swatch" type="button" data-sw="green" style="background:#16a34a" aria-label="green"></button>
+      <button class="swatch" type="button" data-sw="red" style="background:#dc2626" aria-label="red"></button>
+      <button class="swatch" type="button" data-sw="yellow" style="background:#ca8a04" aria-label="yellow"></button>
+      <button class="swatch" type="button" data-sw="orange" style="background:#ea580c" aria-label="orange"></button>
+      <button class="swatch" type="button" data-sw="purple" style="background:#7c3aed" aria-label="purple"></button>
+    </div>
+    <div class="theme-controls" id="theme-controls" aria-label="theme and font — click to try">
+      <div class="chip-group" data-group="mode">
+        <button class="chip" type="button" data-mode="light">light</button>
+        <button class="chip" type="button" data-mode="dark">dark</button>
+      </div>
+      <div class="chip-group" data-group="font">
+        <button class="chip" type="button" data-font="">sans serif</button>
+        <button class="chip" type="button" data-font="font-serif">serif</button>
+        <button class="chip" type="button" data-font="font-mono">monospace</button>
+      </div>
     </div>
     <div class="browser" id="demo-theme" aria-label="live demo: themes, accent colors and fonts changing">
       <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
@@ -629,7 +679,7 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
     <div class="cta-row" style="justify-content:center">
       <a class="install" href="https://chrome.google.com/webstore" rel="noopener">add tab pad to chrome</a>
     </div>
-    <p class="cta-note" style="margin-top:18px">free · no account · 100% local</p>
+    <p class="cta-note" style="margin:18px auto 0;text-align:center">free · no account · 100% local</p>
   </section>
   </main>
 
@@ -716,27 +766,32 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
     return `<div class="m-month">${month}</div><div class="m-cal">${"smtwtfs".split("").map((c) => `<span class="m-cell out">${c}</span>`).join("")}${cells}</div>`;
   }
 
-  function daySection(offset, bodyHtml, extraClass = "") {
+  function daySection(offset, bodyHtml, extraClass = "", marginHtml = "") {
     const d = dayAt(offset);
     const today = offset === 0;
+    const content = marginHtml
+      ? `<div class="m-daygrid"><div class="m-body">${bodyHtml}</div><div class="m-margin">${marginHtml}</div></div>`
+      : `<div class="m-body">${bodyHtml}</div>`;
     return `<div class="m-day${today ? " is-today" : ""}${extraClass ? " " + extraClass : ""}" data-offset="${offset}">
       <div class="m-dayhead"><span class="m-daynum">${label(d)}</span><span class="m-daywd">${wd(d)}</span>${today ? '<span class="m-todaydot"></span>' : ""}</div>
-      <div class="m-body">${bodyHtml}</div>
+      ${content}
     </div>`;
   }
 
-  function buildMini(rootId, daysHtml, notedOffsets, withPalette) {
+  function buildMini(rootId, daysHtml, notedOffsets, opts = {}) {
     const mini = document.querySelector(`#${rootId} .mini`);
     if (!mini) return null;
+    if (opts.panelHtml) mini.classList.add("with-panel");
     mini.innerHTML = `
       <aside class="m-rail">
         <div class="m-brand"><span class="m-branddot"></span>tab pad</div>
         ${calendar(notedOffsets)}
       </aside>
       <div class="m-mini-wrap">
-        ${withPalette ? '<div class="m-palette"><span class="m-pk">⌘K</span><span class="m-pinput"></span><span class="m-caret"></span></div>' : ""}
+        ${opts.palette ? '<div class="m-palette"><span class="m-pk">⌘K</span><span class="m-pinput"></span><span class="m-caret"></span></div>' : ""}
         <div class="m-tl">${daysHtml}</div>
-      </div>`;
+      </div>
+      ${opts.panelHtml ? `<aside class="m-panel"><div class="m-panel-h">scratchpad</div><div class="m-body">${opts.panelHtml}</div></aside>` : ""}`;
     return mini;
   }
 
@@ -791,7 +846,7 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
 
   // ---- demo 1: a note typing itself in today's page ----
   {
-    const mini = buildMini("demo-write", daySection(0, "") + pastDays.slice(0, 2).map(([o, h]) => daySection(o, h)).join(""), noted, false);
+    const mini = buildMini("demo-write", daySection(0, "") + pastDays.slice(0, 2).map(([o, h]) => daySection(o, h)).join(""), noted);
     if (mini) {
       const body = mini.querySelector('.m-day[data-offset="0"] .m-body');
       const finalState = () => {
@@ -835,66 +890,112 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
     }
   }
 
-  // ---- demo 2: the timeline scrolls, then ⌘K jumps two weeks back ----
+  // ---- demo 2: ⌘K jumps — two weeks ago (down), next friday (up), today ----
   {
     const todayHtml = heading("today") + task("finish the launch checklist", false) + line("one thing at a time.");
-    const mini = buildMini("demo-scroll", daySection(0, todayHtml) + pastDays.map(([o, h]) => daySection(o, h)).join(""), noted, true);
+    // future days sit ABOVE today, exactly like the real timeline
+    const fridayOffset = ((5 - new Date().getDay() + 7) % 7) || 7;
+    const fridayHtml = task("dentist, 2:15pm", false) + task("book flights", false);
+    const futureHtml = daySection(fridayOffset + 1, "") + daySection(fridayOffset, fridayHtml);
+    const mini = buildMini(
+      "demo-scroll",
+      futureHtml + daySection(0, todayHtml) + pastDays.map(([o, h]) => daySection(o, h)).join(""),
+      noted,
+      { palette: true },
+    );
     if (mini) {
       const tl = mini.querySelector(".m-tl");
       const palette = mini.querySelector(".m-palette");
       const pinput = mini.querySelector(".m-pinput");
-      const targetDay = mini.querySelector('.m-day[data-offset="-14"]');
-      if (reduced) { tl.scrollTop = 120; palette.remove(); }
-      else loopWhenVisible(mini, async (alive) => {
-        tl.scrollTop = 0; pinput.textContent = ""; palette.classList.remove("open");
-        await sleep(900);
-        await animateScroll(tl, 300, 2600); if (!alive()) return;
-        await sleep(700);
+      const dayEl = (offset) => mini.querySelector(`.m-day[data-offset="${offset}"]`);
+      const topOf = (el) => Math.max(0, el.offsetTop - tl.offsetTop - 8);
+      const todayEl = dayEl(0);
+
+      const jump = async (query, target, alive) => {
         palette.classList.add("open");
-        await sleep(500);
-        await typeInto(pinput, "two weeks ago", 62); if (!alive()) return;
-        await sleep(650);
+        pinput.textContent = "";
+        await sleep(480);
+        await typeInto(pinput, query, 62); if (!alive()) return;
+        await sleep(620);
         palette.classList.remove("open");
-        await animateScroll(tl, targetDay.offsetTop - tl.offsetTop - 8, 750);
-        targetDay.classList.add("flash");
-        await sleep(1500);
-        targetDay.classList.remove("flash");
-        await sleep(900);
-        await animateScroll(tl, 0, 1100);
+        await animateScroll(tl, topOf(target), 850);
+        target.classList.add("flash");
         await sleep(1400);
+        target.classList.remove("flash");
+        await sleep(1000);
+      };
+
+      if (reduced) { tl.scrollTop = topOf(todayEl); palette.remove(); }
+      else loopWhenVisible(mini, async (alive) => {
+        tl.scrollTop = topOf(todayEl); pinput.textContent = ""; palette.classList.remove("open");
+        await sleep(1300);
+        await jump("two weeks ago", dayEl(-14), alive); if (!alive()) return; // down into the past
+        await jump("next friday", dayEl(fridayOffset), alive); if (!alive()) return; // up past today
+        await jump("today", todayEl, alive); // back to the start
+        await sleep(1600);
       });
     }
   }
 
-  // ---- demo 3: themes, accents and fonts switch live ----
+  // ---- demo 3: themes, accents and fonts — auto-cycles until YOU click ----
   {
     const themeHtml = heading("today") + task("morning run", true) + task("review pr #42", false) +
       line("focus: <span class=\"m-b\">one thing at a time</span>");
-    const mini = buildMini("demo-theme", daySection(0, themeHtml) + daySection(-1, pastDays[0][1]), noted, false);
+    const todayMargin = line("groceries: eggs, basil") + line("call re: lease");
+    const yesterdayMargin = line("6 jars — worth it");
+    const panelHtml = heading("reading list") + task("the shallows", true) + task("piranesi", false) +
+      line("gift ideas: film for dad") + line("wifi pw: sunflower42");
+    const mini = buildMini(
+      "demo-theme",
+      daySection(0, themeHtml, "", todayMargin) + daySection(-1, pastDays[0][1], "", yesterdayMargin),
+      noted,
+      { panelHtml },
+    );
     if (mini) {
       const swatches = document.querySelectorAll("#theme-swatches .swatch");
-      const states = [
+      const chips = document.querySelectorAll("#theme-controls .chip");
+      const state = { dark: false, accent: "blue", font: "" };
+      const apply = () => {
+        mini.classList.toggle("dark", state.dark);
+        mini.classList.remove("font-serif", "font-mono");
+        if (state.font) mini.classList.add(state.font);
+        mini.dataset.accent = state.accent;
+        swatches.forEach((sw) => sw.classList.toggle("active", sw.dataset.sw === state.accent));
+        chips.forEach((chip) => {
+          if (chip.dataset.mode !== undefined) chip.classList.toggle("active", (chip.dataset.mode === "dark") === state.dark);
+          if (chip.dataset.font !== undefined) chip.classList.toggle("active", chip.dataset.font === state.font);
+        });
+      };
+
+      // once the visitor takes the wheel, the auto-tour steps aside
+      let manual = false;
+      swatches.forEach((sw) => sw.addEventListener("click", () => {
+        manual = true; state.accent = sw.dataset.sw; apply();
+      }));
+      chips.forEach((chip) => chip.addEventListener("click", () => {
+        manual = true;
+        if (chip.dataset.mode !== undefined) state.dark = chip.dataset.mode === "dark";
+        if (chip.dataset.font !== undefined) state.font = chip.dataset.font;
+        apply();
+      }));
+
+      const tour = [
         { dark: false, accent: "blue", font: "" },
         { dark: true, accent: "blue", font: "" },
         { dark: true, accent: "purple", font: "font-serif" },
         { dark: false, accent: "green", font: "font-mono" },
         { dark: false, accent: "orange", font: "" },
       ];
-      const apply = (s) => {
-        mini.classList.toggle("dark", s.dark);
-        mini.classList.remove("font-serif", "font-mono");
-        if (s.font) mini.classList.add(s.font);
-        mini.dataset.accent = s.accent;
-        swatches.forEach((sw) => sw.classList.toggle("active", sw.dataset.sw === s.accent));
-      };
-      if (reduced) apply(states[2]);
+      apply();
+      if (reduced) { Object.assign(state, tour[2]); apply(); }
       else {
         let i = 0;
-        apply(states[0]);
         loopWhenVisible(mini, async () => {
           await sleep(1700);
-          i = (i + 1) % states.length;
-          apply(states[i]);
+          if (manual) { await sleep(2000); return; }
+          i = (i + 1) % tour.length;
+          Object.assign(state, tour[i]);
+          apply();
         });
       }
     }
