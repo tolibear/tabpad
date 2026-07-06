@@ -262,6 +262,44 @@ export function App() {
     applyAccent(accent);
   }, [accent]);
 
+  // LIVE sync: while the tab is visible, poll the folder every few seconds so
+  // external edits (agents, other apps) appear without a refresh. The mtime
+  // cache makes unchanged files free to skip.
+  const syncMtimes = useRef(new Map<string, number>());
+  useEffect(() => {
+    if (!loaded || mirrorStatus !== "connected") return;
+
+    let stopped = false;
+    let running = false;
+    const tick = async () => {
+      if (stopped || running || document.visibilityState !== "visible") return;
+      const handle = mirrorHandleRef.current;
+      if (!handle) return;
+      running = true;
+      try {
+        const imported = await syncWithDisk(handle, syncMtimes.current);
+        if (imported > 0 && !stopped) {
+          await refreshContentDays();
+          const scratch = await getPanel("scratchpad");
+          setPanelTexts((current) =>
+            focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratch.content },
+          );
+        }
+      } catch (error) {
+        console.warn("Tab Pad live sync failed", error);
+      } finally {
+        running = false;
+      }
+    };
+
+    const interval = window.setInterval(() => void tick(), 3000);
+    void tick();
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [loaded, mirrorStatus, refreshContentDays]);
+
   // keep the mirror folder self-describing for agents: which surfaces are on,
   // what today is, and how to write via the inbox
   useEffect(() => {

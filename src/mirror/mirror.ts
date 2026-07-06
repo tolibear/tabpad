@@ -129,7 +129,12 @@ const DAY_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
 // two-way sync over the SAME files humans and agents share.
 // per file, last write wins: a disk edit newer than the in-app edit is
 // imported; otherwise the app's version is written back out.
-export async function syncWithDisk(handle: FileSystemDirectoryHandleLike): Promise<number> {
+// `mtimes` is an optional cache so frequent polls skip unchanged files
+// without reading their contents.
+export async function syncWithDisk(
+  handle: FileSystemDirectoryHandleLike,
+  mtimes?: Map<string, number>,
+): Promise<number> {
   if (!handle.values) return 0;
   let imported = 0;
 
@@ -160,14 +165,22 @@ export async function syncWithDisk(handle: FileSystemDirectoryHandleLike): Promi
     }
   };
 
+  const readIfChanged = async (dir: FileSystemDirectoryHandleLike, name: string, cacheKey: string) => {
+    const disk = await readDiskFile(dir, name);
+    if (!disk) return null;
+    if (mtimes && mtimes.get(cacheKey) === disk.lastModified) return null;
+    mtimes?.set(cacheKey, disk.lastModified);
+    return disk;
+  };
+
   for await (const entry of handle.values()) {
     if (entry.kind === "file") {
       const match = DAY_FILE.exec(entry.name);
       if (match) {
-        const disk = await readDiskFile(handle, entry.name);
+        const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) await reconcileDay(match[1], "main", disk);
       } else if (entry.name === "scratchpad.md") {
-        const disk = await readDiskFile(handle, entry.name);
+        const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) {
           const panel = await getPanel("scratchpad");
           if (disk.text !== panel.content) {
@@ -187,7 +200,7 @@ export async function syncWithDisk(handle: FileSystemDirectoryHandleLike): Promi
         if (marginEntry.kind !== "file") continue;
         const match = DAY_FILE.exec(marginEntry.name);
         if (!match) continue;
-        const disk = await readDiskFile(margins, marginEntry.name);
+        const disk = await readIfChanged(margins, marginEntry.name, `margins/${marginEntry.name}`);
         if (disk) await reconcileDay(match[1], "margin", disk);
       }
     }
@@ -220,7 +233,7 @@ export async function writeAgentFiles(
     },
     write: {
       mode: "direct",
-      pickup: "next new-tab open or window focus",
+      pickup: "live — within a few seconds while the app is open; otherwise on next new-tab open",
       conflict: "last write wins per file (file mtime vs in-app edit time)",
     },
   };
@@ -243,8 +256,8 @@ and which surfaces are currently visible in the app.
 
 ## Editing
 
-Edit the files directly — your changes appear in the app the next time the
-human opens a new tab or refocuses it.
+Edit the files directly — your changes appear in the app live, within a few
+seconds while a tab is open (and otherwise on the next new-tab open).
 
 - **Last write wins, per file.** If the human edited a note in the app more
   recently than your file write, your version is overwritten. Re-read a file

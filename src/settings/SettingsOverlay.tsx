@@ -191,7 +191,7 @@ export function SettingsOverlay({
           </div>
           <p>
             your days live in this folder as plain .md files — shared with backups, other apps, and ai agents. edits
-            made to the files show up here on your next new tab. see AGENTS.md inside the folder.
+            made to the files show up here live. see AGENTS.md inside the folder.
           </p>
           <div className="mirror-actions">
             <button className="data-button" type="button" onClick={onEnableMirror}>
