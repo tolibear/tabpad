@@ -50,27 +50,6 @@ export async function listContentDays(beforeDate?: string, limit = Number.POSITI
     .slice(0, limit);
 }
 
-// append-only write used by the agent inbox: existing content is never replaced
-export async function appendToDay(date: string, field: "main" | "margin", text: string): Promise<DayRow | null> {
-  return db.transaction("rw", db.days, async () => {
-    const existing = await db.days.get(date);
-    const current = (field === "main" ? existing?.main : existing?.margin) ?? "";
-    const joined = current.trim() ? `${current.replace(/\n+$/, "")}\n${text.trim()}` : text.trim();
-    const main = field === "main" ? joined : existing?.main ?? "";
-    const margin = field === "margin" ? joined : existing?.margin ?? "";
-    const now = Date.now();
-    const row: DayRow = {
-      date,
-      main,
-      margin,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    };
-    await db.days.put(row);
-    return row;
-  });
-}
-
 export async function eraseAllNotes(): Promise<void> {
   await db.transaction("rw", db.days, db.panels, async () => {
     await db.days.clear();

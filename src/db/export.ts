@@ -89,7 +89,6 @@ function sanitizeSettings(value: Record<string, unknown>): Settings {
     weekStartsOn: pick("weekStartsOn", [0, 1]),
     editorSize: pick("editorSize", ["sm", "md", "lg"]),
     font: pick("font", ["sans", "serif", "mono"]),
-    mirrorEnabled: value.mirrorEnabled === true,
   };
 }
 

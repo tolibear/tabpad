@@ -14,7 +14,7 @@ Tab Pad is a Chrome extension that replaces the new-tab page with a local daily 
 - Scratchpad panel or per-day margins for side notes
 - Light/dark themes, six accent colors, serif/sans/mono
 - 100% local: no server, no account, zero permissions, works offline
-- JSON export/import and an optional plain-`.md` folder mirror
+- Your notes live as plain `.md` files in a folder you choose — readable and writable by other apps and AI agents (an `AGENTS.md` contract file is generated in the folder); JSON export/import for backups
 
 ## Development
 

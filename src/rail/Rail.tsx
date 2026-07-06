@@ -15,7 +15,6 @@ interface RailProps {
   contentDays: DayRow[];
   weekStartsOn: 0 | 1;
   currentTopKey: string;
-  mirrorEnabled: boolean;
   mirrorStatus: MirrorStatus;
   onJumpToDate: (date: Date) => void;
   onOpenSettings: () => void;
@@ -28,13 +27,13 @@ export function Rail({
   contentDays,
   weekStartsOn,
   currentTopKey,
-  mirrorEnabled,
   mirrorStatus,
   onJumpToDate,
   onOpenSettings,
   onReconnectMirror,
 }: RailProps) {
-  const needsReconnect = mirrorEnabled && (mirrorStatus === "reconnect" || mirrorStatus === "error");
+  const needsReconnect = mirrorStatus === "reconnect" || mirrorStatus === "error";
+  const needsSetup = mirrorStatus === "off";
 
   return (
     <aside className="rail" aria-label="Tab Pad navigation">
@@ -63,6 +62,11 @@ export function Rail({
         {needsReconnect ? (
           <button className="reconnect-chip" type="button" onClick={onReconnectMirror}>
             reconnect notes folder
+          </button>
+        ) : null}
+        {needsSetup ? (
+          <button className="reconnect-chip" type="button" onClick={onOpenSettings}>
+            choose your notes folder
           </button>
         ) : null}
       </div>

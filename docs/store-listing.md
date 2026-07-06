@@ -41,7 +41,8 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 > • 100% local — notes never leave your computer; no account, no server, no tracking, no analytics
 > • Zero permissions requested
 > • One-click JSON export/import for backups
-> • Optional folder mirror: writes each day as a plain Markdown (.md) file to a folder you choose — plays nicely with Obsidian or any text tooling
+> • Your days live as plain Markdown (.md) files in a folder you choose — works with Obsidian, git, and any text tooling
+> • AI-agent friendly: agents can read and write the same files; a generated AGENTS.md in the folder tells them exactly how
 >
 > Tab Pad is for people who think in days: a running log, meeting scraps, todos, gratitude lines, ideas — whatever today needs to hold.
 
@@ -75,7 +76,7 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 2. **The timeline.** Mid-scroll showing 3–4 past days flowing continuously, cursor hovering a past day. Caption overlay: "Every day you've written. One scroll."
 3. **⌘K natural-language jump.** Palette open with "two weeks ago" typed. Caption: "Jump anywhere: friday, nov 12, two weeks ago."
 4. **Dark theme + accent + margin layout.** Dark mode, purple accent, per-day margin visible with side notes. Shows customization in one shot.
-5. **Privacy/data card.** Settings sheet open on the storage section (folder mirror + export), with a caption: "100% local. Export anytime. Mirror to plain .md files."
+5. **Privacy/data card.** Settings sheet open on the notes-folder section, with a caption: "Your notes are plain .md files. 100% local. Agent-ready."
 
 Tip for consistent shots: set the window to exactly 1280×800 (or 2560×1600 and let the store downscale), hide bookmarks bar, use the same seeded data for all shots.
 

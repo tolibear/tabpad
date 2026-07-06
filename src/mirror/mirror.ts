@@ -108,6 +108,89 @@ export interface AgentSurfaces {
   scratchpad: boolean;
 }
 
+interface DiskFile {
+  text: string;
+  lastModified: number;
+}
+
+async function readDiskFile(dir: FileSystemDirectoryHandleLike, name: string): Promise<DiskFile | null> {
+  try {
+    const handle = await dir.getFileHandle(name);
+    if (!handle.getFile) return null;
+    const file = (await handle.getFile()) as { text(): Promise<string>; lastModified?: number };
+    return { text: await file.text(), lastModified: file.lastModified ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
+const DAY_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
+
+// two-way sync over the SAME files humans and agents share.
+// per file, last write wins: a disk edit newer than the in-app edit is
+// imported; otherwise the app's version is written back out.
+export async function syncWithDisk(handle: FileSystemDirectoryHandleLike): Promise<number> {
+  if (!handle.values) return 0;
+  let imported = 0;
+
+  const reconcileDay = async (date: string, field: "main" | "margin", disk: DiskFile) => {
+    const row = await db.days.get(date);
+    const current = (field === "main" ? row?.main : row?.margin) ?? "";
+    if (disk.text === current) return;
+    if (!row || disk.lastModified > row.updatedAt) {
+      const next: DayRow = {
+        date,
+        main: field === "main" ? disk.text : row?.main ?? "",
+        margin: field === "margin" ? disk.text : row?.margin ?? "",
+        createdAt: row?.createdAt ?? disk.lastModified,
+        updatedAt: disk.lastModified,
+      };
+      if (hasDayContent(next.main, next.margin) || row) {
+        await db.days.put(next);
+        imported += 1;
+      }
+    } else {
+      // the app's copy is newer — push it back to disk
+      await writeTextFile(handle, field === "main" ? [`${date}.md`] : ["margins", `${date}.md`], current);
+    }
+  };
+
+  for await (const entry of handle.values()) {
+    if (entry.kind === "file") {
+      const match = DAY_FILE.exec(entry.name);
+      if (match) {
+        const disk = await readDiskFile(handle, entry.name);
+        if (disk) await reconcileDay(match[1], "main", disk);
+      } else if (entry.name === "scratchpad.md") {
+        const disk = await readDiskFile(handle, entry.name);
+        if (disk) {
+          const panel = await getPanel("scratchpad");
+          if (disk.text !== panel.content) {
+            if (disk.lastModified > panel.updatedAt) {
+              await db.panels.put({ id: "scratchpad", content: disk.text, updatedAt: disk.lastModified });
+              imported += 1;
+            } else {
+              await writeTextFile(handle, ["scratchpad.md"], panel.content);
+            }
+          }
+        }
+      }
+    } else if (entry.kind === "directory" && entry.name === "margins") {
+      const margins = await handle.getDirectoryHandle("margins");
+      if (!margins.values) continue;
+      for await (const marginEntry of margins.values()) {
+        if (marginEntry.kind !== "file") continue;
+        const match = DAY_FILE.exec(marginEntry.name);
+        if (!match) continue;
+        const disk = await readDiskFile(margins, marginEntry.name);
+        if (disk) await reconcileDay(match[1], "margin", disk);
+      }
+    }
+  }
+
+  return imported;
+}
+
 // tabpad.json + AGENTS.md make the mirror folder self-describing for agents:
 // what exists, what's enabled, and exactly how to add notes safely
 export async function writeAgentFiles(
@@ -125,17 +208,15 @@ export async function writeAgentFiles(
       margins: surfaces.margins,
       scratchpad: surfaces.scratchpad,
     },
-    read: {
+    files: {
       day: "<YYYY-MM-DD>.md",
       margin: "margins/<YYYY-MM-DD>.md",
       scratchpad: "scratchpad.md",
     },
     write: {
-      path: "inbox/",
-      semantics: "append",
-      day: "inbox/<YYYY-MM-DD>.md",
-      margin: "inbox/<YYYY-MM-DD>.margin.md",
-      scratchpad: "inbox/scratchpad.md",
+      mode: "direct",
+      pickup: "next new-tab open or window focus",
+      conflict: "last write wins per file (file mtime vs in-app edit time)",
     },
   };
   await writeTextFile(handle, ["tabpad.json"], `${JSON.stringify(manifest, null, 2)}\n`);
@@ -145,77 +226,37 @@ export async function writeAgentFiles(
 function agentsGuide(surfaces: AgentSurfaces): string {
   return `# Tab Pad — agent guide
 
-This folder is the live mirror of a human's Tab Pad daily notepad (a Chrome
-new-tab extension). Check \`tabpad.json\` for today's date and which surfaces
-are currently enabled.
+This folder IS a human's Tab Pad daily notepad (a Chrome new-tab extension).
+Humans and agents share the same files. Check \`tabpad.json\` for today's date
+and which surfaces are currently visible in the app.
 
-## Reading
+## The files
 
-- \`<YYYY-MM-DD>.md\` — that day's note
-- \`margins/<YYYY-MM-DD>.md\` — that day's side notes${surfaces.margins ? "" : " (margins are currently disabled in the app, but the data is kept)"}
-- \`scratchpad.md\` — the persistent scratchpad${surfaces.scratchpad ? "" : " (currently hidden in the app, but the data is kept)"}
+- \`<YYYY-MM-DD>.md\` — that day's note (create the file to write to a new date, past or future)
+- \`margins/<YYYY-MM-DD>.md\` — that day's side notes${surfaces.margins ? "" : " (currently hidden in the app, but still synced)"}
+- \`scratchpad.md\` — the persistent scratchpad${surfaces.scratchpad ? "" : " (currently hidden in the app, but still synced)"}
 
-Do NOT edit these files directly — Tab Pad overwrites them on every keystroke.
+## Editing
 
-## Writing (the inbox)
+Edit the files directly — your changes appear in the app the next time the
+human opens a new tab or refocuses it.
 
-To add content, create a file in \`inbox/\`. On the next new-tab open, Tab Pad
-APPENDS its contents to the target and deletes the file (the deletion is your
-receipt). Appending is the only write operation — you can never damage or
-overwrite the human's existing notes.
-
-- \`inbox/<YYYY-MM-DD>.md\` → appended to that day's note (any date, past or future)
-- \`inbox/<YYYY-MM-DD>.margin.md\` → appended to that day's side notes
-- \`inbox/scratchpad.md\` → appended to the scratchpad
+- **Last write wins, per file.** If the human edited a note in the app more
+  recently than your file write, your version is overwritten. Re-read a file
+  just before writing it, and avoid editing a note the human is actively
+  typing in right now.
+- Prefer appending lines over rewriting whole files.
+- Todos go on the day they should happen, as \`- [ ] task\` lines.
+- Reference material and running lists belong in \`scratchpad.md\`.
+- Sign what you add (e.g. \`— added by <agent name>\`) so the human knows the source.
+- Keep entries short; the human reads these on every new tab.
 
 ## Markdown that renders in the app
 
-- \`- [ ] task\` / \`- [x] done task\` — checkboxes the human can tick
+- \`- [ ] task\` / \`- [x] done\` — checkboxes the human can tick
 - \`# heading\` (through \`####\`), \`- bullet\`, \`> quote\`, \`---\` divider
 - \`**bold**\`, \`*italic*\`, \`~~strikethrough~~\`, \`\` \`code\` \`\`, \`[label](url)\`
-
-## Conventions
-
-- Todos for the human go on the day they should happen, as \`- [ ]\` tasks.
-- Reference material and running lists belong in the scratchpad.
-- Keep entries short; the human reads these on every new tab.
-- Sign entries you add, e.g. \`— added by <agent name>\`, so the human knows the source.
 `;
-}
-
-// consume inbox files: returns entries for the app to append, already removed
-// from disk by the caller after a successful apply
-export interface InboxEntry {
-  name: string;
-  text: string;
-}
-
-export async function readInbox(handle: FileSystemDirectoryHandleLike): Promise<InboxEntry[]> {
-  let inbox: FileSystemDirectoryHandleLike;
-  try {
-    inbox = await handle.getDirectoryHandle("inbox");
-  } catch {
-    return [];
-  }
-  if (!inbox.values) return [];
-
-  const entries: InboxEntry[] = [];
-  for await (const item of inbox.values()) {
-    if (item.kind !== "file" || !item.name.endsWith(".md")) continue;
-    try {
-      const file = await inbox.getFileHandle(item.name);
-      const text = file.getFile ? await (await file.getFile()).text() : "";
-      if (text.trim()) entries.push({ name: item.name, text });
-    } catch {
-      // unreadable file: leave it for the human to inspect
-    }
-  }
-  return entries;
-}
-
-export async function removeInboxEntry(handle: FileSystemDirectoryHandleLike, name: string): Promise<void> {
-  const inbox = await handle.getDirectoryHandle("inbox");
-  await inbox.removeEntry?.(name);
 }
 
 export function isMirrorPermissionError(error: unknown): boolean {

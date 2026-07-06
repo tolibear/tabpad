@@ -29,7 +29,6 @@ interface SettingsOverlayProps {
   weekStartsOn: Settings["weekStartsOn"];
   editorSize: Settings["editorSize"];
   font: Settings["font"];
-  mirrorEnabled: boolean;
   mirrorStatus: MirrorStatus;
   mirrorName: string;
   dataMessage: string;
@@ -42,7 +41,6 @@ interface SettingsOverlayProps {
   onEditorSizeChange: (size: Settings["editorSize"]) => void;
   onFontChange: (font: Settings["font"]) => void;
   onEnableMirror: () => void;
-  onDisableMirror: () => void;
   onReconnectMirror: () => void;
   onExport: () => void;
   onImport: (file: File | undefined) => void;
@@ -58,7 +56,6 @@ export function SettingsOverlay({
   weekStartsOn,
   editorSize,
   font,
-  mirrorEnabled,
   mirrorStatus,
   mirrorName,
   dataMessage,
@@ -71,7 +68,6 @@ export function SettingsOverlay({
   onEditorSizeChange,
   onFontChange,
   onEnableMirror,
-  onDisableMirror,
   onReconnectMirror,
   onExport,
   onImport,
@@ -187,31 +183,25 @@ export function SettingsOverlay({
           </a>
         </section>
 
-        <section className="settings-section" aria-label="storage">
-          <h3>storage</h3>
+        <section className="settings-section" aria-label="notes folder">
+          <h3>notes folder</h3>
           <div className="storage-row">
-            <span>folder mirror</span>
-            <strong>{mirrorStatusLabel(mirrorEnabled, mirrorStatus)}</strong>
+            <span>{mirrorName || "no folder chosen yet"}</span>
+            <strong>{mirrorStatusLabel(mirrorStatus)}</strong>
           </div>
-          {mirrorName ? <p>{mirrorName}</p> : null}
-          <p>writes each day as a plain .md file. edits made to these files outside tab pad will be overwritten.</p>
+          <p>
+            your days live in this folder as plain .md files — shared with backups, other apps, and ai agents. edits
+            made to the files show up here on your next new tab. see AGENTS.md inside the folder.
+          </p>
           <div className="mirror-actions">
-            {mirrorEnabled ? (
-              <>
-                <button className="data-button" type="button" onClick={onDisableMirror}>
-                  <span>off</span>
-                </button>
-                {mirrorStatus === "reconnect" || mirrorStatus === "error" ? (
-                  <button className="data-button" type="button" onClick={onReconnectMirror}>
-                    <span>reconnect</span>
-                  </button>
-                ) : null}
-              </>
-            ) : (
-              <button className="data-button" type="button" onClick={onEnableMirror}>
-                <span>choose folder</span>
+            <button className="data-button" type="button" onClick={onEnableMirror}>
+              <span>{mirrorName ? "change folder" : "choose folder"}</span>
+            </button>
+            {mirrorStatus === "reconnect" || mirrorStatus === "error" ? (
+              <button className="data-button" type="button" onClick={onReconnectMirror}>
+                <span>reconnect</span>
               </button>
-            )}
+            ) : null}
           </div>
         </section>
 
@@ -252,8 +242,8 @@ export function SettingsOverlay({
   );
 }
 
-function mirrorStatusLabel(enabled: boolean, status: MirrorStatus): string {
-  if (!enabled) return "off";
+function mirrorStatusLabel(status: MirrorStatus): string {
+  if (status === "off") return "not set up";
   if (status === "connected") return "connected";
   if (status === "unsupported") return "unavailable";
   if (status === "error") return "needs attention";

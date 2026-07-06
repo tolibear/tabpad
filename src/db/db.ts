@@ -23,7 +23,6 @@ export interface Settings {
   weekStartsOn: 0 | 1;
   editorSize: "sm" | "md" | "lg";
   font: "sans" | "serif" | "mono";
-  mirrorEnabled: boolean;
 }
 
 export interface MetaRow {
@@ -39,7 +38,6 @@ export const defaultSettings: Settings = {
   weekStartsOn: 0,
   editorSize: "md",
   font: "sans",
-  mirrorEnabled: false,
 };
 
 export class DaybookDB extends Dexie {

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createDaybookChannel, type DaybookChannel } from "./db/broadcast";
 import type { DayRow, PanelRow, Settings } from "./db/db";
-import { appendToDay, eraseAllNotes, getDay, listContentDays, saveDayFields } from "./db/days";
+import { eraseAllNotes, getDay, listContentDays, saveDayFields } from "./db/days";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
-import { appendToPanel, getPanel, savePanel } from "./db/panels";
+import { getPanel, savePanel } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
 import { addDays, dateFromKey, dateKey, daysBetween } from "./lib/dates";
 import {
@@ -31,46 +31,14 @@ import {
   pickMirrorDirectory,
   queryMirrorPermission,
   queryMirrorStatus,
-  readInbox,
-  removeInboxEntry,
   requestMirrorPermission,
-  type FileSystemDirectoryHandleLike,
+  syncWithDisk,
   type MirrorStatus,
   writeAgentFiles,
   writeDayMirror,
   writeFullMirror,
   writePanelMirror,
 } from "./mirror/mirror";
-
-// agents drop .md files in the mirror's inbox/ — append each to its target,
-// re-mirror the result, and delete the file (the deletion is the receipt)
-async function processInbox(handle: FileSystemDirectoryHandleLike): Promise<number> {
-  const entries = await readInbox(handle);
-  let applied = 0;
-  for (const entry of entries) {
-    const marginMatch = /^(\d{4}-\d{2}-\d{2})\.margin\.md$/.exec(entry.name);
-    const dayMatch = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(entry.name);
-    try {
-      if (marginMatch && dateFromKey(marginMatch[1])) {
-        const row = await appendToDay(marginMatch[1], "margin", entry.text);
-        if (row) await writeDayMirror(handle, row);
-      } else if (dayMatch && dateFromKey(dayMatch[1])) {
-        const row = await appendToDay(dayMatch[1], "main", entry.text);
-        if (row) await writeDayMirror(handle, row);
-      } else if (entry.name === "scratchpad.md") {
-        const panel = await appendToPanel("scratchpad", entry.text);
-        await writePanelMirror(handle, panel);
-      } else {
-        continue; // unknown filename: leave it for the human to inspect
-      }
-      await removeInboxEntry(handle, entry.name);
-      applied += 1;
-    } catch (error) {
-      console.warn("Tab Pad inbox entry failed", entry.name, error);
-    }
-  }
-  return applied;
-}
 
 export function App() {
   const today = useToday();
@@ -96,7 +64,6 @@ export function App() {
   const [showDayMargins, setShowDayMargins] = useState(false);
   const [editorSize, setEditorSize] = useState<Settings["editorSize"]>("md");
   const [font, setFont] = useState<Settings["font"]>("sans");
-  const [mirrorEnabled, setMirrorEnabled] = useState(false);
   const [mirrorStatus, setMirrorStatus] = useState<MirrorStatus>("off");
   const [mirrorName, setMirrorName] = useState("");
   const [dayTexts, setDayTexts] = useState<Record<string, string>>({});
@@ -150,17 +117,11 @@ export function App() {
     setShowDayMargins(settings.margins);
     setEditorSize(settings.editorSize);
     setFont(settings.font);
-    setMirrorEnabled(settings.mirrorEnabled);
   }, []);
 
-  const refreshMirrorState = useCallback(async (enabled: boolean) => {
-    if (!enabled) {
-      mirrorHandleRef.current = null;
-      setMirrorName("");
-      setMirrorStatus("off");
-      return null;
-    }
-
+  // the folder is the app's storage — always active once a folder is chosen;
+  // "off" only means no folder has been picked yet
+  const refreshMirrorState = useCallback(async () => {
     const handle = await getMirrorDirectory();
     mirrorHandleRef.current = handle;
     setMirrorName(handle?.name ?? "");
@@ -193,20 +154,15 @@ export function App() {
   }, []);
 
   const loadDocuments = useCallback(async () => {
-    // apply agent inbox entries first so they're part of what loads below
+    // pull in any file edits (agents, other apps) before loading state below —
+    // humans and agents share the same files
     try {
-      const early = await getSettings();
-      if (early.mirrorEnabled) {
-        const handle = await getMirrorDirectory();
-        if (handle && (await queryMirrorPermission(handle)) === "granted") {
-          const applied = await processInbox(handle);
-          if (applied > 0) {
-            setDataMessage(`added ${applied} note${applied > 1 ? "s" : ""} from the inbox`);
-          }
-        }
+      const handle = await getMirrorDirectory();
+      if (handle && (await queryMirrorPermission(handle)) === "granted") {
+        await syncWithDisk(handle);
       }
     } catch (error) {
-      console.warn("Tab Pad inbox check failed", error);
+      console.warn("Tab Pad folder sync failed", error);
     }
 
     const [day, scratchpad, settings, rows] = await Promise.all([
@@ -236,7 +192,7 @@ export function App() {
       focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratchpad.content },
     );
     applySettingsState(settings);
-    void refreshMirrorState(settings.mirrorEnabled);
+    void refreshMirrorState();
     setContentDays(rows);
     loadedRef.current = true;
     setLoaded(true);
@@ -271,7 +227,7 @@ export function App() {
       if (message.type === "settings") {
         void getSettings().then((settings) => {
           applySettingsState(settings);
-          void refreshMirrorState(settings.mirrorEnabled);
+          void refreshMirrorState();
         });
       }
       if (message.type === "import") {
@@ -309,25 +265,25 @@ export function App() {
   // keep the mirror folder self-describing for agents: which surfaces are on,
   // what today is, and how to write via the inbox
   useEffect(() => {
-    if (!loaded || !mirrorEnabled || mirrorStatus !== "connected") return;
+    if (!loaded || mirrorStatus !== "connected") return;
     const handle = mirrorHandleRef.current;
     if (!handle) return;
     void writeAgentFiles(handle, { margins: showDayMargins, scratchpad: showScratchpad }, todayKey).catch((error) =>
       console.warn("Tab Pad agent manifest write failed", error),
     );
-  }, [loaded, mirrorEnabled, mirrorStatus, showDayMargins, showScratchpad, todayKey]);
+  }, [loaded, mirrorStatus, showDayMargins, showScratchpad, todayKey]);
 
   const saveSettingsAndBroadcast = useCallback(async (patch: Partial<Settings>) => {
     const settings = await saveSettings(patch);
     applySettingsState(settings);
-    void refreshMirrorState(settings.mirrorEnabled);
+    void refreshMirrorState();
     channelRef.current?.post({ type: "settings", key: "settings", updatedAt: Date.now() });
     return settings;
   }, [applySettingsState, refreshMirrorState]);
 
   const changeSettings = useCallback(
     (patch: Partial<Settings>) => {
-      applySettingsState({ theme: themePreference, accent, scratchpad: showScratchpad, margins: showDayMargins, weekStartsOn, editorSize, font, mirrorEnabled, ...patch });
+      applySettingsState({ theme: themePreference, accent, scratchpad: showScratchpad, margins: showDayMargins, weekStartsOn, editorSize, font, ...patch });
       if (!loaded) return;
 
       void saveSettingsAndBroadcast(patch);
@@ -338,7 +294,6 @@ export function App() {
       editorSize,
       font,
       loaded,
-      mirrorEnabled,
       showDayMargins,
       showScratchpad,
       saveSettingsAndBroadcast,
@@ -354,7 +309,7 @@ export function App() {
   }, []);
 
   const flushMirrorDay = useCallback(async (row: DayRow | null) => {
-    if (!row || !mirrorEnabled || mirrorStatus !== "connected") return;
+    if (!row || mirrorStatus !== "connected") return;
     const handle = mirrorHandleRef.current;
     if (!handle) return;
 
@@ -364,10 +319,10 @@ export function App() {
       console.warn("Daybook mirror day write failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
-  }, [mirrorEnabled, mirrorStatus]);
+  }, [mirrorStatus]);
 
   const queueMirrorDay = useCallback((row: DayRow | null) => {
-    if (!row || !mirrorEnabled || mirrorStatus !== "connected") return;
+    if (!row || mirrorStatus !== "connected") return;
     const current = mirrorDayTimers.current.get(row.date);
     if (current) window.clearTimeout(current);
     const next = window.setTimeout(() => {
@@ -375,10 +330,10 @@ export function App() {
       void flushMirrorDay(row);
     }, 800);
     mirrorDayTimers.current.set(row.date, next);
-  }, [flushMirrorDay, mirrorEnabled, mirrorStatus]);
+  }, [flushMirrorDay, mirrorStatus]);
 
   const flushMirrorPanel = useCallback(async (panel: PanelRow) => {
-    if (!mirrorEnabled || mirrorStatus !== "connected") return;
+    if (mirrorStatus !== "connected") return;
     const handle = mirrorHandleRef.current;
     if (!handle) return;
 
@@ -388,10 +343,10 @@ export function App() {
       console.warn("Daybook mirror panel write failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
-  }, [mirrorEnabled, mirrorStatus]);
+  }, [mirrorStatus]);
 
   const queueMirrorPanel = useCallback((panel: PanelRow) => {
-    if (!mirrorEnabled || mirrorStatus !== "connected") return;
+    if (mirrorStatus !== "connected") return;
     const current = mirrorPanelTimers.current.get(panel.id);
     if (current) window.clearTimeout(current);
     const next = window.setTimeout(() => {
@@ -399,7 +354,7 @@ export function App() {
       void flushMirrorPanel(panel);
     }, 800);
     mirrorPanelTimers.current.set(panel.id, next);
-  }, [flushMirrorPanel, mirrorEnabled, mirrorStatus]);
+  }, [flushMirrorPanel, mirrorStatus]);
 
   // rail excerpts don't need to update per keystroke — refresh shortly after
   // typing pauses
@@ -568,21 +523,15 @@ export function App() {
       mirrorHandleRef.current = handle;
       setMirrorName(handle.name);
       setMirrorStatus("connected");
+      // pull anything already in the folder first, then push the full state
+      await syncWithDisk(handle);
       await writeFullMirror(handle);
-      await saveSettingsAndBroadcast({ mirrorEnabled: true });
-      setDataMessage(`mirror connected to ${handle.name}`);
+      await refreshContentDays();
+      setDataMessage(`notes folder: ${handle.name}`);
     } catch (error) {
       console.warn("Daybook mirror setup failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
-  };
-
-  const disableMirror = async () => {
-    await saveSettingsAndBroadcast({ mirrorEnabled: false });
-    mirrorHandleRef.current = null;
-    setMirrorName("");
-    setMirrorStatus("off");
-    setDataMessage("folder mirror off");
   };
 
   const reconnectMirror = async () => {
@@ -636,7 +585,19 @@ export function App() {
       focusedPanelRef.current = null;
     };
     const onWindowFocus = () => {
-      if (loadedRef.current) void refreshContentDays();
+      if (!loadedRef.current) return;
+      void (async () => {
+        // pick up file edits made while this tab was in the background
+        try {
+          const handle = mirrorHandleRef.current;
+          if (handle && (await queryMirrorPermission(handle)) === "granted") {
+            await syncWithDisk(handle);
+          }
+        } catch (error) {
+          console.warn("Tab Pad folder sync failed", error);
+        }
+        await refreshContentDays();
+      })();
     };
     window.addEventListener("blur", onWindowBlur);
     window.addEventListener("focus", onWindowFocus);
@@ -687,7 +648,6 @@ export function App() {
         contentDays={contentDays}
         weekStartsOn={weekStartsOn}
         currentTopKey={currentTopKey}
-        mirrorEnabled={mirrorEnabled}
         mirrorStatus={mirrorStatus}
         onJumpToDate={jumpToDate}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -726,7 +686,6 @@ export function App() {
         weekStartsOn={weekStartsOn}
         editorSize={editorSize}
         font={font}
-        mirrorEnabled={mirrorEnabled}
         mirrorStatus={mirrorStatus}
         mirrorName={mirrorName}
         dataMessage={dataMessage}
@@ -739,7 +698,6 @@ export function App() {
         onEditorSizeChange={(editorSize) => changeSettings({ editorSize })}
         onFontChange={(font) => changeSettings({ font })}
         onEnableMirror={() => void enableMirror()}
-        onDisableMirror={() => void disableMirror()}
         onReconnectMirror={() => void reconnectMirror()}
         onExport={() => void exportJson()}
         onImport={(file) => void importJson(file)}
