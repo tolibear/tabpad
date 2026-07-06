@@ -1,5 +1,5 @@
-import { Download, Upload, X } from "lucide-react";
-import { useRef } from "react";
+import { Bot, Check, Copy, Download, Upload, X } from "lucide-react";
+import { useRef, useState } from "react";
 import type { Settings } from "../db/db";
 import { accentColors, type AccentColor, type ThemePreference } from "../lib/theme";
 import type { MirrorStatus } from "../mirror/mirror";
@@ -74,8 +74,19 @@ export function SettingsOverlay({
   onEraseAll,
 }: SettingsOverlayProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   if (!open) return null;
+
+  const copyAgentPrompt = () => {
+    void navigator.clipboard
+      .writeText(buildAgentPrompt(mirrorName))
+      .then(() => {
+        setPromptCopied(true);
+        window.setTimeout(() => setPromptCopied(false), 2500);
+      })
+      .catch(() => undefined);
+  };
 
   return (
     <div
@@ -205,6 +216,29 @@ export function SettingsOverlay({
           </div>
         </section>
 
+        <section className="settings-section" aria-label="your agent">
+          <h3>your agent</h3>
+          <p>
+            let claude code (or any coding agent) read and write your days. paste the prompt into your agent once —
+            it finds your notes folder, learns the rules, remembers them permanently, and proves it worked by
+            writing to today's note while you watch.
+          </p>
+          {mirrorStatus === "connected" ? (
+            <div className="data-actions">
+              <button className="data-button agent-connect" type="button" onClick={copyAgentPrompt}>
+                {promptCopied ? (
+                  <Check aria-hidden="true" size={14} strokeWidth={1.8} />
+                ) : (
+                  <Bot aria-hidden="true" size={14} strokeWidth={1.8} />
+                )}
+                <span>{promptCopied ? "copied — paste it into your agent" : "copy the connect prompt"}</span>
+              </button>
+            </div>
+          ) : (
+            <p className="data-message">connect a notes folder above first — that's what your agent reads and writes.</p>
+          )}
+        </section>
+
         <section className="settings-section" aria-label="data">
           <h3>data</h3>
           <div className="data-actions">
@@ -240,6 +274,26 @@ export function SettingsOverlay({
       </aside>
     </div>
   );
+}
+
+function buildAgentPrompt(folderName: string): string {
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return `Connect yourself to my Tab Pad daily notepad. Tab Pad is my new-tab notes app; it syncs a folder of plain markdown files on this computer, and you can read and write them directly — changes appear live in my open tab within seconds.
+
+1. FIND the notes folder. It is named "${folderName}" and contains a file called tabpad.json. Locate it, e.g.:
+   mdfind -name tabpad.json    (or: find ~ -maxdepth 5 -name tabpad.json 2>/dev/null)
+   Confirm the folder name matches "${folderName}".
+
+2. LEARN the rules. Read AGENTS.md and tabpad.json in that folder. In short: one file per day (YYYY-MM-DD.md), scratchpad.md for persistent notes, margins/ for per-day side notes. Edit files directly; prefer appending over rewriting; re-read a file just before writing it (last write wins per file); sign what you add.
+
+3. REMEMBER this permanently. Save the folder's absolute path and a one-line summary of the rules to your persistent memory or instructions file (CLAUDE.md, memory, etc.) under "Tab Pad notes folder" — so every future session can use it without searching.
+
+4. PROVE it worked. Append this line to today's file (${todayKey}.md):
+   - [x] agent connected — <your name>
+   I'll watch it appear in my tab.
+
+Ongoing: when I ask you to remind me of something or add a todo, put it as a "- [ ]" line on the day it should happen (create the file if needed — past and future dates are fine). Reference material and running lists go in scratchpad.md. Check tabpad.json for today's date whenever you write.`;
 }
 
 function mirrorStatusLabel(status: MirrorStatus): string {
