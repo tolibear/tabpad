@@ -1,4 +1,3 @@
-import { Lock } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
 import { migrateLegacyDb, type DayRow, type PanelRow, type Settings } from "./db/db";
@@ -901,6 +900,8 @@ export function App() {
     // day between here and there and hang the tab
     const distance = daysBetween(today, date);
     const clamped = Math.abs(distance) > 3650 ? addDays(today, Math.sign(distance) * 3650) : date;
+    // any jump leaves focus mode — the target would otherwise be hidden
+    setFocusDayKey(null);
     setJumpTarget({ date: clamped, id: Date.now() });
   }, [today]);
 
@@ -1028,6 +1029,7 @@ export function App() {
         layoutMode={`${showScratchpad}-${showDayMargins}`}
         focusDayKey={focusDayKey}
         activeDayKey={activeDayKey}
+        privacyMode={privacyMode}
         onToggleFocusDay={toggleFocusDay}
         onDayTextChange={changeDayText}
         onDayMarginChange={changeDayMargin}
@@ -1080,6 +1082,7 @@ export function App() {
       {loaded ? (
       <RightPanel
         show={showScratchpad}
+        privacyMode={privacyMode}
         value={panelTexts[fixedPanelId]}
         onValueChange={(value) => changePanelText(fixedPanelId, value)}
         onBlur={() => { void persistPanel(fixedPanelId, true); nudgeSync(); }}
@@ -1087,15 +1090,6 @@ export function App() {
           focusedPanelRef.current = focused ? fixedPanelId : null;
         }}
       />
-      ) : null}
-      {privacyMode ? (
-        <div className="privacy-overlay" role="status">
-          <Lock aria-hidden="true" size={26} strokeWidth={1.6} />
-          <p>notes hidden</p>
-          <button className="data-button" type="button" onClick={togglePrivacy}>
-            <span>show notes</span>
-          </button>
-        </div>
       ) : null}
     </main>
   );

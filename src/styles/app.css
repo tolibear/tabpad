@@ -1211,6 +1211,17 @@
   color: var(--faint);
   cursor: pointer;
   padding: 0;
+  /* hidden until the row is hovered, the day is being edited, or focus mode
+     is on — visibility (not display) so the header layout never shifts */
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.day-section:hover .focus-toggle,
+.focus-toggle.shown,
+.focus-toggle.active,
+.focus-toggle:focus-visible {
+  opacity: 1;
 }
 
 .focus-toggle:hover {
@@ -1244,32 +1255,33 @@
   min-height: 100vh;
 }
 
+/* the whole viewport-high block is a click-to-write target */
+.app-shell.focus-mode .day-section.focus-day .day-body {
+  min-height: calc(100vh - 140px);
+}
+
 .app-shell.focus-mode .day-section.focus-day.with-margin {
   display: grid;
 }
 
-/* ---- privacy mode: hide every note behind an opaque cover ---- */
+/* ---- privacy mode: every note renders as read-only gibberish ---- */
 
-.privacy-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: var(--bg);
-  color: var(--muted);
+/* no checkbox clicks, no click-to-edit, no copyable gibberish */
+.app-shell.privacy-mode .static-day-shell,
+.app-shell.privacy-mode .privacy-scramble {
+  pointer-events: none;
+  user-select: none;
 }
 
-.privacy-overlay p {
-  margin: 0;
-  font-size: 13px;
+.privacy-scramble {
+  color: var(--ink);
+  font-size: var(--editor-font-size);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
 }
 
-/* keep the brand row (with the lock) clickable above the cover */
-.app-shell.privacy-mode .rail-mark {
-  position: relative;
-  z-index: 50;
+.app-shell.privacy-mode .noted-excerpt {
+  user-select: none;
 }

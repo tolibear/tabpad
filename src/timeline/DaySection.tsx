@@ -54,9 +54,9 @@ export function DaySection({
         <span className="date-number">{shortDate(date)}</span>
         <span className="weekday">{shortWeekday(date)}</span>
         {isToday ? <span className="today-dot" aria-hidden="true" /> : null}
-        {(isActive || isFocusDay) && onToggleFocus ? (
+        {onToggleFocus ? (
           <button
-            className={isFocusDay ? "focus-toggle active" : "focus-toggle"}
+            className={["focus-toggle", isFocusDay ? "active" : "", isActive ? "shown" : ""].filter(Boolean).join(" ")}
             type="button"
             aria-label={isFocusDay ? "exit focus mode" : "focus on this day"}
             aria-pressed={isFocusDay}

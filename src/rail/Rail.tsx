@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DayRow } from "../db/db";
 import { firstLineExcerpt, hasDayContent } from "../db/days";
 import { calendarDays, dateFromKey, dateKey, monthLabel, shortDate, shortWeekday } from "../lib/dates";
+import { scrambleText } from "../lib/scramble";
 import type { MirrorStatus } from "../mirror/mirror";
 
 interface RailProps {
@@ -92,6 +93,7 @@ export function Rail({
         todayText={todayText}
         contentDays={contentDays}
         currentTopKey={currentTopKey}
+        privacyMode={privacyMode}
         onJumpToDate={onJumpToDate}
       />
       <div className="rail-bottom">
@@ -196,10 +198,11 @@ interface NotedDaysProps {
   todayText: string;
   contentDays: DayRow[];
   currentTopKey: string;
+  privacyMode: boolean;
   onJumpToDate: (date: Date) => void;
 }
 
-function NotedDays({ today, todayText, contentDays, currentTopKey, onJumpToDate }: NotedDaysProps) {
+function NotedDays({ today, todayText, contentDays, currentTopKey, privacyMode, onJumpToDate }: NotedDaysProps) {
   const rows = useMemo(() => notedRows(today, todayText, contentDays), [contentDays, today, todayText]);
 
   return (
@@ -222,7 +225,7 @@ function NotedDays({ today, todayText, contentDays, currentTopKey, onJumpToDate 
                 <span className="noted-date">
                   {date ? shortDate(date) : row.date} {date ? `· ${shortWeekday(date)}` : ""}
                 </span>
-                <span className="noted-excerpt">{row.excerpt}</span>
+                <span className="noted-excerpt">{privacyMode ? scrambleText(row.excerpt) : row.excerpt}</span>
               </button>
             );
           })

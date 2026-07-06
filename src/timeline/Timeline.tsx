@@ -1,7 +1,10 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DayRow } from "../db/db";
 import { dateKey, daysBetween } from "../lib/dates";
+import { scrambleText } from "../lib/scramble";
 import { DaySection, focusEditorAtEnd } from "./DaySection";
+
+const noopChange = () => undefined;
 import { buildTimelineWindow, requiredFutureCount, requiredPastCount, type TimelineEntry } from "./jump";
 
 export interface JumpTarget {
@@ -23,6 +26,7 @@ interface TimelineProps {
   layoutMode: string;
   focusDayKey: string | null;
   activeDayKey: string | null;
+  privacyMode: boolean;
   onToggleFocusDay: (key: string) => void;
   onDayTextChange: (key: string, value: string) => void;
   onDayMarginChange: (key: string, value: string) => void;
@@ -43,6 +47,7 @@ export const Timeline = memo(function Timeline({
   layoutMode,
   focusDayKey,
   activeDayKey,
+  privacyMode,
   onToggleFocusDay,
   onDayTextChange,
   onDayMarginChange,
@@ -324,7 +329,16 @@ export const Timeline = memo(function Timeline({
     }
   }, []);
 
+  // entering focus mode collapses the content to one day — the old scroll
+  // offset would leave its top cut off above the viewport
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (scroller && focusDayKey) scroller.scrollTop = 0;
+  }, [focusDayKey]);
+
   const activateDay = useCallback((key: string, part: "main" | "margin" = "main") => {
+    // scrambled notes must never swap in a real editor
+    if (privacyMode) return;
     setActivatedKeys((current) => {
       if (current.has(key)) return current;
       const next = new Set(current);
@@ -348,7 +362,7 @@ export const Timeline = memo(function Timeline({
       }
     };
     window.requestAnimationFrame(() => tryFocus(5));
-  }, []);
+  }, [privacyMode]);
 
   return (
     <section className="timeline" aria-label="daily notes" ref={scrollerRef}>
@@ -362,14 +376,17 @@ export const Timeline = memo(function Timeline({
             activated={activatedKeys.has(entry.key)}
             isActive={activeDayKey === entry.key}
             isFocusDay={focusDayKey === entry.key}
+            forceStatic={privacyMode}
             onToggleFocus={onToggleFocusDay}
-            value={dayTexts[entry.key] ?? entry.source?.main ?? ""}
-            marginValue={dayMargins[entry.key] ?? entry.source?.margin ?? ""}
+            // privacy mode: read-only gibberish in, and NO change path out —
+            // a scrambled string must never reach a save
+            value={maybeScramble(dayTexts[entry.key] ?? entry.source?.main ?? "", privacyMode)}
+            marginValue={maybeScramble(dayMargins[entry.key] ?? entry.source?.margin ?? "", privacyMode)}
             showMargin={showMargins}
             registerSection={registerSection}
             onActivate={activateDay}
-            onDayTextChange={onDayTextChange}
-            onDayMarginChange={onDayMarginChange}
+            onDayTextChange={privacyMode ? noopChange : onDayTextChange}
+            onDayMarginChange={privacyMode ? noopChange : onDayMarginChange}
             onDayBlur={onDayBlur}
             onDayMarginBlur={onDayMarginBlur}
             onDayFocusChange={onDayFocusChange}
@@ -386,12 +403,17 @@ function sectionTop(scroller: HTMLElement, node: HTMLElement): number {
   return Math.max(0, node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 24);
 }
 
+function maybeScramble(text: string, privacy: boolean): string {
+  return privacy ? scrambleText(text) : text;
+}
+
 interface TimelineDayProps {
   entry: TimelineEntry;
   today: Date;
   activated: boolean;
   isActive: boolean;
   isFocusDay: boolean;
+  forceStatic: boolean;
   onToggleFocus: (key: string) => void;
   value: string;
   marginValue: string;
@@ -412,6 +434,7 @@ const TimelineDay = memo(function TimelineDay({
   activated,
   isActive,
   isFocusDay,
+  forceStatic,
   onToggleFocus,
   value,
   marginValue,
@@ -427,8 +450,9 @@ const TimelineDay = memo(function TimelineDay({
 }: TimelineDayProps) {
   const isToday = entry.kind === "today";
   const nearToday = Math.abs(daysBetween(today, entry.date)) <= EDITABLE_RANGE;
-  // the focused-mode day must be a real editor even if it was a far static day
-  const isStatic = !isToday && !nearToday && !activated && !isFocusDay;
+  // the focused-mode day must be a real editor even if it was a far static
+  // day; privacy mode forces EVERY day static (read-only, no editors mounted)
+  const isStatic = forceStatic || (!isToday && !nearToday && !activated && !isFocusDay);
 
   return (
     <DaySection
