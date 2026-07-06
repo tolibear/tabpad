@@ -481,6 +481,16 @@
   padding: 16px 0;
 }
 
+.experimental-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
 .settings-control {
   display: grid;
   gap: 6px;

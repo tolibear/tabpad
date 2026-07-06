@@ -223,8 +223,10 @@ export function SettingsOverlay({
           )}
         </section>
 
-        <section className="settings-section" aria-label="your agent">
-          <h3>your agent</h3>
+        <section className="settings-section" aria-label="your agent (experimental)">
+          <h3>
+            your agent <span className="experimental-tag">experimental</span>
+          </h3>
           <p>
             let claude code (or any coding agent) read and write your days. paste the prompt into your agent once —
             it finds your notes folder, installs a tab pad skill (so "remind me thursday" just works in every future

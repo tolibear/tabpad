@@ -30,12 +30,37 @@ export function writeAccentPreference(accent: AccentColor): void {
   }
 }
 
+// saturated (light-theme) accent values — keep in sync with tokens.css and
+// public/bootstrap.js
+const faviconColors: Record<AccentColor, string> = {
+  blue: "#2f6bff",
+  green: "#16a34a",
+  red: "#dc2626",
+  yellow: "#ca8a04",
+  orange: "#ea580c",
+  purple: "#7c3aed",
+};
+
 export function applyAccent(accent: AccentColor): void {
   if (accent === "blue") {
     delete document.documentElement.dataset.accent;
   } else {
     document.documentElement.dataset.accent = accent;
   }
+  applyFavicon(accent);
+}
+
+// the tab's icon is a dot in the chosen accent color
+export function applyFavicon(accent: AccentColor): void {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="${faviconColors[accent]}"/></svg>`;
+  let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.type = "image/svg+xml";
+  link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 export function readThemePreference(): ThemePreference {

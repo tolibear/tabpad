@@ -50,22 +50,21 @@ export function DaySection({
         <div
           className="day-body"
           onClick={(event) => {
-            // clicking anywhere inside the day block starts writing there
-            if (isStatic) return;
+            // clicking ANYWHERE inside the day block starts writing there —
+            // including the empty space around a static day's text, which is
+            // most of the block
             const target = event.target as HTMLElement;
-            if (target.closest(".cm-editor") || target.closest("input")) return;
+            if (target.closest("input")) return; // checkbox toggles stay in StaticDay
+            if (isStatic) {
+              onActivate?.("main");
+              return;
+            }
+            if (target.closest(".cm-editor")) return;
             focusEditorAtEnd(event.currentTarget);
           }}
         >
           {isStatic ? (
-            <div
-              className="static-day-shell"
-              onClick={(event) => {
-                // checkbox toggles stay in StaticDay; anywhere else activates editing
-                if ((event.target as HTMLElement).closest("input")) return;
-                onActivate?.("main");
-              }}
-            >
+            <div className="static-day-shell">
               {value ? <StaticDay source={value} onChange={onValueChange} /> : <p className="static-empty-day">&nbsp;</p>}
             </div>
           ) : (
@@ -87,18 +86,17 @@ export function DaySection({
             onClick={(event) => {
               // clicking empty margin space drops the cursor into the margin editor
               const target = event.target as HTMLElement;
-              if (target.closest(".cm-editor") || target.closest("input")) return;
+              if (target.closest("input")) return;
+              if (isStatic) {
+                onActivate?.("margin");
+                return;
+              }
+              if (target.closest(".cm-editor")) return;
               focusEditorAtEnd(event.currentTarget);
             }}
           >
             {isStatic ? (
-              <div
-                className="static-day-shell"
-                onClick={(event) => {
-                  if ((event.target as HTMLElement).closest("input")) return;
-                  onActivate?.("margin");
-                }}
-              >
+              <div className="static-day-shell">
                 {marginValue ? <StaticDay source={marginValue} onChange={(next) => onMarginChange?.(next)} /> : <p className="static-empty-day">&nbsp;</p>}
               </div>
             ) : (

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DayRow } from "../db/db";
 import { dateKey, daysBetween } from "../lib/dates";
-import { DaySection } from "./DaySection";
+import { DaySection, focusEditorAtEnd } from "./DaySection";
 import { buildTimelineWindow, requiredFutureCount, requiredPastCount, type TimelineEntry } from "./jump";
 
 export interface JumpTarget {
@@ -325,15 +325,23 @@ export const Timeline = memo(function Timeline({
       next.add(key);
       return next;
     });
-    window.requestAnimationFrame(() => {
+    // the editor mounts on the re-render this state change triggers; retry a
+    // few frames so a slow commit (long timeline, extension churn) still ends
+    // with a visible caret instead of a dead first click
+    const tryFocus = (attemptsLeft: number) => {
       const section = sectionRefs.current.get(key);
-      if (!section) return;
       // focus the editor the user actually clicked — margin clicks go straight
       // to the margin, not the day's note
-      const container = part === "margin" ? section.querySelector<HTMLElement>(".day-margin") : section.querySelector<HTMLElement>(".day-body");
-      const content = (container ?? section).querySelector<HTMLElement>(".cm-content");
-      content?.focus({ preventScroll: true });
-    });
+      const container =
+        part === "margin" ? section?.querySelector<HTMLElement>(".day-margin") : section?.querySelector<HTMLElement>(".day-body");
+      const host = container ?? section;
+      if (host?.querySelector(".cm-content")) {
+        focusEditorAtEnd(host);
+      } else if (attemptsLeft > 0) {
+        window.requestAnimationFrame(() => tryFocus(attemptsLeft - 1));
+      }
+    };
+    window.requestAnimationFrame(() => tryFocus(5));
   }, []);
 
   return (
