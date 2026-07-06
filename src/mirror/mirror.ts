@@ -92,11 +92,14 @@ export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day:
   // create files just to hold empty content.
   // a file mtime beyond now+2s is untrusted (clock skew, cloud sync) and must
   // not be allowed to block the app's writes
+  // app-side stamps are clamped to now too: a stamp written while the system
+  // clock was set ahead must not win merges forever after the clock is fixed
   const mainDisk = await readDiskFile(handle, `${day.date}.md`);
   if (
     mainDisk
       ? mainDisk.text !== day.main &&
-        (mainDisk.lastModified > Date.now() + 2000 || mainDisk.lastModified <= (day.mainUpdatedAt ?? day.updatedAt))
+        (mainDisk.lastModified > Date.now() + 2000 ||
+          mainDisk.lastModified <= Math.min(day.mainUpdatedAt ?? day.updatedAt, Date.now()))
       : day.main !== ""
   ) {
     await writeTextFile(handle, [`${day.date}.md`], day.main);
@@ -113,7 +116,7 @@ export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day:
     marginDisk
       ? marginDisk.text !== day.margin &&
         (marginDisk.lastModified > Date.now() + 2000 ||
-          marginDisk.lastModified <= (day.marginUpdatedAt ?? day.updatedAt))
+          marginDisk.lastModified <= Math.min(day.marginUpdatedAt ?? day.updatedAt, Date.now()))
       : day.margin !== ""
   ) {
     await writeTextFile(handle, ["margins", `${day.date}.md`], day.margin);
@@ -128,7 +131,7 @@ export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, pa
     disk &&
     disk.text !== panel.content &&
     disk.lastModified <= Date.now() + 2000 &&
-    disk.lastModified > panel.updatedAt
+    disk.lastModified > Math.min(panel.updatedAt, Date.now())
   ) {
     return;
   }
@@ -173,15 +176,18 @@ export interface SyncSkip {
 export async function syncWithDisk(
   handle: FileSystemDirectoryHandleLike,
   mtimes?: Map<string, number>,
-  skip?: SyncSkip,
+  getSkip?: () => SyncSkip,
 ): Promise<number> {
   if (!handle.values) return 0;
   let imported = 0;
+  // read the skip set live at each use — a pass spans many awaits, and the
+  // user can focus a note mid-pass
+  const skip = () => getSkip?.() ?? {};
 
   const reconcileDay = async (date: string, field: "main" | "margin", disk: DiskFile) => {
     // never reconcile the field the user is typing in — neither import over
     // their cursor nor push their stale copy over the file; defer entirely
-    if ((field === "main" && skip?.day === date) || (field === "margin" && skip?.margin === date)) {
+    if ((field === "main" && skip().day === date) || (field === "margin" && skip().margin === date)) {
       return;
     }
     // read-check-put atomically so a concurrent keystroke save can't be
@@ -197,8 +203,10 @@ export async function syncWithDisk(
       const trusted = disk.lastModified <= now + 2000;
       const diskStamp = Math.min(disk.lastModified, now);
       // judge each field by its OWN edit time — a margin import must not make
-      // the note file look stale (and vice versa)
-      const fieldStamp = row ? (field === "main" ? row.mainUpdatedAt : row.marginUpdatedAt) ?? row.updatedAt : 0;
+      // the note file look stale (and vice versa). clamp to now so a stamp
+      // written under a fast clock can't outrank external edits forever
+      const rawFieldStamp = row ? (field === "main" ? row.mainUpdatedAt : row.marginUpdatedAt) ?? row.updatedAt : 0;
+      const fieldStamp = Math.min(rawFieldStamp, now);
       if (!row || (trusted && diskStamp > fieldStamp)) {
         const next: DayRow = {
           date,
@@ -249,12 +257,11 @@ export async function syncWithDisk(
       if (match && dateFromKey(match[1])) {
         const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) {
-          const skipped = skip?.day === match[1];
           await reconcileDay(match[1], "main", disk);
-          if (!skipped) mtimes?.set(entry.name, disk.lastModified);
+          if (skip().day !== match[1]) mtimes?.set(entry.name, disk.lastModified);
         }
       } else if (entry.name === "scratchpad.md") {
-        if (skip?.scratchpad) continue;
+        if (skip().scratchpad) continue;
         const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) {
           const panel = await getPanel("scratchpad");
@@ -263,7 +270,7 @@ export async function syncWithDisk(
             const trusted = disk.lastModified <= now + 2000;
             const diskStamp = Math.min(disk.lastModified, now);
             // a never-saved panel (updatedAt 0) always yields to the file
-            if (panel.updatedAt === 0 || (trusted && diskStamp > panel.updatedAt)) {
+            if (panel.updatedAt === 0 || (trusted && diskStamp > Math.min(panel.updatedAt, now))) {
               await db.panels.put({ id: "scratchpad", content: disk.text, updatedAt: diskStamp });
               imported += 1;
             } else {
@@ -282,9 +289,8 @@ export async function syncWithDisk(
         if (!match || !dateFromKey(match[1])) continue;
         const disk = await readIfChanged(margins, marginEntry.name, `margins/${marginEntry.name}`);
         if (disk) {
-          const skipped = skip?.margin === match[1];
           await reconcileDay(match[1], "margin", disk);
-          if (!skipped) mtimes?.set(`margins/${marginEntry.name}`, disk.lastModified);
+          if (skip().margin !== match[1]) mtimes?.set(`margins/${marginEntry.name}`, disk.lastModified);
         }
       }
     }

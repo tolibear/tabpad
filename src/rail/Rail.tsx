@@ -5,7 +5,7 @@ import {
   Link2Off,
   Settings,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DayRow } from "../db/db";
 import { firstLineExcerpt, hasDayContent } from "../db/days";
 import { calendarDays, dateFromKey, dateKey, monthLabel, shortDate, shortWeekday } from "../lib/dates";
@@ -117,6 +117,14 @@ interface MiniCalendarProps {
 
 function MiniCalendar({ today, todayText, contentDays, weekStartsOn, onJumpToDate }: MiniCalendarProps) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  // a pinned new tab lives across month rollovers — snap the calendar to the
+  // new month when today moves into one (manual browsing is untouched
+  // otherwise)
+  const todayMonthKey = `${today.getFullYear()}-${today.getMonth()}`;
+  useEffect(() => {
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayMonthKey]);
   const contentKeys = useMemo(() => contentKeySet(today, todayText, contentDays), [contentDays, today, todayText]);
   const days = useMemo(
     () => calendarDays(visibleMonth, today, contentKeys, weekStartsOn),

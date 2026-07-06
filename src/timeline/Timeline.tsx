@@ -66,6 +66,24 @@ export const Timeline = memo(function Timeline({
   // keep entry object identity stable across window extensions so memoized
   // day rows don't all re-render on every prepend
   const entryCache = useRef(new Map<string, TimelineEntry>());
+  // distance from the bottom of the scroll content, captured just before a
+  // top prepend — used to restore the visual position manually, since browser
+  // scroll anchoring is absent on Safari and disabled at scrollTop 0
+  const pendingTopExtension = useRef<number | null>(null);
+
+  // midnight rollover prepends a new day section; when the alignment effect
+  // is going to skip its today re-align (cursor parked in an editor), the
+  // prepend would visibly shift the text being typed. snapshot here — during
+  // render, before the DOM changes — so the restore effect can compensate.
+  const renderedTodayKey = useRef(dateKey(today));
+  if (renderedTodayKey.current !== dateKey(today)) {
+    renderedTodayKey.current = dateKey(today);
+    const scroller = scrollerRef.current;
+    if (scroller && initialAligned.current && document.activeElement?.closest(".cm-editor")) {
+      pendingTopExtension.current = scroller.scrollHeight - scroller.scrollTop;
+    }
+  }
+
   const entries = useMemo(() => {
     const built = buildTimelineWindow({ today, futureCount, pastCount, contentDays });
     return built.map((entry) => {
@@ -89,8 +107,21 @@ export const Timeline = memo(function Timeline({
     // extending the top re-anchors the scroll position, which would abort an
     // in-flight smooth jump scroll — defer until the jump settles
     if (jumpScrollActive.current) return;
+    const scroller = scrollerRef.current;
+    if (scroller) pendingTopExtension.current = scroller.scrollHeight - scroller.scrollTop;
     setFutureCount((count) => count + 21);
   }, []);
+
+  // restore the pre-prepend position before paint so the reader's view
+  // doesn't jump by the height of the new sections (top extensions and
+  // rollover prepends both land here; the ref is null otherwise)
+  useLayoutEffect(() => {
+    const fromBottom = pendingTopExtension.current;
+    if (fromBottom === null) return;
+    pendingTopExtension.current = null;
+    const scroller = scrollerRef.current;
+    if (scroller) scroller.scrollTop = scroller.scrollHeight - fromBottom;
+  });
 
   useEffect(() => {
     const top = topSentinelRef.current;
@@ -136,6 +167,13 @@ export const Timeline = memo(function Timeline({
 
     const todayNode = sectionRefs.current.get(key);
     if (!todayNode) return;
+
+    // midnight rollover with a cursor parked in some note: don't yank the
+    // view (and the user's next keystrokes) away to the new today section
+    if (initialAligned.current && document.activeElement?.closest(".cm-editor")) {
+      alignedTodayKey.current = key;
+      return;
+    }
 
     // editors mount in layout effects, so heights are final here — align once,
     // synchronously, before the first paint
@@ -225,7 +263,8 @@ export const Timeline = memo(function Timeline({
     if (!node) return;
 
     jumpScrollActive.current = true;
-    scroller.scrollTo({ top: sectionTop(scroller, node), behavior: "smooth" });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scroller.scrollTo({ top: sectionTop(scroller, node), behavior: reduceMotion ? "auto" : "smooth" });
     node.querySelector<HTMLElement>(".cm-content")?.focus({ preventScroll: true });
     // only one day highlighted at a time — clear the previous jump's highlight
     if (highlightedNode.current && highlightedNode.current !== node) {
@@ -250,14 +289,14 @@ export const Timeline = memo(function Timeline({
         // the top observer only fires on intersection transitions; if the jump
         // landed inside its margin while extension was suppressed, extend now
         if (scroller.scrollTop < 2500) {
-          setFutureCount((count) => count + 21);
+          extendFuture();
         }
         reportTopDate();
       }, 120);
     };
     scroller.addEventListener("scroll", settle, { passive: true });
     settle();
-  }, [entries, jumpTick, reportTopDate]);
+  }, [entries, extendFuture, jumpTick, reportTopDate]);
 
   // panel-mode switches change column widths (and thus day heights) — keep the
   // current top day anchored instead of letting the view drift

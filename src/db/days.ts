@@ -68,7 +68,9 @@ export async function eraseAllNotes(): Promise<void> {
 export function firstLineExcerpt(source: string, maxLength = 40): string {
   const first = source
     .split(/\r?\n/)
-    .map((line) => line.replace(/^#+\s*/, "").replace(/^-\s+/, "").replace(/^- \[[ xX]\]\s+/, "").trim())
+    // the task prefix must go before the bullet prefix — stripping "- " first
+    // would leave "[ ] task" behind
+    .map((line) => line.replace(/^#+\s*/, "").replace(/^- \[[ xX]\]\s+/, "").replace(/^-\s+/, "").trim())
     .find(Boolean);
 
   if (!first) return "";

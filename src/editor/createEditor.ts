@@ -66,7 +66,11 @@ export function createEditor(options: CreateEditorOptions): EditorView {
   }
 
   if (options.autofocus) {
-    requestAnimationFrame(() => view.focus());
+    // a midnight rollover remounts the today editor while the user's cursor
+    // may be parked in another note — never steal focus from a live editor
+    requestAnimationFrame(() => {
+      if (!document.activeElement?.closest(".cm-editor")) view.focus();
+    });
   }
 
   return view;

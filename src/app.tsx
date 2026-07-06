@@ -55,8 +55,11 @@ export function App() {
   const panelTextsRef = useRef<Record<PanelRow["id"], string>>({ scratchpad: "" } as Record<PanelRow["id"], string>);
   const mirrorHandleRef = useRef<FileSystemDirectoryHandleLike | null>(null);
   const storagePersistRequested = useRef(false);
-  const mirrorDayTimers = useRef(new Map<string, number>());
-  const mirrorPanelTimers = useRef(new Map<PanelRow["id"], number>());
+  // timers carry the row snapshot they will write, so a flush never has to
+  // re-derive content from this tab's (possibly stale) text refs
+  const mirrorDayTimers = useRef(new Map<string, { timer: number; row: DayRow }>());
+  const mirrorPanelTimers = useRef(new Map<PanelRow["id"], { timer: number; panel: PanelRow }>());
+  const eraseGuardTimer = useRef(0);
   const lastKeyJumpRef = useRef<string | null>(null);
   const queueMirrorDayRef = useRef<(row: DayRow | null) => void>(() => {});
   const syncMtimes = useRef(new Map<string, number>());
@@ -173,11 +176,11 @@ export function App() {
       if (handle && (await queryMirrorPermission(handle)) === "granted") {
         const run = async () => {
           if (erasingRef.current) return;
-          await syncWithDisk(handle, syncMtimes.current, {
+          await syncWithDisk(handle, syncMtimes.current, () => ({
             day: focusedDayRef.current,
             margin: focusedMarginRef.current,
             scratchpad: focusedPanelRef.current === "scratchpad",
-          });
+          }));
         };
         const pass = syncChainRef.current.then(run, run);
         syncChainRef.current = pass.catch(() => undefined);
@@ -230,6 +233,9 @@ export function App() {
     const stop = channel.listen((message) => {
       if (message.type === "day") {
         void getDay(message.key).then((row) => {
+          // mid-erase, a straggler save broadcast from another tab must not
+          // repopulate this tab's state (and get mirrored back to disk)
+          if (erasingRef.current) return;
           // re-check focus at apply time — it may have moved during the read
           setDayTexts((current) =>
             focusedDayRef.current === message.key ? current : { ...current, [message.key]: row?.main ?? "" },
@@ -243,6 +249,7 @@ export function App() {
       }
       if (message.type === "panel" && message.key === "scratchpad") {
         void getPanel(message.key).then((panel) => {
+          if (erasingRef.current) return;
           setPanelTexts((current) =>
             focusedPanelRef.current === message.key ? current : { ...current, [message.key]: panel.content },
           );
@@ -254,7 +261,32 @@ export function App() {
           void refreshMirrorState();
         });
       }
+      if (message.type === "erase") {
+        // another tab is erasing: drop anything this tab could write back —
+        // pending mirror timers, local texts, and the refs that feed queued
+        // saves (a queued save reading empty refs becomes a no-op)
+        erasingRef.current = true;
+        for (const pending of mirrorDayTimers.current.values()) window.clearTimeout(pending.timer);
+        for (const pending of mirrorPanelTimers.current.values()) window.clearTimeout(pending.timer);
+        mirrorDayTimers.current.clear();
+        mirrorPanelTimers.current.clear();
+        syncMtimes.current = new Map();
+        setDayTexts({});
+        setDayMargins({});
+        setPanelTexts({ scratchpad: "" } as Record<PanelRow["id"], string>);
+        dayTextsRef.current = {};
+        dayMarginsRef.current = {};
+        panelTextsRef.current = { scratchpad: "" } as Record<PanelRow["id"], string>;
+        // the erasing tab posts "import" when done; this is only a safety net
+        // in case that tab dies mid-erase
+        window.clearTimeout(eraseGuardTimer.current);
+        eraseGuardTimer.current = window.setTimeout(() => {
+          erasingRef.current = false;
+        }, 30_000);
+      }
       if (message.type === "import") {
+        window.clearTimeout(eraseGuardTimer.current);
+        erasingRef.current = false;
         void loadDocuments();
       }
       if (message.type === "day" || message.type === "import") {
@@ -293,11 +325,11 @@ export function App() {
     // so two passes can't interleave reconciles of the same file
     const run = async () => {
       if (erasingRef.current) return 0;
-      const imported = await syncWithDisk(handle, syncMtimes.current, {
+      const imported = await syncWithDisk(handle, syncMtimes.current, () => ({
         day: focusedDayRef.current,
         margin: focusedMarginRef.current,
         scratchpad: focusedPanelRef.current === "scratchpad",
-      });
+      }));
       syncFailures.current = 0;
       if (imported > 0) {
         await refreshContentDays();
@@ -435,57 +467,72 @@ export function App() {
     void navigator.storage?.persist?.().catch(() => undefined);
   }, []);
 
-  const flushMirrorDay = useCallback(async (row: DayRow | null) => {
-    if (!row || mirrorStatus !== "connected" || erasingRef.current) return;
-    const handle = mirrorHandleRef.current;
-    if (!handle) return;
-
-    try {
-      await writeDayMirror(handle, row);
-      syncFailures.current = 0;
-    } catch (error) {
-      console.warn("Tab Pad mirror day write failed", error);
-      // permission loss is definitive; transient write errors get 3 strikes
-      if (isMirrorPermissionError(error)) setMirrorStatus("reconnect");
-      else if ((syncFailures.current += 1) >= 3) setMirrorStatus("error");
-    }
+  // mirror flushes ride the same serialization chain as sync passes: a flush
+  // can't interleave with a reconcile of the same file, and erase's await of
+  // the chain quiesces in-flight flushes before it deletes files
+  const flushMirrorDay = useCallback((row: DayRow | null) => {
+    if (!row || mirrorStatus !== "connected" || erasingRef.current) return Promise.resolve();
+    const run = async () => {
+      if (erasingRef.current) return;
+      const handle = mirrorHandleRef.current;
+      if (!handle) return;
+      try {
+        await writeDayMirror(handle, row);
+        syncFailures.current = 0;
+      } catch (error) {
+        console.warn("Tab Pad mirror day write failed", error);
+        // permission loss is definitive; transient write errors get 3 strikes
+        if (isMirrorPermissionError(error)) setMirrorStatus("reconnect");
+        else if ((syncFailures.current += 1) >= 3) setMirrorStatus("error");
+      }
+    };
+    const result = syncChainRef.current.then(run, run);
+    syncChainRef.current = result.catch(() => undefined);
+    return result;
   }, [mirrorStatus]);
 
   const queueMirrorDay = useCallback((row: DayRow | null) => {
-    if (!row || mirrorStatus !== "connected") return;
+    // an in-flight save's completion must not re-arm a timer mid-erase and
+    // write the old note back into the just-emptied folder
+    if (!row || mirrorStatus !== "connected" || erasingRef.current) return;
     const current = mirrorDayTimers.current.get(row.date);
-    if (current) window.clearTimeout(current);
-    const next = window.setTimeout(() => {
+    if (current) window.clearTimeout(current.timer);
+    const timer = window.setTimeout(() => {
       mirrorDayTimers.current.delete(row.date);
       void flushMirrorDay(row);
     }, 800);
-    mirrorDayTimers.current.set(row.date, next);
+    mirrorDayTimers.current.set(row.date, { timer, row });
   }, [flushMirrorDay, mirrorStatus]);
 
-  const flushMirrorPanel = useCallback(async (panel: PanelRow) => {
-    if (mirrorStatus !== "connected" || erasingRef.current) return;
-    const handle = mirrorHandleRef.current;
-    if (!handle) return;
-
-    try {
-      await writePanelMirror(handle, panel);
-      syncFailures.current = 0;
-    } catch (error) {
-      console.warn("Tab Pad mirror panel write failed", error);
-      if (isMirrorPermissionError(error)) setMirrorStatus("reconnect");
-      else if ((syncFailures.current += 1) >= 3) setMirrorStatus("error");
-    }
+  const flushMirrorPanel = useCallback((panel: PanelRow) => {
+    if (mirrorStatus !== "connected" || erasingRef.current) return Promise.resolve();
+    const run = async () => {
+      if (erasingRef.current) return;
+      const handle = mirrorHandleRef.current;
+      if (!handle) return;
+      try {
+        await writePanelMirror(handle, panel);
+        syncFailures.current = 0;
+      } catch (error) {
+        console.warn("Tab Pad mirror panel write failed", error);
+        if (isMirrorPermissionError(error)) setMirrorStatus("reconnect");
+        else if ((syncFailures.current += 1) >= 3) setMirrorStatus("error");
+      }
+    };
+    const result = syncChainRef.current.then(run, run);
+    syncChainRef.current = result.catch(() => undefined);
+    return result;
   }, [mirrorStatus]);
 
   const queueMirrorPanel = useCallback((panel: PanelRow) => {
-    if (mirrorStatus !== "connected") return;
+    if (mirrorStatus !== "connected" || erasingRef.current) return;
     const current = mirrorPanelTimers.current.get(panel.id);
-    if (current) window.clearTimeout(current);
-    const next = window.setTimeout(() => {
+    if (current) window.clearTimeout(current.timer);
+    const timer = window.setTimeout(() => {
       mirrorPanelTimers.current.delete(panel.id);
       void flushMirrorPanel(panel);
     }, 800);
-    mirrorPanelTimers.current.set(panel.id, next);
+    mirrorPanelTimers.current.set(panel.id, { timer, panel });
   }, [flushMirrorPanel, mirrorStatus]);
 
   // rail excerpts don't need to update per keystroke — refresh shortly after
@@ -502,7 +549,9 @@ export function App() {
   // (read row → write row) steps of consecutive saves from interleaving
   const daySaveChains = useRef(new Map<string, Promise<unknown>>());
   const persistDay = useCallback((key: string, mirrorNow = false, field: "main" | "margin" | "both" = "both") => {
-    if (!loadedRef.current) return Promise.resolve();
+    // a save queued while an erase is running (here or in another tab) would
+    // commit after the clear and silently resurrect the note
+    if (!loadedRef.current || erasingRef.current) return Promise.resolve();
     requestStoragePersistence();
     const prev = daySaveChains.current.get(key) ?? Promise.resolve();
     const next = prev
@@ -567,8 +616,9 @@ export function App() {
   const panelSaveChains = useRef(new Map<PanelRow["id"], Promise<unknown>>());
   const persistPanel = useCallback((id: PanelRow["id"], mirrorNow = false) => {
     // never write before the stored value has loaded — an early keystroke
-    // would overwrite the saved note with a near-empty one
-    if (!loadedRef.current) return Promise.resolve();
+    // would overwrite the saved note with a near-empty one. also never write
+    // mid-erase — the save would land after the clear
+    if (!loadedRef.current || erasingRef.current) return Promise.resolve();
     requestStoragePersistence();
     const prev = panelSaveChains.current.get(id) ?? Promise.resolve();
     const next = prev
@@ -595,24 +645,27 @@ export function App() {
 
   useEffect(() => {
     // notes are already saved per keystroke; on hide, just push any pending
-    // debounced folder-mirror writes out immediately
+    // debounced folder-mirror writes out immediately. flush the SNAPSHOT the
+    // timer holds — timers also exist for other tabs' relayed edits, and
+    // re-saving those from this tab's text refs could write stale or empty
+    // content into the shared database
     const flushOnHide = () => {
       if (document.visibilityState !== "hidden") return;
 
-      for (const [key, timer] of mirrorDayTimers.current) {
-        window.clearTimeout(timer);
+      for (const [key, pending] of mirrorDayTimers.current) {
+        window.clearTimeout(pending.timer);
         mirrorDayTimers.current.delete(key);
-        void persistDay(key, true);
+        void flushMirrorDay(pending.row);
       }
-      for (const [id, timer] of mirrorPanelTimers.current) {
-        window.clearTimeout(timer);
+      for (const [id, pending] of mirrorPanelTimers.current) {
+        window.clearTimeout(pending.timer);
         mirrorPanelTimers.current.delete(id);
-        void persistPanel(id, true);
+        void flushMirrorPanel(pending.panel);
       }
     };
     document.addEventListener("visibilitychange", flushOnHide);
     return () => document.removeEventListener("visibilitychange", flushOnHide);
-  }, [persistDay, persistPanel]);
+  }, [flushMirrorDay, flushMirrorPanel]);
 
   const exportJson = async () => {
     const payload = await createExportPayload();
@@ -627,20 +680,45 @@ export function App() {
   };
 
   const eraseEverything = async () => {
+    const hasFolder = mirrorHandleRef.current !== null && mirrorStatus === "connected";
     const confirmed = window.confirm(
-      "erase all notes and scratchpad content from this browser? this cannot be undone. (settings are kept.)",
+      hasFolder
+        ? "erase all notes and scratchpad content? this also deletes the note files in your notes folder. a backup file will be downloaded first. this cannot be undone. (settings are kept.)"
+        : "erase all notes and scratchpad content from this browser? a backup file will be downloaded first. this cannot be undone. (settings are kept.)",
     );
     if (!confirmed) return;
+    // last-chance recovery: hand the user a full export before destroying data
+    let backupFailed = false;
+    try {
+      await exportJson();
+    } catch (error) {
+      console.warn("Tab Pad pre-erase backup failed", error);
+      if (!window.confirm("the backup download failed — erase anyway?")) return;
+      backupFailed = true;
+    }
     let folderEraseFailed = false;
+    let dbEraseFailed = false;
     erasingRef.current = true;
+    // tell other tabs BEFORE deleting anything, so their pending saves and
+    // mirror timers can't recreate notes mid-erase
+    channelRef.current?.post({ type: "erase", key: "all", updatedAt: Date.now() });
     // cancel pending mirror writes synchronously — before any await — so a
     // queued debounce timer can't fire mid-erase and recreate a file
-    for (const timer of mirrorDayTimers.current.values()) window.clearTimeout(timer);
-    for (const timer of mirrorPanelTimers.current.values()) window.clearTimeout(timer);
+    for (const pending of mirrorDayTimers.current.values()) window.clearTimeout(pending.timer);
+    for (const pending of mirrorPanelTimers.current.values()) window.clearTimeout(pending.timer);
     mirrorDayTimers.current.clear();
     mirrorPanelTimers.current.clear();
     try {
-      // let any in-flight sync finish, then block new ones while erasing
+      // let in-flight keystroke saves commit before the clear — a save that
+      // commits after db.days.clear() would silently resurrect its row
+      await Promise.allSettled([...daySaveChains.current.values(), ...panelSaveChains.current.values()]);
+      // those saves' completions may have re-armed mirror timers before the
+      // erasingRef guard existed in their closure — cancel again
+      for (const pending of mirrorDayTimers.current.values()) window.clearTimeout(pending.timer);
+      for (const pending of mirrorPanelTimers.current.values()) window.clearTimeout(pending.timer);
+      mirrorDayTimers.current.clear();
+      mirrorPanelTimers.current.clear();
+      // let any in-flight sync or mirror flush finish, then block new ones
       await syncChainRef.current.catch(() => undefined);
       // the folder is the source of truth — erase the FILES first, then the
       // database, so no sync window can restore notes from leftover files
@@ -654,22 +732,35 @@ export function App() {
         }
       }
       await eraseAllNotes();
-      syncMtimes.current.clear();
+      syncMtimes.current = new Map();
       setDayTexts({});
       setDayMargins({});
       setPanelTexts({ scratchpad: "" } as Record<PanelRow["id"], string>);
       dayTextsRef.current = {};
       dayMarginsRef.current = {};
       panelTextsRef.current = { scratchpad: "" } as Record<PanelRow["id"], string>;
+    } catch (error) {
+      // swallow so the post-erase steps below always run — other tabs are
+      // frozen in erase mode until they hear "import"
+      console.warn("Tab Pad erase failed", error);
+      dbEraseFailed = true;
     } finally {
       erasingRef.current = false;
     }
-    await loadDocuments();
+    // other tabs stay frozen in erase mode until they hear "import" — a
+    // failed reload here must not keep it from being posted
+    try {
+      await loadDocuments();
+    } catch (error) {
+      console.warn("Tab Pad post-erase reload failed", error);
+    }
     channelRef.current?.post({ type: "import", key: "all", updatedAt: Date.now() });
     setDataMessage(
-      folderEraseFailed
-        ? "notes erased here, but some files in the notes folder could not be removed — they may come back"
-        : "all notes erased",
+      dbEraseFailed
+        ? `erase failed — some notes may remain${backupFailed ? "" : " (your backup was downloaded)"}`
+        : folderEraseFailed
+          ? "notes erased here, but some files in the notes folder could not be removed — they may come back"
+          : "all notes erased",
     );
   };
 
@@ -705,8 +796,10 @@ export function App() {
       setMirrorStatus("connected");
       syncFailures.current = 0;
       // a new folder is a new world — stale mtimes from the old one must not
-      // suppress imports
-      syncMtimes.current.clear();
+      // suppress imports. swap the Map instance instead of clearing it: an
+      // in-flight pass over the old folder still holds (and repopulates) the
+      // old one, and day filenames collide across folders by construction
+      syncMtimes.current = new Map();
       // pull anything already in the folder first, then push the full state
       await syncFolderNow(handle);
       await writeFullMirror(handle);
@@ -739,7 +832,8 @@ export function App() {
       setMirrorName(handle.name);
       setMirrorStatus("connected");
       syncFailures.current = 0;
-      syncMtimes.current.clear();
+      // swap, don't clear — see enableMirror
+      syncMtimes.current = new Map();
       // pull external edits first (last write wins), then push the full state
       await syncFolderNow(handle);
       await writeFullMirror(handle);

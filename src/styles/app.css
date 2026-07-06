@@ -724,6 +724,9 @@
   height: 100vh;
   overflow-y: auto;
   scrollbar-width: none;
+  /* top prepends are compensated manually in Timeline.tsx — native anchoring
+     would double-adjust where it exists and is absent on Safari anyway */
+  overflow-anchor: none;
 }
 
 .timeline::-webkit-scrollbar {

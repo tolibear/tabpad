@@ -56,7 +56,10 @@ export async function importPayload(payload: unknown): Promise<{ daysImported: n
 }
 
 function parsePayload(payload: unknown): TabPadExport & { hasSettings: boolean } {
-  if (!isObject(payload) || payload.schemaVersion !== 1) {
+  // accept newer schema versions best-effort: rows are validated one by one
+  // anyway, so a v2 export from a future build restores everything a v1 build
+  // understands instead of failing outright
+  if (!isObject(payload) || typeof payload.schemaVersion !== "number" || payload.schemaVersion < 1) {
     throw new Error("Unsupported Tab Pad export");
   }
 
@@ -82,8 +85,8 @@ function clampDayTimestamps(day: DayRow): DayRow {
     updatedAt: Math.min(day.updatedAt, now),
     // the per-field stamps are what folder sync actually compares — clamp
     // them too, and drop non-numeric junk
-    mainUpdatedAt: typeof day.mainUpdatedAt === "number" ? Math.min(day.mainUpdatedAt, now) : undefined,
-    marginUpdatedAt: typeof day.marginUpdatedAt === "number" ? Math.min(day.marginUpdatedAt, now) : undefined,
+    mainUpdatedAt: Number.isFinite(day.mainUpdatedAt) ? Math.min(day.mainUpdatedAt as number, now) : undefined,
+    marginUpdatedAt: Number.isFinite(day.marginUpdatedAt) ? Math.min(day.marginUpdatedAt as number, now) : undefined,
   };
 }
 
@@ -113,8 +116,9 @@ function isDayRow(value: unknown): value is DayRow {
     dateFromKey(value.date) !== null &&
     typeof value.main === "string" &&
     typeof value.margin === "string" &&
-    typeof value.createdAt === "number" &&
-    typeof value.updatedAt === "number"
+    // NaN passes typeof but breaks every merge comparison forever
+    Number.isFinite(value.createdAt) &&
+    Number.isFinite(value.updatedAt)
   );
 }
 
@@ -123,6 +127,6 @@ function isPanelRow(value: unknown): value is PanelRow {
     isObject(value) &&
     (value.id === "scratchpad" || value.id === "masterList") &&
     typeof value.content === "string" &&
-    typeof value.updatedAt === "number"
+    Number.isFinite(value.updatedAt)
   );
 }
