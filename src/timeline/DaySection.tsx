@@ -12,7 +12,7 @@ export interface DaySectionProps {
   showMargin?: boolean;
   marginValue?: string;
   registerRef?: (node: HTMLElement | null) => void;
-  onActivate?: (part: "main" | "margin") => void;
+  onActivate?: (part: "main" | "margin", clientX?: number, clientY?: number) => void;
   onToggleFocus?: () => void;
   onValueChange: (value: string) => void;
   onMarginChange?: (value: string) => void;
@@ -82,11 +82,11 @@ export function DaySection({
             const target = event.target as HTMLElement;
             if (target.closest("input")) return; // checkbox toggles stay in StaticDay
             if (isStatic) {
-              onActivate?.("main");
+              onActivate?.("main", event.clientX, event.clientY);
               return;
             }
             if (target.closest(".cm-editor")) return;
-            focusEditorAtEnd(event.currentTarget);
+            focusEditorAtPoint(event.currentTarget, event.clientX, event.clientY);
           }}
         >
           {isStatic ? (
@@ -114,11 +114,11 @@ export function DaySection({
               const target = event.target as HTMLElement;
               if (target.closest("input")) return;
               if (isStatic) {
-                onActivate?.("margin");
+                onActivate?.("margin", event.clientX, event.clientY);
                 return;
               }
               if (target.closest(".cm-editor")) return;
-              focusEditorAtEnd(event.currentTarget);
+              focusEditorAtPoint(event.currentTarget, event.clientX, event.clientY);
             }}
           >
             {isStatic ? (
@@ -142,14 +142,43 @@ export function DaySection({
   );
 }
 
-export function focusEditorAtEnd(container: HTMLElement): void {
+// drop the caret where the user clicked — clicking the blank space BESIDE a
+// line of a long note must not fling the view to the note's end. clicks below
+// the text (or calls without a point) still land at the end.
+export function focusEditorAtPoint(container: HTMLElement, clientX?: number, clientY?: number): void {
   const content = container.querySelector<HTMLElement>(".cm-content");
   if (!content) return;
-  content.focus();
-  // drop the caret at the end of the note; CodeMirror picks the DOM selection up
+  content.focus({ preventScroll: true });
   const selection = window.getSelection();
-  if (selection) {
-    selection.selectAllChildren(content);
-    selection.collapseToEnd();
+  if (!selection) return;
+
+  const rect = content.getBoundingClientRect();
+  if (clientX !== undefined && clientY !== undefined && clientY <= rect.bottom) {
+    // clamp the point into the content box, then caret at the nearest text
+    const x = Math.min(Math.max(clientX, rect.left + 2), rect.right - 2);
+    const y = Math.min(Math.max(clientY, rect.top + 2), rect.bottom - 2);
+    const range = caretRangeAt(x, y);
+    if (range) {
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
   }
+  // CodeMirror picks the DOM selection up
+  selection.selectAllChildren(content);
+  selection.collapseToEnd();
+}
+
+function caretRangeAt(x: number, y: number): Range | null {
+  // Chrome ships caretRangeFromPoint; Firefox only caretPositionFromPoint
+  if (typeof document.caretRangeFromPoint === "function") {
+    return document.caretRangeFromPoint(x, y);
+  }
+  if (typeof document.caretPositionFromPoint !== "function") return null;
+  const position = document.caretPositionFromPoint(x, y);
+  if (!position) return null;
+  const range = document.createRange();
+  range.setStart(position.offsetNode, position.offset);
+  range.collapse(true);
+  return range;
 }

@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { DayRow } from "../db/db";
 import { dateFromKey, dateKey, daysBetween } from "../lib/dates";
 import { scrambleText } from "../lib/scramble";
-import { DaySection, focusEditorAtEnd } from "./DaySection";
+import { DaySection, focusEditorAtPoint } from "./DaySection";
 
 const noopChange = () => undefined;
 import { buildTimelineWindow, requiredFutureCount, requiredPastCount, type TimelineEntry } from "./jump";
@@ -355,7 +355,7 @@ export const Timeline = memo(function Timeline({
     }
   }, [focusDayKey, reportTopDate]);
 
-  const activateDay = useCallback((key: string, part: "main" | "margin" = "main") => {
+  const activateDay = useCallback((key: string, part: "main" | "margin" = "main", clientX?: number, clientY?: number) => {
     // scrambled notes must never swap in a real editor
     if (privacyMode) return;
     setActivatedKeys((current) => {
@@ -375,7 +375,9 @@ export const Timeline = memo(function Timeline({
         part === "margin" ? section?.querySelector<HTMLElement>(".day-margin") : section?.querySelector<HTMLElement>(".day-body");
       const host = container ?? section;
       if (host?.querySelector(".cm-content")) {
-        focusEditorAtEnd(host);
+        // the editor replaced the static view with near-identical layout, so
+        // the original click point still lands the caret on the right line
+        focusEditorAtPoint(host, clientX, clientY);
       } else if (attemptsLeft > 0) {
         window.requestAnimationFrame(() => tryFocus(attemptsLeft - 1));
       }
@@ -436,7 +438,7 @@ interface TimelineDayProps {
   marginValue: string;
   showMargin: boolean;
   registerSection: (key: string, node: HTMLElement | null) => void;
-  onActivate: (key: string, part: "main" | "margin") => void;
+  onActivate: (key: string, part: "main" | "margin", clientX?: number, clientY?: number) => void;
   onDayTextChange: (key: string, value: string) => void;
   onDayMarginChange: (key: string, value: string) => void;
   onDayBlur: (key: string) => void;
@@ -481,7 +483,7 @@ const TimelineDay = memo(function TimelineDay({
       value={value}
       marginValue={marginValue}
       registerRef={(node) => registerSection(entry.key, node)}
-      onActivate={(part) => onActivate(entry.key, part)}
+      onActivate={(part, clientX, clientY) => onActivate(entry.key, part, clientX, clientY)}
       onValueChange={(next) => onDayTextChange(entry.key, next)}
       onMarginChange={(next) => onDayMarginChange(entry.key, next)}
       onBlur={() => onDayBlur(entry.key)}
