@@ -47,6 +47,10 @@ export async function saveDayMargin(date: string, margin: string): Promise<DayRo
   return saveDayContent(date, existing?.main ?? "", margin);
 }
 
+export async function listAllDays(): Promise<DayRow[]> {
+  return db.days.orderBy("date").reverse().toArray();
+}
+
 export async function listContentDays(beforeDate?: string, limit = Number.POSITIVE_INFINITY): Promise<DayRow[]> {
   const rows = await db.days.orderBy("date").reverse().toArray();
   return rows

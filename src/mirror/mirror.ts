@@ -90,10 +90,13 @@ export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day:
   // freshness guard: never overwrite a disk file that has newer, different
   // content than the app's copy — sync will import it instead. also never
   // create files just to hold empty content.
+  // a file mtime beyond now+2s is untrusted (clock skew, cloud sync) and must
+  // not be allowed to block the app's writes
   const mainDisk = await readDiskFile(handle, `${day.date}.md`);
   if (
     mainDisk
-      ? mainDisk.text !== day.main && Math.min(mainDisk.lastModified, Date.now()) <= (day.mainUpdatedAt ?? day.updatedAt)
+      ? mainDisk.text !== day.main &&
+        (mainDisk.lastModified > Date.now() + 2000 || mainDisk.lastModified <= (day.mainUpdatedAt ?? day.updatedAt))
       : day.main !== ""
   ) {
     await writeTextFile(handle, [`${day.date}.md`], day.main);
@@ -109,7 +112,8 @@ export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day:
   if (
     marginDisk
       ? marginDisk.text !== day.margin &&
-        Math.min(marginDisk.lastModified, Date.now()) <= (day.marginUpdatedAt ?? day.updatedAt)
+        (marginDisk.lastModified > Date.now() + 2000 ||
+          marginDisk.lastModified <= (day.marginUpdatedAt ?? day.updatedAt))
       : day.margin !== ""
   ) {
     await writeTextFile(handle, ["margins", `${day.date}.md`], day.margin);
@@ -120,7 +124,14 @@ export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, pa
   if (panel.id !== "scratchpad") return;
   const disk = await readDiskFile(handle, "scratchpad.md");
   if (!disk && panel.content === "") return;
-  if (disk && disk.text !== panel.content && Math.min(disk.lastModified, Date.now()) > panel.updatedAt) return;
+  if (
+    disk &&
+    disk.text !== panel.content &&
+    disk.lastModified <= Date.now() + 2000 &&
+    disk.lastModified > panel.updatedAt
+  ) {
+    return;
+  }
   if (disk?.text === panel.content) return;
   await writeTextFile(handle, ["scratchpad.md"], panel.content);
 }
@@ -180,13 +191,15 @@ export async function syncWithDisk(
       const row = await db.days.get(date);
       const current = (field === "main" ? row?.main : row?.margin) ?? "";
       if (disk.text === current) return;
-      // clamp file mtimes to now — a future mtime (clock skew, cloud folders)
-      // must not win every merge forever
-      const diskStamp = Math.min(disk.lastModified, Date.now());
+      // a future mtime (clock skew, cloud folders) is untrusted: it must not
+      // win merges, and it must not block the app's own writes
+      const now = Date.now();
+      const trusted = disk.lastModified <= now + 2000;
+      const diskStamp = Math.min(disk.lastModified, now);
       // judge each field by its OWN edit time — a margin import must not make
       // the note file look stale (and vice versa)
       const fieldStamp = row ? (field === "main" ? row.mainUpdatedAt : row.marginUpdatedAt) ?? row.updatedAt : 0;
-      if (!row || diskStamp > fieldStamp) {
+      if (!row || (trusted && diskStamp > fieldStamp)) {
         const next: DayRow = {
           date,
           main: field === "main" ? disk.text : row?.main ?? "",
@@ -246,8 +259,11 @@ export async function syncWithDisk(
         if (disk) {
           const panel = await getPanel("scratchpad");
           if (disk.text !== panel.content) {
-            const diskStamp = Math.min(disk.lastModified, Date.now());
-            if (diskStamp > panel.updatedAt) {
+            const now = Date.now();
+            const trusted = disk.lastModified <= now + 2000;
+            const diskStamp = Math.min(disk.lastModified, now);
+            // a never-saved panel (updatedAt 0) always yields to the file
+            if (panel.updatedAt === 0 || (trusted && diskStamp > panel.updatedAt)) {
               await db.panels.put({ id: "scratchpad", content: disk.text, updatedAt: diskStamp });
               imported += 1;
             } else {

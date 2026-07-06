@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
 import { migrateLegacyDb, type DayRow, type PanelRow, type Settings } from "./db/db";
-import { eraseAllNotes, getDay, listContentDays, saveDayFields } from "./db/days";
+import { eraseAllNotes, getDay, hasDayContent, listAllDays, listContentDays, saveDayFields } from "./db/days";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { getPanel, savePanel } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
@@ -139,17 +139,14 @@ export function App() {
   }, []);
 
   const refreshContentDays = useCallback(async () => {
-    const rows = await listContentDays();
-    setContentDays(rows);
-    const have = new Set(rows.map((row) => row.date));
+    // iterate ALL rows (including externally-cleared, now-empty ones) so
+    // cleared notes blank on screen — but keys with NO row at all are drafts
+    // that never persisted, and must be left untouched
+    const all = await listAllDays();
+    setContentDays(all.filter((row) => hasDayContent(row.main, row.margin)));
     setDayTexts((current) => {
       const next = { ...current };
-      // a day cleared externally is absent from rows — blank its stale state
-      // too, or the old text would linger and get saved back
-      for (const key of Object.keys(next)) {
-        if (!have.has(key) && focusedDayRef.current !== key) next[key] = "";
-      }
-      for (const row of rows) {
+      for (const row of all) {
         if (focusedDayRef.current !== row.date) {
           next[row.date] = row.main;
         }
@@ -158,10 +155,7 @@ export function App() {
     });
     setDayMargins((current) => {
       const next = { ...current };
-      for (const key of Object.keys(next)) {
-        if (!have.has(key) && focusedMarginRef.current !== key) next[key] = "";
-      }
-      for (const row of rows) {
+      for (const row of all) {
         if (focusedMarginRef.current !== row.date) {
           next[row.date] = row.margin;
         }
@@ -442,7 +436,7 @@ export function App() {
   }, []);
 
   const flushMirrorDay = useCallback(async (row: DayRow | null) => {
-    if (!row || mirrorStatus !== "connected") return;
+    if (!row || mirrorStatus !== "connected" || erasingRef.current) return;
     const handle = mirrorHandleRef.current;
     if (!handle) return;
 
@@ -469,7 +463,7 @@ export function App() {
   }, [flushMirrorDay, mirrorStatus]);
 
   const flushMirrorPanel = useCallback(async (panel: PanelRow) => {
-    if (mirrorStatus !== "connected") return;
+    if (mirrorStatus !== "connected" || erasingRef.current) return;
     const handle = mirrorHandleRef.current;
     if (!handle) return;
 
@@ -639,14 +633,15 @@ export function App() {
     if (!confirmed) return;
     let folderEraseFailed = false;
     erasingRef.current = true;
+    // cancel pending mirror writes synchronously — before any await — so a
+    // queued debounce timer can't fire mid-erase and recreate a file
+    for (const timer of mirrorDayTimers.current.values()) window.clearTimeout(timer);
+    for (const timer of mirrorPanelTimers.current.values()) window.clearTimeout(timer);
+    mirrorDayTimers.current.clear();
+    mirrorPanelTimers.current.clear();
     try {
       // let any in-flight sync finish, then block new ones while erasing
       await syncChainRef.current.catch(() => undefined);
-      // cancel pending mirror writes so they can't resurrect anything
-      for (const timer of mirrorDayTimers.current.values()) window.clearTimeout(timer);
-      for (const timer of mirrorPanelTimers.current.values()) window.clearTimeout(timer);
-      mirrorDayTimers.current.clear();
-      mirrorPanelTimers.current.clear();
       // the folder is the source of truth — erase the FILES first, then the
       // database, so no sync window can restore notes from leftover files
       const handle = mirrorHandleRef.current;

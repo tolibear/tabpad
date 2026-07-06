@@ -64,7 +64,9 @@ function parsePayload(payload: unknown): TabPadExport & { hasSettings: boolean }
     schemaVersion: 1,
     exportedAt: typeof payload.exportedAt === "number" ? payload.exportedAt : Date.now(),
     days: Array.isArray(payload.days) ? payload.days.filter(isDayRow).map(clampDayTimestamps) : [],
-    panels: Array.isArray(payload.panels) ? payload.panels.filter(isPanelRow) : [],
+    panels: Array.isArray(payload.panels)
+      ? payload.panels.filter(isPanelRow).map((panel) => ({ ...panel, updatedAt: Math.min(panel.updatedAt, Date.now()) }))
+      : [],
     settings: isObject(payload.settings) ? sanitizeSettings(payload.settings) : defaultSettings,
     hasSettings: isObject(payload.settings),
   };
