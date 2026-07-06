@@ -9,7 +9,7 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 **Name:** Tab Pad
 
 **Short description** (max 132 chars — this shows in search results):
-> Your daily notepad in every new tab. One page per day, instant saving, everything stays on your device.
+> Your daily notepad in every new tab. One page per day, instant saving, 100% on your device. Markdown, focus mode, AI-agent ready.
 
 **Category:** Productivity → Workflow & Planning (or "Tools")
 
@@ -19,38 +19,47 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 
 > Every new tab is today's page.
 >
-> Tab Pad replaces your new tab with a simple daily notepad. Open a tab, start typing — no clicks, no loading, no account. Yesterday's notes are one scroll away, and every day you've ever written is right there in one continuous timeline.
+> Tab Pad replaces your new tab with a simple daily notepad. Open a tab, start typing — no clicks, no loading, no account. Yesterday is one scroll away, and every day you've ever written lives on one continuous timeline. Future days are already there, waiting for plans.
 >
 > WRITE WITHOUT THINKING ABOUT IT
 > • The cursor is ready the moment the tab opens — just type
 > • Every keystroke saves instantly to your device
-> • Markdown as you type: headings, **bold**, *italic*, lists, checkboxes ([] + space), links, quotes
-> • Tasks with real checkboxes you can tick off on any day
+> • Markdown as you type: headings, **bold**, *italic*, ~~strikethrough~~, lists, quotes, dividers, code
+> • Checkboxes you can tick off on any day ([] + space makes one)
+> • Cmd/Ctrl+click opens links in a new tab
 >
 > YOUR WHOLE HISTORY, ONE SCROLL
-> • Smooth continuous timeline — scroll up for coming days, down through everything you've written
+> • Continuous timeline — scroll up into coming days, down through everything you've written
 > • Mini calendar with dots on noted days; jump anywhere with one click
 > • ⌘K jumps by natural language: "friday", "nov 12", "two weeks ago", "next monday"
-> • Shift+↑ / Shift+↓ steps between days
+>
+> FOCUS MODE & PRIVACY MODE
+> • Focus: one click expands the day you're working on to fill the screen — no other days, no panels
+> • Privacy: one click scrambles every note into unreadable text — for screen sharing and streaming. Click again to restore.
 >
 > MAKE IT YOURS
-> • Scratchpad panel or a per-day margin for side notes
+> • A persistent scratchpad panel, and a quiet per-day margin for side notes
 > • Light, dark, or system theme; six accent colors; serif, sans, or monospace
 >
 > YOUR DATA IS YOURS
-> • 100% local — notes never leave your computer; no account, no server, no tracking, no analytics
+> • 100% local — notes never leave your computer; no account, no server, no tracking, no analytics, no network requests
 > • Zero permissions requested
-> • One-click JSON export/import for backups
-> • Your days live as plain Markdown (.md) files in a folder you choose — works with Obsidian, git, and any text tooling
-> • AI-agent friendly: agents can read and write the same files; a generated AGENTS.md in the folder tells them exactly how
+> • Optional notes folder: your days live as plain Markdown (.md) files in a folder you choose — works with Obsidian, git, iCloud/Dropbox, any text tooling
+> • Built-in safety net: before Tab Pad ever overwrites or erases file content it didn't write, the previous version is saved to a trash folder inside your notes folder
+> • One-click backup — export everything as a single file (and a backup downloads automatically before "erase all")
 >
-> Tab Pad is for people who think in days: a running log, meeting scraps, todos, gratitude lines, ideas — whatever today needs to hold.
+> AI-AGENT READY
+> • Agents can read and write the same markdown files; their edits appear in your open tab within seconds
+> • A generated AGENTS.md in your folder tells any agent exactly how to behave (append, sign your edits, never clobber the human)
+> • One-click connect prompt in settings wires up Claude Code or any coding agent
+>
+> Tab Pad is for people who think in days: a running log, meeting scraps, todos, ideas — whatever today needs to hold.
 
 **Single-purpose statement** (asked in the dashboard):
 > Tab Pad replaces the browser's new-tab page with a local, per-day notepad.
 
 **Permissions justification** (asked per-permission; Tab Pad requests none):
-> The extension requests no permissions. It only overrides the new-tab page (`chrome_url_overrides.newtab`). All data is stored locally via IndexedDB. The optional folder-mirror feature uses the File System Access API, which prompts the user to pick a folder at time of use — no manifest permission is involved.
+> The extension requests no permissions. It only overrides the new-tab page (`chrome_url_overrides.newtab`). All data is stored locally via IndexedDB. The optional notes-folder feature uses the File System Access API, which prompts the user to pick a folder at time of use — no manifest permission is involved.
 
 **Remote code:** None. All scripts are bundled in the package (declare "No, I am not using remote code").
 
@@ -66,23 +75,21 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 
 ---
 
-## Assets to prepare
+## Assets (produced — see ~/Desktop/tab-pad-screenshots/)
 
-**Icons** — already in the package (16/48/128 px). The 128px store icon should read at small sizes: consider the accent-blue dot + a rounded page glyph on the paper background color (#fafaf7 light).
+**Store icon (128×128):** `store-icon-128.png` — anti-aliased paper + accent dot, same file as the packaged `icons/128.png`.
 
-**Screenshots** — 1280×800 PNG (up to 5). Take them with a seeded profile so the notes look real but tidy. Suggested set, in order (first one matters most):
+**Screenshots (1280×800, up to 5 shown in this order):** resized store-ready copies live in `store/`. Suggested order:
+1. `01-base-light` — today's page mid-use, full markdown, calendar + scratchpad
+2. `05-focus-mode` — one day filling the screen
+3. `06-privacy-mode` — everything scrambled for screen sharing
+4. `02-dark` — dark theme
+5. `07-command-k` — ⌘K with "next friday" typed
 
-1. **Hero — "today, ready to write."** Fresh tab, today's page focused with a believable half-written day: a heading, two ticked + one unticked checkbox, a bold word. Calendar on the left with a few noted dots. Light theme, blue accent.
-2. **The timeline.** Mid-scroll showing 3–4 past days flowing continuously, cursor hovering a past day. Caption overlay: "Every day you've written. One scroll."
-3. **⌘K natural-language jump.** Palette open with "two weeks ago" typed. Caption: "Jump anywhere: friday, nov 12, two weeks ago."
-4. **Dark theme + accent + margin layout.** Dark mode, purple accent, per-day margin visible with side notes. Shows customization in one shot.
-5. **Privacy/data card.** Settings sheet open on the notes-folder section, with a caption: "Your notes are plain .md files. 100% local. Agent-ready."
+(Full-resolution 3360×2100 originals are alongside for stylized/marketing use.)
 
-Tip for consistent shots: set the window to exactly 1280×800 (or 2560×1600 and let the store downscale), hide bookmarks bar, use the same seeded data for all shots.
-
-**Small promo tile (440×280, optional but recommended):** wordmark "tab pad" + brand dot on the paper background, tagline "your day, in every new tab."
-
-**Marquee (1400×560, optional):** hero screenshot on the right half, tagline + "100% local" badge on the left.
+**Small promo tile (440×280):** `promo-tile-440x280.png`.
+**Marquee (1400×560):** `marquee-1400x560.png`.
 
 ---
 
@@ -95,6 +102,8 @@ Tip for consistent shots: set the window to exactly 1280×800 (or 2560×1600 and
 5. Distribution: Public, all regions (or your pick). Pricing: free.
 6. Submit for review. New-tab-override extensions get standard review; expect a few days. Common rejection to pre-empt: the listing must clearly say it replaces the new tab (the description above does, twice).
 
+**After the listing is live:** replace the placeholder store links in `site/index.html` and the review link in `src/db/onboarding.ts` with the real Chrome Web Store URL, rebuild, re-zip, and push an update.
+
 **Versioning for updates:** bump `version` in `manifest.json` (and package.json), `npm run build`, re-zip `dist/`, upload. Existing users' data is untouched by updates (it lives in IndexedDB under the extension's ID).
 
-**Note on internal names:** the IndexedDB database, localStorage keys, and cross-tab channel are still named `daybook` internally. This is deliberate — renaming them would orphan existing users' notes. Never change them.
+**Note on internal names:** storage was renamed `daybook` → `tabpad` (IndexedDB "tabpad", `tabpad:*` localStorage keys, "tabpad" broadcast channel) with a one-time automatic migration from the old names in `src/db/db.ts`. Keep the migration in place until well after launch.
