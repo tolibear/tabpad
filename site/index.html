@@ -353,7 +353,7 @@
     background: var(--surface);
     box-shadow: 0 18px 48px -24px rgba(0, 0, 0, 0.18);
     /* break out of the text measure — the demos deserve the room */
-    width: min(100vw - 40px, 960px);
+    width: min(100vw - 40px, 1060px);
     position: relative;
     left: 50%;
     transform: translateX(-50%);
@@ -388,8 +388,8 @@
     --m-faint: #a6a6a1; --m-line: #e8e8e3; --m-accent: #2f6bff;
     --m-font: var(--sans);
     display: grid;
-    grid-template-columns: 160px minmax(0, 1fr);
-    height: 500px;
+    grid-template-columns: 170px minmax(0, 1fr);
+    height: 580px;
     background: var(--m-bg);
     color: var(--m-ink);
     font-family: var(--m-font);
@@ -420,7 +420,41 @@
   .mini.font-serif { --m-font: var(--serif); }
   .mini.font-mono { --m-font: var(--mono); font-size: 12px; }
 
-  .mini.with-panel { grid-template-columns: 160px minmax(0, 1fr) 150px; }
+  .mini.with-panel { grid-template-columns: 170px minmax(0, 1fr) 170px; }
+
+  /* focus mode: the focused day takes over the mini */
+  .m-target {
+    margin-left: auto;
+    align-self: center;
+    width: 12px; height: 12px;
+    border: 1.5px solid var(--m-faint);
+    border-radius: 999px;
+    position: relative;
+    flex: none;
+    transition: border-color 250ms ease;
+  }
+  .m-target::after {
+    content: ""; position: absolute; inset: 2.5px;
+    border-radius: 999px; background: var(--m-faint);
+    transition: background 250ms ease;
+  }
+  .m-target.hot { border-color: var(--m-accent); }
+  .m-target.hot::after { background: var(--m-accent); }
+
+  .mini.focus { grid-template-columns: minmax(0, 1fr); }
+  .mini.focus .m-rail, .mini.focus .m-panel { display: none; }
+  .mini.focus .m-day:not(.is-today) { display: none; }
+  .mini.focus .m-day.is-today { border-bottom: 0; }
+
+  .m-lock {
+    margin-left: auto;
+    font-size: 10px;
+    line-height: 1;
+    color: var(--m-faint);
+    transition: color 250ms ease;
+    flex: none;
+  }
+  .m-lock.hot { color: var(--m-accent); }
 
   .m-rail {
     border-right: 1px solid var(--m-line);
@@ -588,7 +622,7 @@
       <span class="today-dot" aria-hidden="true"></span>
     </div>
 
-    <h1><span id="typed">every new tab is today's page.</span><span class="caret" aria-hidden="true"></span></h1>
+    <h1><span id="typed">your daily notepad, in every new tab.</span><span class="caret" aria-hidden="true"></span></h1>
 
     <p class="lede">tab pad replaces your new tab with a daily notepad. open a tab, start typing — no clicks, no account, no loading. yesterday is one scroll away.</p>
 
@@ -603,7 +637,7 @@
       <span class="cta-note">no account · zero permissions · works offline</span>
     </div>
 
-    <div class="browser" id="demo-write" aria-label="live demo: a note typing itself in today's page">
+    <div class="browser" id="demo-jump" aria-label="live demo: writing today, jumping to the past, scheduling in the future, and returning to today">
       <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
       <div class="mini" data-accent="blue"></div>
     </div>
@@ -613,15 +647,7 @@
   <section class="day" aria-label="yesterday">
     <div class="day-head"><span class="day-date" data-ago="1">7/4</span><span class="day-wd" data-ago-wd="1">sat</span></div>
     <h2>every day you've written, one scroll away</h2>
-    <p>your notes live on a single continuous timeline. scroll down through last week, last month, last year — or jump straight there.</p>
-    <div class="kbd-row">
-      <span><kbd>⌘K</kbd> "two weeks ago", "friday", "nov 12"</span>
-      <span><kbd>shift</kbd> + <kbd>↑</kbd><kbd>↓</kbd> step between days</span>
-    </div>
-    <div class="browser" id="demo-scroll" aria-label="live demo: scrolling the timeline and jumping with command-k">
-      <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
-      <div class="mini" data-accent="blue"></div>
-    </div>
+    <p>your notes live on a single continuous timeline. scroll down through last week, last month, last year — or jump straight there with <kbd>⌘K</kbd>: "two weeks ago", "next friday", "nov 12". future days are already there, waiting for plans.</p>
   </section>
 
   <section class="day" aria-label="two days ago">
@@ -636,6 +662,26 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
 
   <section class="day" aria-label="three days ago">
     <div class="day-head"><span class="day-date" data-ago="3">7/2</span><span class="day-wd" data-ago-wd="3">thu</span></div>
+    <h2>focus mode &amp; privacy mode</h2>
+    <p><strong>focus</strong> — hit the target beside any day and it takes over the whole screen: no other days, no panels, just the page you're working on. <strong>privacy</strong> — one click on the lock scrambles every note into gibberish, for screen sharing and streaming.</p>
+    <div class="browser" id="demo-modes" aria-label="live demo: focus mode expanding a day, then privacy mode scrambling the notes">
+      <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
+      <div class="mini" data-accent="blue"></div>
+    </div>
+  </section>
+
+  <section class="day" aria-label="four days ago">
+    <div class="day-head"><span class="day-date" data-ago="4">7/1</span><span class="day-wd" data-ago-wd="4">wed</span></div>
+    <h2>your notes, your way</h2>
+    <p>a quiet <strong>margin</strong> beside every day for the side thoughts, and a persistent <strong>scratchpad</strong> that stays put while the days scroll — for the lists that don't belong to a date. toggle each in settings.</p>
+    <div class="browser" id="demo-layout" aria-label="live demo: per-day margins and the scratchpad panel">
+      <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
+      <div class="mini" data-accent="blue"></div>
+    </div>
+  </section>
+
+  <section class="day" aria-label="five days ago">
+    <div class="day-head"><span class="day-date" data-ago="5">6/30</span><span class="day-wd" data-ago-wd="5">tue</span></div>
     <h2>your notes never leave your computer</h2>
     <p><strong>there is no server.</strong> tab pad requests zero browser permissions and makes zero network requests. your words are stored on your device, and only there.</p>
     <ul class="quiet-list">
@@ -645,10 +691,10 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
     </ul>
   </section>
 
-  <section class="day" aria-label="four days ago">
-    <div class="day-head"><span class="day-date" data-ago="4">7/1</span><span class="day-wd" data-ago-wd="4">wed</span></div>
+  <section class="day" aria-label="six days ago">
+    <div class="day-head"><span class="day-date" data-ago="6">6/29</span><span class="day-wd" data-ago-wd="6">mon</span></div>
     <h2>a page that looks like yours</h2>
-    <p>light or dark, six accent colors, serif · sans · monospace. keep a scratchpad panel beside your days, give every day its own margin, or hide it all.</p>
+    <p>light or dark, six accent colors, serif · sans · monospace. try them on the page below.</p>
     <div class="swatches" id="theme-swatches" aria-label="accent colors — click to try">
       <button class="swatch" type="button" data-sw="blue" style="background:#2f6bff" aria-label="blue"></button>
       <button class="swatch" type="button" data-sw="green" style="background:#16a34a" aria-label="green"></button>
@@ -843,66 +889,18 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
     [-14, heading("retro notes") + task("ship the editor rewrite", true) + line("action: <span class=\"m-b\">no-meeting wednesdays</span>")],
   ];
   const noted = pastDays.map(([o]) => o);
+  const pastContent = new Map(pastDays);
 
-  // ---- demo 1: a note typing itself in today's page ----
+  // ---- hero demo: write today → jump to the past → schedule in the future → back ----
   {
-    const mini = buildMini("demo-write", daySection(0, "") + pastDays.slice(0, 2).map(([o, h]) => daySection(o, h)).join(""), noted);
-    if (mini) {
-      const body = mini.querySelector('.m-day[data-offset="0"] .m-body');
-      const finalState = () => {
-        body.innerHTML = heading("today") + task("pick up flowers", true) + task("water the ficus", false) +
-          line("dinner with sam — <span class=\"m-i\">don't be late</span>");
-      };
-      if (reduced) finalState();
-      else loopWhenVisible(mini, async (alive) => {
-        body.innerHTML = "<div><span class='m-t'></span><span class='m-caret'></span></div>";
-        let target = body.querySelector(".m-t");
-        await sleep(700);
-        await typeInto(target, "# today"); if (!alive()) return;
-        await sleep(420);
-        // enter: the heading styles itself, caret moves to a new line
-        body.innerHTML = heading("today") + "<div><span class='m-t'></span><span class='m-caret'></span></div>";
-        target = body.querySelector(".m-t");
-        await sleep(320);
-        await typeInto(target, "[] "); if (!alive()) return;
-        // "[] " snaps into a real checkbox
-        body.innerHTML = heading("today") + `<div class="m-task"><span class="m-box"></span><span><span class='m-t'></span><span class='m-caret'></span></span></div>`;
-        target = body.querySelector(".m-t");
-        await typeInto(target, "pick up flowers"); if (!alive()) return;
-        await sleep(380);
-        body.innerHTML = heading("today") + task("pick up flowers", false) +
-          `<div class="m-task"><span class="m-box"></span><span><span class='m-t'></span><span class='m-caret'></span></span></div>`;
-        target = body.querySelector(".m-t");
-        await typeInto(target, "water the ficus"); if (!alive()) return;
-        await sleep(380);
-        body.innerHTML = heading("today") + task("pick up flowers", false) + task("water the ficus", false) +
-          "<div><span class='m-t'></span><span class='m-caret'></span></div>";
-        target = body.querySelector(".m-t");
-        await typeInto(target, "dinner with sam — *don't be late*"); if (!alive()) return;
-        await sleep(500);
-        // the italics resolve, then a task gets ticked
-        body.innerHTML = heading("today") + task("pick up flowers", false) + task("water the ficus", false) +
-          `<div>dinner with sam — <span class="m-i">don't be late</span><span class='m-caret'></span></div>`;
-        await sleep(900);
-        body.querySelector(".m-task").classList.add("done");
-        await sleep(2600);
-      });
-    }
-  }
-
-  // ---- demo 2: ⌘K jumps — two weeks ago (down), next friday (up), today ----
-  {
-    const todayHtml = heading("today") + task("finish the launch checklist", false) + line("one thing at a time.");
-    // future days sit ABOVE today, exactly like the real timeline
+    // EVERY day exists, like the real timeline — jumps scroll through them all
     const fridayOffset = ((5 - new Date().getDay() + 7) % 7) || 7;
-    const fridayHtml = task("dentist, 2:15pm", false) + task("book flights", false);
-    const futureHtml = daySection(fridayOffset + 1, "") + daySection(fridayOffset, fridayHtml);
-    const mini = buildMini(
-      "demo-scroll",
-      futureHtml + daySection(0, todayHtml) + pastDays.map(([o, h]) => daySection(o, h)).join(""),
-      noted,
-      { palette: true },
-    );
+    let daysHtml = "";
+    for (let o = fridayOffset + 1; o >= -16; o -= 1) {
+      if (o === 0 || o === fridayOffset) daysHtml += daySection(o, "");
+      else daysHtml += daySection(o, pastContent.get(o) ?? "");
+    }
+    const mini = buildMini("demo-jump", daysHtml, noted, { palette: true });
     if (mini) {
       const tl = mini.querySelector(".m-tl");
       const palette = mini.querySelector(".m-palette");
@@ -910,47 +908,176 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
       const dayEl = (offset) => mini.querySelector(`.m-day[data-offset="${offset}"]`);
       const topOf = (el) => Math.max(0, el.offsetTop - tl.offsetTop - 8);
       const todayEl = dayEl(0);
+      const todayBody = todayEl.querySelector(".m-body");
+      const fridayBody = dayEl(fridayOffset).querySelector(".m-body");
+      // land on today immediately — the loop only starts once scrolled into view
+      tl.scrollTop = topOf(todayEl);
 
-      const jump = async (query, target, alive) => {
+      const openPalette = async (query, alive) => {
         palette.classList.add("open");
         pinput.textContent = "";
-        await sleep(480);
-        await typeInto(pinput, query, 62); if (!alive()) return;
-        await sleep(620);
+        await sleep(450);
+        await typeInto(pinput, query, 60);
+        if (!alive()) return false;
+        await sleep(600);
         palette.classList.remove("open");
-        await animateScroll(tl, topOf(target), 850);
-        target.classList.add("flash");
-        await sleep(1400);
-        target.classList.remove("flash");
-        await sleep(1000);
+        return true;
+      };
+      const arriveAt = async (el, ms) => {
+        await animateScroll(tl, topOf(el), ms);
+        el.classList.add("flash");
+        await sleep(1200);
+        el.classList.remove("flash");
+      };
+      // type a task line into a day's body, checkbox appearing live
+      const typeTask = async (body, prefixHtml, text, alive) => {
+        body.innerHTML = prefixHtml + `<div class="m-task"><span class="m-box"></span><span><span class='m-t'></span><span class='m-caret'></span></span></div>`;
+        await typeInto(body.querySelector(".m-t"), text);
+        if (!alive()) return;
+        body.innerHTML = prefixHtml + task(text, false);
       };
 
-      if (reduced) { tl.scrollTop = topOf(todayEl); palette.remove(); }
+      const staticState = () => {
+        todayBody.innerHTML = heading("today") + task("pick up flowers", false) + line("dinner with sam — <span class=\"m-i\">don't be late</span>");
+        fridayBody.innerHTML = task("book flights", false);
+        tl.scrollTop = topOf(todayEl);
+        palette.remove();
+      };
+
+      if (reduced) staticState();
       else loopWhenVisible(mini, async (alive) => {
-        tl.scrollTop = topOf(todayEl); pinput.textContent = ""; palette.classList.remove("open");
-        await sleep(1300);
-        await jump("two weeks ago", dayEl(-14), alive); if (!alive()) return; // down into the past
-        await jump("next friday", dayEl(fridayOffset), alive); if (!alive()) return; // up past today
-        await jump("today", todayEl, alive); // back to the start
-        await sleep(1600);
+        // reset
+        todayBody.innerHTML = "";
+        fridayBody.innerHTML = "";
+        pinput.textContent = "";
+        palette.classList.remove("open");
+        tl.scrollTop = topOf(todayEl);
+        await sleep(900);
+
+        // 1) write in today
+        todayBody.innerHTML = "<div><span class='m-t'></span><span class='m-caret'></span></div>";
+        await typeInto(todayBody.querySelector(".m-t"), "# today"); if (!alive()) return;
+        await sleep(350);
+        await typeTask(todayBody, heading("today"), "pick up flowers", alive); if (!alive()) return;
+        await sleep(700);
+
+        // 2) jump into the past to check something — a long scroll DOWN through every day
+        if (!(await openPalette("two weeks ago", alive))) return;
+        await arriveAt(dayEl(-14), 2400); if (!alive()) return;
+        await sleep(900);
+
+        // 3) jump to the future to schedule something — all the way UP past today
+        if (!(await openPalette("next friday", alive))) return;
+        await arriveAt(dayEl(fridayOffset), 2800); if (!alive()) return;
+        await sleep(400);
+        await typeTask(fridayBody, "", "book flights", alive); if (!alive()) return;
+        await sleep(900);
+
+        // 4) home again
+        if (!(await openPalette("today", alive))) return;
+        await arriveAt(todayEl, 1600);
+        await sleep(2000);
       });
     }
   }
 
-  // ---- demo 3: themes, accents and fonts — auto-cycles until YOU click ----
+  // ---- demo: focus mode expands today, privacy mode scrambles everything ----
   {
-    const themeHtml = heading("today") + task("morning run", true) + task("review pr #42", false) +
+    const todayHtml = heading("deep work") + task("draft the proposal", false) + task("outline chapter two", false) +
+      line("notes: <span class=\"m-b\">start with the why</span>");
+    const mini = buildMini(
+      "demo-modes",
+      daySection(0, todayHtml) + pastDays.slice(0, 3).map(([o, h]) => daySection(o, h)).join(""),
+      noted,
+    );
+    if (mini) {
+      // the focus target in today's header, and the lock in the rail brand
+      const head = mini.querySelector('.m-day[data-offset="0"] .m-dayhead');
+      const target = document.createElement("span");
+      target.className = "m-target";
+      head.appendChild(target);
+      const brand = mini.querySelector(".m-brand");
+      const lock = document.createElement("span");
+      lock.className = "m-lock";
+      lock.textContent = "🔓";
+      brand.appendChild(lock);
+
+      // scramble letters/digits, keep structure — same idea as the real app
+      const LETTERS = "abcdefghijklmnopqrstuvwxyz";
+      const scr = (s) => s.replace(/[a-z0-9]/gi, (c, ) => LETTERS[(c.charCodeAt(0) * 7 + 3) % 26]);
+      const scrambleHTML = (html) => html.replace(/>([^<>]+)</g, (m, t) => ">" + scr(t) + "<");
+      const bodies = [...mini.querySelectorAll(".m-body")];
+      const originals = bodies.map((b) => b.innerHTML);
+      const setScrambled = (on) => bodies.forEach((b, i) => { b.innerHTML = on ? scrambleHTML(originals[i]) : originals[i]; });
+
+      if (reduced) mini.classList.add("focus");
+      else loopWhenVisible(mini, async (alive) => {
+        mini.classList.remove("focus"); setScrambled(false); lock.textContent = "🔓"; lock.classList.remove("hot");
+        await sleep(1400);
+        // focus mode in…
+        target.classList.add("hot");
+        await sleep(600);
+        mini.classList.add("focus"); if (!alive()) return;
+        await sleep(2600);
+        // …and out
+        mini.classList.remove("focus");
+        target.classList.remove("hot");
+        await sleep(1400);
+        // privacy on…
+        lock.classList.add("hot"); lock.textContent = "🔒";
+        await sleep(500);
+        setScrambled(true); if (!alive()) return;
+        await sleep(2600);
+        // …and off
+        setScrambled(false); lock.textContent = "🔓"; lock.classList.remove("hot");
+        await sleep(1800);
+      });
+    }
+  }
+
+  // ---- demo: per-day margins + the scratchpad panel ----
+  {
+    const todayHtml = heading("today") + task("morning run", true) + task("review pr #42", false) +
       line("focus: <span class=\"m-b\">one thing at a time</span>");
     const todayMargin = line("groceries: eggs, basil") + line("call re: lease");
-    const yesterdayMargin = line("6 jars — worth it");
     const panelHtml = heading("reading list") + task("the shallows", true) + task("piranesi", false) +
       line("gift ideas: film for dad") + line("wifi pw: sunflower42");
     const mini = buildMini(
-      "demo-theme",
-      daySection(0, themeHtml, "", todayMargin) + daySection(-1, pastDays[0][1], "", yesterdayMargin),
+      "demo-layout",
+      daySection(0, todayHtml, "", todayMargin) +
+        daySection(-1, pastDays[0][1], "", line("6 jars — worth it")) +
+        daySection(-2, pastDays[1][1], "", ""),
       noted,
       { panelHtml },
     );
+    if (mini) {
+      const margin = mini.querySelector('.m-day[data-offset="0"] .m-margin');
+      const panelBody = mini.querySelector(".m-panel .m-body");
+      const marginBase = margin.innerHTML;
+      const panelBase = panelHtml;
+      if (!reduced) loopWhenVisible(mini, async (alive) => {
+        margin.innerHTML = marginBase;
+        panelBody.innerHTML = panelBase;
+        await sleep(1600);
+        // a side thought lands in the margin…
+        margin.innerHTML = marginBase + "<div><span class='m-t'></span><span class='m-caret'></span></div>";
+        await typeInto(margin.querySelector(".m-t"), "ask sam re: sat", 55); if (!alive()) return;
+        margin.innerHTML = marginBase + line("ask sam re: sat");
+        await sleep(1500);
+        // …and a keeper lands in the scratchpad
+        panelBody.innerHTML = panelBase + "<div><span class='m-t'></span><span class='m-caret'></span></div>";
+        await typeInto(panelBody.querySelector(".m-t"), "passport renewal — oct", 55); if (!alive()) return;
+        panelBody.innerHTML = panelBase + line("passport renewal — oct");
+        await sleep(2800);
+      });
+    }
+  }
+
+  // ---- demo: themes, accents and fonts — entirely in the visitor's hands ----
+  {
+    const themeHtml = heading("today") + task("morning run", true) + task("review pr #42", false) +
+      line("focus: <span class=\"m-b\">one thing at a time</span>");
+    const mini = buildMini("demo-theme", daySection(0, themeHtml) + daySection(-1, pastDays[0][1]), noted);
     if (mini) {
       const swatches = document.querySelectorAll("#theme-swatches .swatch");
       const chips = document.querySelectorAll("#theme-controls .chip");
@@ -966,38 +1093,13 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
           if (chip.dataset.font !== undefined) chip.classList.toggle("active", chip.dataset.font === state.font);
         });
       };
-
-      // once the visitor takes the wheel, the auto-tour steps aside
-      let manual = false;
-      swatches.forEach((sw) => sw.addEventListener("click", () => {
-        manual = true; state.accent = sw.dataset.sw; apply();
-      }));
+      swatches.forEach((sw) => sw.addEventListener("click", () => { state.accent = sw.dataset.sw; apply(); }));
       chips.forEach((chip) => chip.addEventListener("click", () => {
-        manual = true;
         if (chip.dataset.mode !== undefined) state.dark = chip.dataset.mode === "dark";
         if (chip.dataset.font !== undefined) state.font = chip.dataset.font;
         apply();
       }));
-
-      const tour = [
-        { dark: false, accent: "blue", font: "" },
-        { dark: true, accent: "blue", font: "" },
-        { dark: true, accent: "purple", font: "font-serif" },
-        { dark: false, accent: "green", font: "font-mono" },
-        { dark: false, accent: "orange", font: "" },
-      ];
       apply();
-      if (reduced) { Object.assign(state, tour[2]); apply(); }
-      else {
-        let i = 0;
-        loopWhenVisible(mini, async () => {
-          await sleep(1700);
-          if (manual) { await sleep(2000); return; }
-          i = (i + 1) % tour.length;
-          Object.assign(state, tour[i]);
-          apply();
-        });
-      }
     }
   }
 })();
