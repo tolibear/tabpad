@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DayRow } from "../db/db";
-import { dateKey, daysBetween } from "../lib/dates";
+import { dateFromKey, dateKey, daysBetween } from "../lib/dates";
 import { scrambleText } from "../lib/scramble";
 import { DaySection, focusEditorAtEnd } from "./DaySection";
 
@@ -330,6 +330,16 @@ export const Timeline = memo(function Timeline({
   // entering focus mode collapses the content to one day — the old scroll
   // offset would leave its top cut off above the viewport. on exit, restore
   // the view to that day instantly (no animated scroll).
+  // a persisted focus day (new tab, or set from another tab) can lie outside
+  // the initial window — widen the window so it actually renders
+  useEffect(() => {
+    if (!focusDayKey) return;
+    const date = dateFromKey(focusDayKey);
+    if (!date) return;
+    setFutureCount((count) => Math.max(count, requiredFutureCount(today, date)));
+    setPastCount((count) => Math.max(count, requiredPastCount(today, date)));
+  }, [focusDayKey, today]);
+
   const lastFocusKey = useRef<string | null>(null);
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;

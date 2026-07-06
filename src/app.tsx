@@ -5,7 +5,7 @@ import { eraseAllNotes, getDay, hasDayContent, listAllDays, listContentDays, sav
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { getPanel, savePanel } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
-import { addDays, dateKey, daysBetween } from "./lib/dates";
+import { addDays, dateFromKey, dateKey, daysBetween } from "./lib/dates";
 import {
   applyAccent,
   applyTheme,
@@ -55,6 +55,18 @@ function readPrivacyPreference(): boolean {
   }
 }
 
+// focus mode persists the same way: a new tab opens focused on the same day
+const FOCUS_KEY = "tabpad:focus:v1";
+
+function readFocusPreference(): string | null {
+  try {
+    const raw = localStorage.getItem(FOCUS_KEY);
+    return raw && dateFromKey(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 export function App() {
   const today = useToday();
   const todayKey = dateKey(today);
@@ -100,7 +112,7 @@ export function App() {
   const [currentTopKey, setCurrentTopKey] = useState(todayKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // focus mode: one day takes over the whole view
-  const [focusDayKey, setFocusDayKey] = useState<string | null>(null);
+  const [focusDayKey, setFocusDayKey] = useState<string | null>(() => readFocusPreference());
   const [privacyMode, setPrivacyMode] = useState(() => readPrivacyPreference());
   const resolvedTheme = resolveTheme(themePreference, systemTheme);
   const todayText = dayTexts[todayKey] ?? "";
@@ -642,10 +654,22 @@ export function App() {
     if (privacyMode) (document.activeElement as HTMLElement | null)?.blur?.();
   }, [privacyMode]);
 
-  // lock/unlock in one tab applies to every open tab
+  useEffect(() => {
+    try {
+      if (focusDayKey) localStorage.setItem(FOCUS_KEY, focusDayKey);
+      else localStorage.removeItem(FOCUS_KEY);
+    } catch {
+      // persistence is a convenience; the mode still works in this tab
+    }
+  }, [focusDayKey]);
+
+  // lock/unlock and focus/unfocus in one tab apply to every open tab
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === PRIVACY_KEY) setPrivacyMode(event.newValue === "1");
+      if (event.key === FOCUS_KEY) {
+        setFocusDayKey(event.newValue && dateFromKey(event.newValue) ? event.newValue : null);
+      }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
