@@ -300,6 +300,38 @@ export function App() {
     };
   }, [loaded, mirrorStatus, refreshContentDays]);
 
+  // extension reloads and browser restarts silently revoke the folder
+  // permission — use the user's first gesture to re-request it automatically
+  useEffect(() => {
+    if (!loaded || mirrorStatus !== "reconnect") return;
+
+    const tryRegrant = () => {
+      void (async () => {
+        try {
+          const handle = mirrorHandleRef.current ?? (await getMirrorDirectory());
+          if (!handle) return;
+          if ((await requestMirrorPermission(handle)) !== "granted") return;
+          mirrorHandleRef.current = handle;
+          setMirrorName(handle.name);
+          setMirrorStatus("connected");
+          await syncWithDisk(handle, syncMtimes.current);
+          await writeFullMirror(handle);
+          await refreshContentDays();
+          setDataMessage(`notes folder reconnected: ${handle.name}`);
+        } catch (error) {
+          console.warn("Tab Pad folder re-grant failed", error);
+        }
+      })();
+    };
+
+    window.addEventListener("pointerdown", tryRegrant, { once: true, capture: true });
+    window.addEventListener("keydown", tryRegrant, { once: true, capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", tryRegrant, { capture: true });
+      window.removeEventListener("keydown", tryRegrant, { capture: true });
+    };
+  }, [loaded, mirrorStatus, refreshContentDays]);
+
   // keep the mirror folder self-describing for agents: which surfaces are on,
   // what today is, and how to write via the inbox
   useEffect(() => {
@@ -744,6 +776,11 @@ export function App() {
         <div className="save-error-banner" role="alert">
           saving is failing — export your notes from settings now
         </div>
+      ) : null}
+      {loaded && (mirrorStatus === "reconnect" || mirrorStatus === "error") ? (
+        <button className="sync-banner" type="button" onClick={() => void reconnectMirror()}>
+          notes folder disconnected — click to reconnect
+        </button>
       ) : null}
       {loaded ? (
       <RightPanel
