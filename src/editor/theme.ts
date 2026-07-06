@@ -21,6 +21,20 @@ export const tabPadEditorTheme = EditorView.theme({
   ".cm-line": {
     padding: "0",
   },
+  // hanging indents MUST live here: the injected `.cm-line { padding: 0 }`
+  // above beats any app.css padding, and an unpaired negative text-indent
+  // shoves the markers out of the column
+  ".cm-line.cm-md-task-line": {
+    paddingLeft: "22px",
+    textIndent: "-22px",
+  },
+  ".cm-line.cm-md-bullet-line": {
+    paddingLeft: "18px",
+    textIndent: "-18px",
+  },
+  ".cm-line.cm-md-quote": {
+    paddingLeft: "8px",
+  },
   ".cm-cursor": {
     borderLeftColor: "var(--accent)",
   },
