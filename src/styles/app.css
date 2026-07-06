@@ -896,12 +896,19 @@ body.link-modifier .cm-md-link * {
   flex-direction: column;
   min-width: 0;
   padding-left: 18px;
-  color: color-mix(in srgb, var(--ink) 85%, var(--muted));
+  /* margin notes are annotations, not the main text: muted at rest, easing
+     toward ink while you're actually writing in them */
+  color: color-mix(in srgb, var(--ink) 42%, var(--muted));
   cursor: text;
+  transition: color 160ms ease;
   /* size side editors via the variable the editor theme reads, so the size
      is stable from the first paint instead of flipping on focus */
   --editor-font-size: 13.5px;
   font-size: 13.5px;
+}
+
+.day-margin:focus-within {
+  color: color-mix(in srgb, var(--ink) 80%, var(--muted));
 }
 
 .day-margin .editor-host,
@@ -910,7 +917,7 @@ body.link-modifier .cm-md-link * {
 }
 
 .margin-editor {
-  color: color-mix(in srgb, var(--ink) 85%, var(--muted));
+  color: inherit;
 }
 
 .margin-editor .cm-content {
