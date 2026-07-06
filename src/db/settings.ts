@@ -4,11 +4,17 @@ const SETTINGS_ID = "settings";
 
 export async function getSettings(): Promise<Settings> {
   const row = await db.meta.get(SETTINGS_ID);
-  const settings = { ...defaultSettings, ...(isSettingsPartial(row?.value) ? row.value : {}) };
-  // removed panel modes (master list, floating scratchpad) map to scratchpad
-  if ((settings.rightPanel as string) === "masterList" || (settings.rightPanel as string) === "scratchpadFloat") {
-    settings.rightPanel = "scratchpad";
+  const stored = isSettingsPartial(row?.value) ? row.value : {};
+  const settings = { ...defaultSettings, ...stored };
+
+  // migrate the legacy single-choice rightPanel setting to the two toggles
+  const legacy = (stored as Record<string, unknown>).rightPanel;
+  if (typeof legacy === "string" && typeof (stored as Record<string, unknown>).scratchpad !== "boolean") {
+    settings.scratchpad = legacy !== "hidden" && legacy !== "margin";
+    settings.margins = legacy === "margin";
   }
+  settings.scratchpad = settings.scratchpad !== false;
+  settings.margins = settings.margins === true;
   return settings;
 }
 

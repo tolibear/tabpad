@@ -26,7 +26,7 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --paper: #111113;
       --surface: #19191c;
       --ink: #ededea;
@@ -37,6 +37,19 @@
       --accent-soft: rgba(107, 148, 255, 0.14);
     }
   }
+
+  :root[data-theme="dark"] {
+    --paper: #111113;
+    --surface: #19191c;
+    --ink: #ededea;
+    --muted: #9c9c99;
+    --faint: #5e5e5c;
+    --line: #26262a;
+    --accent: #6b94ff;
+    --accent-soft: rgba(107, 148, 255, 0.14);
+  }
+
+  body { transition: background-color 300ms ease, color 300ms ease; }
 
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -90,6 +103,8 @@
     background: var(--accent);
   }
 
+  .bar-right { display: flex; align-items: center; gap: 16px; }
+
   .bar-install {
     font-size: 13px;
     color: var(--muted);
@@ -98,6 +113,21 @@
     padding-bottom: 1px;
   }
   .bar-install:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+  .mode-toggle {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+  }
+  .mode-toggle:hover { color: var(--ink); background: var(--surface); }
 
   /* ---- day entries: the whole page is the notepad ---- */
   .day {
@@ -312,6 +342,11 @@
     overflow: hidden;
     background: var(--surface);
     box-shadow: 0 18px 48px -24px rgba(0, 0, 0, 0.18);
+    /* break out of the text measure — the demos deserve the room */
+    width: min(100vw - 40px, 960px);
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   .b-chrome {
@@ -343,12 +378,12 @@
     --m-faint: #a6a6a1; --m-line: #e8e8e3; --m-accent: #2f6bff;
     --m-font: var(--sans);
     display: grid;
-    grid-template-columns: 132px minmax(0, 1fr);
-    height: 420px;
+    grid-template-columns: 160px minmax(0, 1fr);
+    height: 500px;
     background: var(--m-bg);
     color: var(--m-ink);
     font-family: var(--m-font);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.65;
     transition: background-color 400ms ease, color 400ms ease;
     text-align: left;
@@ -414,7 +449,7 @@
   .m-tl {
     overflow-y: auto;
     scrollbar-width: none;
-    padding: 0 26px;
+    padding: 0 40px;
     scroll-behavior: auto;
   }
   .m-tl::-webkit-scrollbar { display: none; }
@@ -499,7 +534,10 @@
 
   <header class="bar">
     <a class="brand" href="/"><span class="dot"></span>tab pad</a>
-    <a class="bar-install" href="#install">add to chrome ↗</a>
+    <div class="bar-right">
+      <button class="mode-toggle" id="mode-toggle" type="button" aria-label="toggle light and dark mode">☾</button>
+      <a class="bar-install" href="#install">add to chrome ↗</a>
+    </div>
   </header>
 
   <!-- today: the hero is today's page -->
@@ -860,6 +898,43 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
       }
     }
   }
+})();
+</script>
+
+<script>
+// global light/dark toggle; the live demos follow the site theme
+(() => {
+  const KEY = "tabpad-site-theme";
+  const btn = document.getElementById("mode-toggle");
+  const system = window.matchMedia("(prefers-color-scheme: dark)");
+  const root = document.documentElement;
+
+  try {
+    const stored = localStorage.getItem(KEY);
+    if (stored === "light" || stored === "dark") root.dataset.theme = stored;
+  } catch (_) {}
+
+  const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : system.matches);
+
+  const apply = () => {
+    const dark = isDark();
+    btn.textContent = dark ? "☀" : "☾";
+    // sync the mini demos — except the theming demo, which runs its own show
+    document.querySelectorAll(".mini").forEach((mini) => {
+      if (mini.closest("#demo-theme")) return;
+      mini.classList.toggle("dark", dark);
+    });
+  };
+
+  btn.addEventListener("click", () => {
+    const next = isDark() ? "light" : "dark";
+    root.dataset.theme = next;
+    try { localStorage.setItem(KEY, next); } catch (_) {}
+    apply();
+  });
+
+  system.addEventListener("change", apply);
+  apply();
 })();
 </script>
 

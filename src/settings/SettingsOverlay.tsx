@@ -11,21 +11,21 @@ const fontOptions: Array<{ value: Settings["font"]; label: string }> = [
   { value: "serif", label: "serif" },
   { value: "mono", label: "monospace" },
 ];
-const panelModes: Array<{
-  value: Settings["rightPanel"];
+const layoutToggles: Array<{
+  key: "scratchpad" | "margins";
   label: string;
   description: string;
 }> = [
-  { value: "scratchpad", label: "scratchpad", description: "one persistent note in a right panel" },
-  { value: "margin", label: "per-day margin", description: "every day gets its own side notes" },
-  { value: "hidden", label: "hidden", description: "just the timeline" },
+  { key: "scratchpad", label: "scratchpad", description: "one persistent note in a right panel" },
+  { key: "margins", label: "per-day margins", description: "every day gets its own side notes" },
 ];
 
 interface SettingsOverlayProps {
   open: boolean;
   theme: ThemePreference;
   accent: AccentColor;
-  rightPanel: Settings["rightPanel"];
+  scratchpad: boolean;
+  margins: boolean;
   weekStartsOn: Settings["weekStartsOn"];
   editorSize: Settings["editorSize"];
   font: Settings["font"];
@@ -36,7 +36,8 @@ interface SettingsOverlayProps {
   onClose: () => void;
   onThemeChange: (theme: ThemePreference) => void;
   onAccentChange: (accent: AccentColor) => void;
-  onRightPanelChange: (mode: Settings["rightPanel"]) => void;
+  onScratchpadChange: (on: boolean) => void;
+  onMarginsChange: (on: boolean) => void;
   onWeekStartsOnChange: (day: Settings["weekStartsOn"]) => void;
   onEditorSizeChange: (size: Settings["editorSize"]) => void;
   onFontChange: (font: Settings["font"]) => void;
@@ -52,7 +53,8 @@ export function SettingsOverlay({
   open,
   theme,
   accent,
-  rightPanel,
+  scratchpad,
+  margins,
   weekStartsOn,
   editorSize,
   font,
@@ -63,7 +65,8 @@ export function SettingsOverlay({
   onClose,
   onThemeChange,
   onAccentChange,
-  onRightPanelChange,
+  onScratchpadChange,
+  onMarginsChange,
   onWeekStartsOnChange,
   onEditorSizeChange,
   onFontChange,
@@ -134,18 +137,26 @@ export function SettingsOverlay({
         <section className="settings-section" aria-label="layout">
           <h3>layout</h3>
           <div className="mode-list">
-            {panelModes.map((mode) => (
-              <button
-                className={mode.value === rightPanel ? "mode-choice selected" : "mode-choice"}
-                key={mode.value}
-                type="button"
-                aria-pressed={mode.value === rightPanel}
-                onClick={() => onRightPanelChange(mode.value)}
-              >
-                <span>{mode.label}</span>
-                <small>{mode.description}</small>
-              </button>
-            ))}
+            {layoutToggles.map((toggle) => {
+              const on = toggle.key === "scratchpad" ? scratchpad : margins;
+              const change = toggle.key === "scratchpad" ? onScratchpadChange : onMarginsChange;
+              return (
+                <button
+                  className={on ? "mode-choice selected" : "mode-choice"}
+                  key={toggle.key}
+                  type="button"
+                  role="switch"
+                  aria-checked={on}
+                  onClick={() => change(!on)}
+                >
+                  <span className="mode-row">
+                    {toggle.label}
+                    <span className={on ? "mode-switch on" : "mode-switch"} aria-hidden="true" />
+                  </span>
+                  <small>{toggle.description}</small>
+                </button>
+              );
+            })}
           </div>
         </section>
 

@@ -18,7 +18,8 @@ export interface PanelRow {
 export interface Settings {
   theme: ThemePreference;
   accent: AccentColor;
-  rightPanel: "scratchpad" | "margin" | "hidden";
+  scratchpad: boolean;
+  margins: boolean;
   weekStartsOn: 0 | 1;
   editorSize: "sm" | "md" | "lg";
   font: "sans" | "serif" | "mono";
@@ -33,7 +34,8 @@ export interface MetaRow {
 export const defaultSettings: Settings = {
   theme: "system",
   accent: "blue",
-  rightPanel: "scratchpad",
+  scratchpad: true,
+  margins: false,
   weekStartsOn: 0,
   editorSize: "md",
   font: "sans",

@@ -246,7 +246,8 @@ const payload = {
   settings: {
     theme: "system",
     accent: "blue",
-    rightPanel: "scratchpad",
+    scratchpad: true,
+    margins: true,
     weekStartsOn: 0,
     editorSize: "md",
     font: "sans",

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "exportedAt": 1783283537206,
+  "exportedAt": 1783307283131,
   "days": [
     {
       "date": "2026-06-11",
@@ -97,56 +97,57 @@
       "date": "2026-07-05",
       "main": "# today\n- [x] morning run\n- [ ] finish the launch checklist\n- [ ] review pr #42\n- [ ] book haircut\n\n**focus:** one thing at a time. the list isn't the work.\n\nidea from the run — what if the weekly review auto-collected every unchecked task from the past 7 days?",
       "margin": "energy: high\ncoffee: 2 (limit!)",
-      "createdAt": 1783279877206,
-      "updatedAt": 1783283477206
+      "createdAt": 1783287000000,
+      "updatedAt": 1783290600000
     },
     {
       "date": "2026-07-06",
       "main": "- [ ] no-meeting wednesday — deep work on the sync engine\n- [ ] lunch with dee, 12:30\n- [ ] draft v1.1 notes",
       "margin": "",
-      "createdAt": 1783279877206,
-      "updatedAt": 1783283477206
+      "createdAt": 1783303623131,
+      "updatedAt": 1783307223131
     },
     {
       "date": "2026-07-08",
       "main": "**flight to lisbon — 7:40am**\n- [ ] passport, chargers, kindle\n- [ ] check in online\n- [ ] water the plants (ask neighbor)",
       "margin": "cab at 5:45",
-      "createdAt": 1783279877206,
-      "updatedAt": 1783283477206
+      "createdAt": 1783303623131,
+      "updatedAt": 1783307223131
     },
     {
       "date": "2026-07-11",
       "main": "# lisbon — day 3\nplanned: tram 28 early, then the tile museum\n\n- [ ] pastéis de belém (non-negotiable)",
       "margin": "",
-      "createdAt": 1783279877206,
-      "updatedAt": 1783283477206
+      "createdAt": 1783303623131,
+      "updatedAt": 1783307223131
     },
     {
       "date": "2026-07-15",
       "main": "back home. unpack, reset, grocery run.\n\n- [ ] expense report\n- [ ] photos → shared album",
       "margin": "",
-      "createdAt": 1783279877206,
-      "updatedAt": 1783283477206
+      "createdAt": 1783303623131,
+      "updatedAt": 1783307223131
     },
     {
       "date": "2026-07-19",
       "main": "quarterly review with the team — bring the Q3 themes doc\n\n- [ ] prep slides (keep it to 10)",
       "margin": "themes: speed,\nfewer better features",
-      "createdAt": 1783279877206,
-      "updatedAt": 1783283477206
+      "createdAt": 1783303623131,
+      "updatedAt": 1783307223131
     }
   ],
   "panels": [
     {
       "id": "scratchpad",
       "content": "## v1.1 wishlist\n- weekly review view\n- carryover unchecked tasks\n- quick capture from any page\n\n## books queue\n- *piranesi*\n- *the design of everyday things* (reread)\n\n## standing reminders\ngym tue/thu/sat · water the ficus friday\ncall grandpa sundays\n\nrandom string that needs a home:\n\"make the easy path the right path\"",
-      "updatedAt": 1783283417206
+      "updatedAt": 1783307163131
     }
   ],
   "settings": {
     "theme": "system",
     "accent": "blue",
-    "rightPanel": "scratchpad",
+    "scratchpad": true,
+    "margins": true,
     "weekStartsOn": 0,
     "editorSize": "md",
     "font": "sans",

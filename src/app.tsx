@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createDaybookChannel, type DaybookChannel } from "./db/broadcast";
 import type { DayRow, PanelRow, Settings } from "./db/db";
-import { eraseAllNotes, getDay, listContentDays, saveDayFields } from "./db/days";
+import { appendToDay, eraseAllNotes, getDay, listContentDays, saveDayFields } from "./db/days";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
-import { getPanel, savePanel } from "./db/panels";
+import { appendToPanel, getPanel, savePanel } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
 import { addDays, dateFromKey, dateKey, daysBetween } from "./lib/dates";
 import {
@@ -29,14 +29,48 @@ import {
   getMirrorDirectory,
   isMirrorPermissionError,
   pickMirrorDirectory,
+  queryMirrorPermission,
   queryMirrorStatus,
+  readInbox,
+  removeInboxEntry,
   requestMirrorPermission,
   type FileSystemDirectoryHandleLike,
   type MirrorStatus,
+  writeAgentFiles,
   writeDayMirror,
   writeFullMirror,
   writePanelMirror,
 } from "./mirror/mirror";
+
+// agents drop .md files in the mirror's inbox/ — append each to its target,
+// re-mirror the result, and delete the file (the deletion is the receipt)
+async function processInbox(handle: FileSystemDirectoryHandleLike): Promise<number> {
+  const entries = await readInbox(handle);
+  let applied = 0;
+  for (const entry of entries) {
+    const marginMatch = /^(\d{4}-\d{2}-\d{2})\.margin\.md$/.exec(entry.name);
+    const dayMatch = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(entry.name);
+    try {
+      if (marginMatch && dateFromKey(marginMatch[1])) {
+        const row = await appendToDay(marginMatch[1], "margin", entry.text);
+        if (row) await writeDayMirror(handle, row);
+      } else if (dayMatch && dateFromKey(dayMatch[1])) {
+        const row = await appendToDay(dayMatch[1], "main", entry.text);
+        if (row) await writeDayMirror(handle, row);
+      } else if (entry.name === "scratchpad.md") {
+        const panel = await appendToPanel("scratchpad", entry.text);
+        await writePanelMirror(handle, panel);
+      } else {
+        continue; // unknown filename: leave it for the human to inspect
+      }
+      await removeInboxEntry(handle, entry.name);
+      applied += 1;
+    } catch (error) {
+      console.warn("Tab Pad inbox entry failed", entry.name, error);
+    }
+  }
+  return applied;
+}
 
 export function App() {
   const today = useToday();
@@ -58,7 +92,8 @@ export function App() {
   const [accent, setAccent] = useState<AccentColor>(() => readAccentPreference());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => currentSystemTheme());
   const [weekStartsOn, setWeekStartsOn] = useState<0 | 1>(0);
-  const [rightPanelMode, setRightPanelMode] = useState<Settings["rightPanel"]>("scratchpad");
+  const [showScratchpad, setShowScratchpad] = useState(true);
+  const [showDayMargins, setShowDayMargins] = useState(false);
   const [editorSize, setEditorSize] = useState<Settings["editorSize"]>("md");
   const [font, setFont] = useState<Settings["font"]>("sans");
   const [mirrorEnabled, setMirrorEnabled] = useState(false);
@@ -111,7 +146,8 @@ export function App() {
     setThemePreference(settings.theme);
     setAccent(settings.accent);
     setWeekStartsOn(settings.weekStartsOn);
-    setRightPanelMode(settings.rightPanel);
+    setShowScratchpad(settings.scratchpad);
+    setShowDayMargins(settings.margins);
     setEditorSize(settings.editorSize);
     setFont(settings.font);
     setMirrorEnabled(settings.mirrorEnabled);
@@ -157,6 +193,22 @@ export function App() {
   }, []);
 
   const loadDocuments = useCallback(async () => {
+    // apply agent inbox entries first so they're part of what loads below
+    try {
+      const early = await getSettings();
+      if (early.mirrorEnabled) {
+        const handle = await getMirrorDirectory();
+        if (handle && (await queryMirrorPermission(handle)) === "granted") {
+          const applied = await processInbox(handle);
+          if (applied > 0) {
+            setDataMessage(`added ${applied} note${applied > 1 ? "s" : ""} from the inbox`);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("Tab Pad inbox check failed", error);
+    }
+
     const [day, scratchpad, settings, rows] = await Promise.all([
       getDay(todayKey),
       getPanel("scratchpad"),
@@ -254,6 +306,17 @@ export function App() {
     applyAccent(accent);
   }, [accent]);
 
+  // keep the mirror folder self-describing for agents: which surfaces are on,
+  // what today is, and how to write via the inbox
+  useEffect(() => {
+    if (!loaded || !mirrorEnabled || mirrorStatus !== "connected") return;
+    const handle = mirrorHandleRef.current;
+    if (!handle) return;
+    void writeAgentFiles(handle, { margins: showDayMargins, scratchpad: showScratchpad }, todayKey).catch((error) =>
+      console.warn("Tab Pad agent manifest write failed", error),
+    );
+  }, [loaded, mirrorEnabled, mirrorStatus, showDayMargins, showScratchpad, todayKey]);
+
   const saveSettingsAndBroadcast = useCallback(async (patch: Partial<Settings>) => {
     const settings = await saveSettings(patch);
     applySettingsState(settings);
@@ -264,7 +327,7 @@ export function App() {
 
   const changeSettings = useCallback(
     (patch: Partial<Settings>) => {
-      applySettingsState({ theme: themePreference, accent, rightPanel: rightPanelMode, weekStartsOn, editorSize, font, mirrorEnabled, ...patch });
+      applySettingsState({ theme: themePreference, accent, scratchpad: showScratchpad, margins: showDayMargins, weekStartsOn, editorSize, font, mirrorEnabled, ...patch });
       if (!loaded) return;
 
       void saveSettingsAndBroadcast(patch);
@@ -276,7 +339,8 @@ export function App() {
       font,
       loaded,
       mirrorEnabled,
-      rightPanelMode,
+      showDayMargins,
+      showScratchpad,
       saveSettingsAndBroadcast,
       themePreference,
       weekStartsOn,
@@ -607,7 +671,13 @@ export function App() {
   }, [currentTopKey, jumpToDate, today]);
 
   const fixedPanelId: PanelRow["id"] = "scratchpad";
-  const shellClassName = ["app-shell", `panel-${rightPanelMode}`, `editor-size-${editorSize}`, `font-${font}`].join(" ");
+  const shellClassName = [
+    "app-shell",
+    showScratchpad ? "has-scratchpad" : "",
+    showDayMargins ? "has-margins" : "",
+    `editor-size-${editorSize}`,
+    `font-${font}`,
+  ].filter(Boolean).join(" ");
 
   return (
     <main className={shellClassName} data-theme={resolvedTheme}>
@@ -633,8 +703,8 @@ export function App() {
         dayMargins={dayMargins}
         contentDays={contentDays}
         jumpTarget={jumpTarget}
-        showMargins={rightPanelMode === "margin"}
-        layoutMode={rightPanelMode}
+        showMargins={showDayMargins}
+        layoutMode={`${showScratchpad}-${showDayMargins}`}
         onDayTextChange={changeDayText}
         onDayMarginChange={changeDayMargin}
         onDayBlur={handleDayBlur}
@@ -651,7 +721,8 @@ export function App() {
         open={settingsOpen}
         theme={themePreference}
         accent={accent}
-        rightPanel={rightPanelMode}
+        scratchpad={showScratchpad}
+        margins={showDayMargins}
         weekStartsOn={weekStartsOn}
         editorSize={editorSize}
         font={font}
@@ -662,7 +733,8 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         onThemeChange={(theme) => changeSettings({ theme })}
         onAccentChange={(accent) => changeSettings({ accent })}
-        onRightPanelChange={(rightPanel) => changeSettings({ rightPanel })}
+        onScratchpadChange={(scratchpad) => changeSettings({ scratchpad })}
+        onMarginsChange={(margins) => changeSettings({ margins })}
         onWeekStartsOnChange={(weekStartsOn) => changeSettings({ weekStartsOn })}
         onEditorSizeChange={(editorSize) => changeSettings({ editorSize })}
         onFontChange={(font) => changeSettings({ font })}
@@ -680,7 +752,7 @@ export function App() {
       ) : null}
       {loaded ? (
       <RightPanel
-        mode={rightPanelMode}
+        show={showScratchpad}
         value={panelTexts[fixedPanelId]}
         onValueChange={(value) => changePanelText(fixedPanelId, value)}
         onBlur={() => void persistPanel(fixedPanelId, true)}

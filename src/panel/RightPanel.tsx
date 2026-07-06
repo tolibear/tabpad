@@ -1,16 +1,15 @@
-import type { Settings } from "../db/db";
 import { EditorSurface } from "../editor/EditorSurface";
 
 interface RightPanelProps {
-  mode: Settings["rightPanel"];
+  show: boolean;
   value: string;
   onValueChange: (value: string) => void;
   onBlur: () => void;
   onFocusChange: (focused: boolean) => void;
 }
 
-export function RightPanel({ mode, value, onValueChange, onBlur, onFocusChange }: RightPanelProps) {
-  if (mode !== "scratchpad") return null;
+export function RightPanel({ show, value, onValueChange, onBlur, onFocusChange }: RightPanelProps) {
+  if (!show) return null;
 
   return (
     <aside className="right-panel" aria-label="scratchpad">
