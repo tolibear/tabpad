@@ -1036,6 +1036,9 @@ body.link-modifier .cm-md-link * {
 
 .cm-md-quote {
   border-left: 2px solid var(--accent-soft);
+  /* indent on the LINE, not via the marker widget — wrapped lines must align
+     with the first line instead of snapping back against the bar */
+  padding-left: 8px;
   color: var(--muted);
 }
 
@@ -1066,7 +1069,7 @@ body.link-modifier .cm-md-link * {
 
 .cm-quote-widget {
   display: inline-block;
-  width: 8px;
+  width: 0;
 }
 
 .cm-rule-widget {
