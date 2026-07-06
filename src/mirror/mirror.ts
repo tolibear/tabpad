@@ -91,15 +91,34 @@ export async function writeFullMirror(handle: FileSystemDirectoryHandleLike): Pr
 }
 
 export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day: DayRow): Promise<void> {
-  // always write, including empty content — the mirror must not retain text
-  // the user has deleted from the note
-  await writeTextFile(handle, [`${day.date}.md`], day.main);
+  // freshness guard: never overwrite a disk file that has newer, different
+  // content than the app's copy — sync will import it instead
+  const mainDisk = await readDiskFile(handle, `${day.date}.md`);
+  if (!mainDisk || mainDisk.text === day.main || mainDisk.lastModified <= (day.mainUpdatedAt ?? day.updatedAt)) {
+    if (mainDisk?.text !== day.main) {
+      await writeTextFile(handle, [`${day.date}.md`], day.main);
+    }
+  }
 
-  await writeTextFile(handle, ["margins", `${day.date}.md`], day.margin);
+  let marginsDir: FileSystemDirectoryHandleLike | null = null;
+  try {
+    marginsDir = await handle.getDirectoryHandle("margins");
+  } catch {
+    marginsDir = null;
+  }
+  const marginDisk = marginsDir ? await readDiskFile(marginsDir, `${day.date}.md`) : null;
+  if (!marginDisk || marginDisk.text === day.margin || marginDisk.lastModified <= (day.marginUpdatedAt ?? day.updatedAt)) {
+    if (marginDisk?.text !== day.margin) {
+      await writeTextFile(handle, ["margins", `${day.date}.md`], day.margin);
+    }
+  }
 }
 
 export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, panel: PanelRow): Promise<void> {
   const filename = panel.id === "scratchpad" ? "scratchpad.md" : "master-list.md";
+  const disk = await readDiskFile(handle, filename);
+  if (disk && disk.text !== panel.content && disk.lastModified > panel.updatedAt) return;
+  if (disk?.text === panel.content) return;
   await writeTextFile(handle, [filename], panel.content);
 }
 
@@ -131,14 +150,27 @@ const DAY_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
 // imported; otherwise the app's version is written back out.
 // `mtimes` is an optional cache so frequent polls skip unchanged files
 // without reading their contents.
+export interface SyncSkip {
+  day?: string | null;
+  margin?: string | null;
+  scratchpad?: boolean;
+}
+
 export async function syncWithDisk(
   handle: FileSystemDirectoryHandleLike,
   mtimes?: Map<string, number>,
+  skip?: SyncSkip,
 ): Promise<number> {
   if (!handle.values) return 0;
   let imported = 0;
 
   const reconcileDay = async (date: string, field: "main" | "margin", disk: DiskFile) => {
+    // never reconcile the field the user is typing in — neither import over
+    // their cursor nor push their stale copy over the file; defer entirely
+    if ((field === "main" && skip?.day === date) || (field === "margin" && skip?.margin === date)) {
+      mtimes?.delete(field === "main" ? `${date}.md` : `margins/${date}.md`);
+      return;
+    }
     const row = await db.days.get(date);
     const current = (field === "main" ? row?.main : row?.margin) ?? "";
     if (disk.text === current) return;
@@ -180,6 +212,10 @@ export async function syncWithDisk(
         const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) await reconcileDay(match[1], "main", disk);
       } else if (entry.name === "scratchpad.md") {
+        if (skip?.scratchpad) {
+          mtimes?.delete(entry.name);
+          continue;
+        }
         const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) {
           const panel = await getPanel("scratchpad");

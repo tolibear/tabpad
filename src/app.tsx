@@ -278,7 +278,11 @@ export function App() {
       if (!handle) return;
       running = true;
       try {
-        const imported = await syncWithDisk(handle, syncMtimes.current);
+        const imported = await syncWithDisk(handle, syncMtimes.current, {
+          day: focusedDayRef.current,
+          margin: focusedMarginRef.current,
+          scratchpad: focusedPanelRef.current === "scratchpad",
+        });
         if (imported > 0 && !stopped) {
           await refreshContentDays();
           const scratch = await getPanel("scratchpad");
