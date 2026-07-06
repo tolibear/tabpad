@@ -46,6 +46,7 @@ interface SettingsOverlayProps {
   onReconnectMirror: () => void;
   onExport: () => void;
   onImport: (file: File | undefined) => void;
+  onEraseAll: () => void;
 }
 
 export function SettingsOverlay({
@@ -72,6 +73,7 @@ export function SettingsOverlay({
   onReconnectMirror,
   onExport,
   onImport,
+  onEraseAll,
 }: SettingsOverlayProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -222,6 +224,9 @@ export function SettingsOverlay({
                 event.currentTarget.value = "";
               }}
             />
+            <button className="data-button danger" type="button" onClick={onEraseAll}>
+              <span>erase all notes</span>
+            </button>
             {dataMessage ? <p className="data-message">{dataMessage}</p> : null}
           </div>
         </section>

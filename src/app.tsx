@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createDaybookChannel, type DaybookChannel } from "./db/broadcast";
 import type { DayRow, PanelRow, Settings } from "./db/db";
-import { getDay, listContentDays, saveDayFields } from "./db/days";
+import { eraseAllNotes, getDay, listContentDays, saveDayFields } from "./db/days";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { getPanel, savePanel } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
@@ -469,6 +469,23 @@ export function App() {
     setDataMessage(`exported ${payload.days.length} days`);
   };
 
+  const eraseEverything = async () => {
+    const confirmed = window.confirm(
+      "erase all notes and scratchpad content from this browser? this cannot be undone. (settings are kept.)",
+    );
+    if (!confirmed) return;
+    await eraseAllNotes();
+    setDayTexts({});
+    setDayMargins({});
+    setPanelTexts({ scratchpad: "" } as Record<PanelRow["id"], string>);
+    dayTextsRef.current = {};
+    dayMarginsRef.current = {};
+    panelTextsRef.current = { scratchpad: "" } as Record<PanelRow["id"], string>;
+    await loadDocuments();
+    channelRef.current?.post({ type: "import", key: "all", updatedAt: Date.now() });
+    setDataMessage("all notes erased");
+  };
+
   const importJson = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -677,6 +694,7 @@ export function App() {
         onReconnectMirror={() => void reconnectMirror()}
         onExport={() => void exportJson()}
         onImport={(file) => void importJson(file)}
+        onEraseAll={() => void eraseEverything()}
       />
       {saveError ? (
         <div className="save-error-banner" role="alert">

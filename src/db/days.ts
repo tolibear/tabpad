@@ -50,6 +50,13 @@ export async function listContentDays(beforeDate?: string, limit = Number.POSITI
     .slice(0, limit);
 }
 
+export async function eraseAllNotes(): Promise<void> {
+  await db.transaction("rw", db.days, db.panels, async () => {
+    await db.days.clear();
+    await db.panels.clear();
+  });
+}
+
 export function firstLineExcerpt(source: string, maxLength = 40): string {
   const first = source
     .split(/\r?\n/)
