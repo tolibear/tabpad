@@ -493,14 +493,23 @@
   }
   .m-panel .m-body { font-size: 12px; }
 
-  /* per-day margin column: quiet side notes beside the day's note */
-  .m-daygrid { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 14px; }
+  /* per-day margin column — true to the app: it spans the FULL day block
+     (header row included), divided by a hairline, in the faint ink */
+  .m-day.with-margin {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 130px;
+    grid-template-rows: auto 1fr;
+    column-gap: 18px;
+  }
+  .m-day.with-margin .m-dayhead, .m-day.with-margin .m-body { grid-column: 1; }
   .m-margin {
+    grid-column: 2;
+    grid-row: 1 / span 2;
     border-left: 1px solid var(--m-line);
-    padding-left: 10px;
+    padding-left: 12px;
     color: var(--m-faint);
-    font-size: 11px;
-    line-height: 1.6;
+    font-size: 11.5px;
+    line-height: 1.7;
   }
 
   .m-brand {
@@ -850,12 +859,10 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
   function daySection(offset, bodyHtml, extraClass = "", marginHtml = "") {
     const d = dayAt(offset);
     const today = offset === 0;
-    const content = marginHtml
-      ? `<div class="m-daygrid"><div class="m-body">${bodyHtml}</div><div class="m-margin">${marginHtml}</div></div>`
-      : `<div class="m-body">${bodyHtml}</div>`;
-    return `<div class="m-day${today ? " is-today" : ""}${extraClass ? " " + extraClass : ""}" data-offset="${offset}">
+    return `<div class="m-day${today ? " is-today" : ""}${marginHtml ? " with-margin" : ""}${extraClass ? " " + extraClass : ""}" data-offset="${offset}">
       <div class="m-dayhead"><span class="m-daynum">${label(d)}</span><span class="m-daywd">${wd(d)}</span>${today ? '<span class="m-todaydot"></span>' : ""}</div>
-      ${content}
+      <div class="m-body">${bodyHtml}</div>
+      ${marginHtml ? `<div class="m-margin">${marginHtml}</div>` : ""}
     </div>`;
   }
 
@@ -1011,22 +1018,22 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
         todayMargin.innerHTML = codexNote;
         await sleep(1100);
 
-        // 2) ⌘K into the past to find something — a long scroll DOWN through every day
+        // 3) ⌘K into the past to find something — snaps DOWN through every day
         if (!(await openPalette("two weeks ago", alive))) return;
-        await arriveAt(dayEl(-14), 2600); if (!alive()) return;
-        await sleep(1100);
-
-        // 3) ⌘K to the future to schedule something — scrolls UP past today
-        if (!(await openPalette("next friday", alive))) return;
-        await arriveAt(dayEl(fridayOffset), 3000); if (!alive()) return;
-        await sleep(400);
-        await typeTask(fridayBody, "", "book flights", alive); if (!alive()) return;
+        await arriveAt(dayEl(-14), 900); if (!alive()) return;
         await sleep(1000);
 
-        // 4) ⌘K home — scrolls back DOWN to today
+        // 4) ⌘K to the future to schedule something — snaps UP past today
+        if (!(await openPalette("next friday", alive))) return;
+        await arriveAt(dayEl(fridayOffset), 1000); if (!alive()) return;
+        await sleep(350);
+        await typeTask(fridayBody, "", "book flights", alive); if (!alive()) return;
+        await sleep(900);
+
+        // 5) ⌘K home — snaps back DOWN to today
         if (!(await openPalette("today", alive))) return;
-        await arriveAt(todayEl, 1800);
-        await sleep(2200);
+        await arriveAt(todayEl, 750);
+        await sleep(2000);
       });
     }
   }
