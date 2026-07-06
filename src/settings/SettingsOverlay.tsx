@@ -220,8 +220,8 @@ export function SettingsOverlay({
           <h3>your agent</h3>
           <p>
             let claude code (or any coding agent) read and write your days. paste the prompt into your agent once —
-            it finds your notes folder, learns the rules, remembers them permanently, and proves it worked by
-            writing to today's note while you watch.
+            it finds your notes folder, installs a tab pad skill (so "remind me thursday" just works in every future
+            session), and proves the connection by writing to today's note while you watch.
           </p>
           {mirrorStatus === "connected" ? (
             <div className="data-actions">
@@ -279,21 +279,47 @@ export function SettingsOverlay({
 function buildAgentPrompt(folderName: string): string {
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  return `Connect yourself to my Tab Pad daily notepad. Tab Pad is my new-tab notes app; it syncs a folder of plain markdown files on this computer, and you can read and write them directly — changes appear live in my open tab within seconds.
+  return `Install my Tab Pad skill. Tab Pad is my new-tab daily notepad; it syncs a folder of plain markdown files on this computer, and you can read and write them directly — changes appear live in my open tab within seconds.
 
-1. FIND the notes folder. It is named "${folderName}" and contains a file called tabpad.json. Locate it, e.g.:
+1. FIND my notes folder. It is named "${folderName}" and contains a file called tabpad.json. Locate it, e.g.:
    mdfind -name tabpad.json    (or: find ~ -maxdepth 5 -name tabpad.json 2>/dev/null)
    Confirm the folder name matches "${folderName}".
 
-2. LEARN the rules. Read AGENTS.md and tabpad.json in that folder. In short: one file per day (YYYY-MM-DD.md), scratchpad.md for persistent notes, margins/ for per-day side notes. Edit files directly; prefer appending over rewriting; re-read a file just before writing it (last write wins per file); sign what you add.
+2. INSTALL the skill. Create the file ~/.claude/skills/tabpad/SKILL.md (or your agent's equivalent skills location) with EXACTLY the content between the ==== markers, replacing <NOTES_FOLDER_PATH> with the absolute path you found. If you don't support skill files, add the same content to your persistent instructions (CLAUDE.md, memory, etc.) instead.
 
-3. REMEMBER this permanently. Save the folder's absolute path and a one-line summary of the rules to your persistent memory or instructions file (CLAUDE.md, memory, etc.) under "Tab Pad notes folder" — so every future session can use it without searching.
+====
+---
+name: tabpad
+description: Read and write the user's Tab Pad daily notepad — a new-tab notes app backed by a folder of markdown files. Use when the user mentions tab pad or their daily notes, asks to add a todo or reminder for any day, wants something written down or noted, or asks what is on their schedule, days, or scratchpad.
+---
 
-4. PROVE it worked. Append this line to today's file (${todayKey}.md):
+# Tab Pad — the user's daily notepad
+
+Notes folder: \`<NOTES_FOLDER_PATH>\` (contains tabpad.json — verify it exists; if moved, relocate via \`mdfind -name tabpad.json\`)
+
+## Layout
+- \`YYYY-MM-DD.md\` — one file per day; create the file to write to any date, past or future
+- \`scratchpad.md\` — persistent notes and running lists
+- \`margins/YYYY-MM-DD.md\` — per-day side notes
+- \`tabpad.json\` — today's date + which surfaces are enabled; check before writing
+- \`AGENTS.md\` — the full contract, read it if unsure
+
+## Rules
+- Edit files directly; the user sees changes live in their open tab within seconds
+- Prefer APPENDING lines; re-read a file immediately before writing it (last write wins per file)
+- Never rewrite or delete the user's existing text unless asked
+- Sign what you add: \`— added by <your name>\`
+
+## Conventions
+- Todos and reminders → \`- [ ] task\` lines on the day they should happen
+- Reference material and running lists → scratchpad.md
+- Keep entries short — the user reads these on every new tab
+- Markdown that renders: \`- [ ]\` checkboxes, \`#\` headings, \`-\` bullets, \`>\` quotes, \`---\` dividers, **bold**, *italic*, \`code\`, [links](url)
+====
+
+3. PROVE it worked. Using the skill, append this line to today's file (${todayKey}.md):
    - [x] agent connected — <your name>
-   I'll watch it appear in my tab.
-
-Ongoing: when I ask you to remind me of something or add a todo, put it as a "- [ ]" line on the day it should happen (create the file if needed — past and future dates are fine). Reference material and running lists go in scratchpad.md. Check tabpad.json for today's date whenever you write.`;
+   I'll watch it appear in my tab.`;
 }
 
 function mirrorStatusLabel(status: MirrorStatus): string {
