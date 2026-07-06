@@ -3,7 +3,8 @@ import { EditorView } from "@codemirror/view";
 export const tabPadEditorTheme = EditorView.theme({
   "&": {
     backgroundColor: "transparent",
-    color: "var(--ink)",
+    // --editor-ink lets a container (the day margin) mute its editor's text
+    color: "var(--editor-ink, var(--ink))",
     fontFamily: "var(--app-font, Inter, ui-sans-serif, system-ui, sans-serif)",
     fontSize: "var(--editor-font-size, 15px)",
     lineHeight: "1.7",
