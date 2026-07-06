@@ -25,12 +25,16 @@ export async function saveDayFields(date: string, patch: { main?: string; margin
     }
 
     const now = Date.now();
+    const mainChanged = main !== (existing?.main ?? "");
+    const marginChanged = margin !== (existing?.margin ?? "");
     const row: DayRow = {
       date,
       main,
       margin,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
+      mainUpdatedAt: mainChanged ? now : existing?.mainUpdatedAt ?? existing?.updatedAt ?? now,
+      marginUpdatedAt: marginChanged ? now : existing?.marginUpdatedAt ?? existing?.updatedAt ?? now,
     };
 
     await db.days.put(row);

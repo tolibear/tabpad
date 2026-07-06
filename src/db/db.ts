@@ -7,6 +7,9 @@ export interface DayRow {
   margin: string;
   createdAt: number;
   updatedAt: number;
+  // per-field edit times so file sync can judge note and margin independently
+  mainUpdatedAt?: number;
+  marginUpdatedAt?: number;
 }
 
 export interface PanelRow {

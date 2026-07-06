@@ -137,20 +137,25 @@ export async function syncWithDisk(handle: FileSystemDirectoryHandleLike): Promi
     const row = await db.days.get(date);
     const current = (field === "main" ? row?.main : row?.margin) ?? "";
     if (disk.text === current) return;
-    if (!row || disk.lastModified > row.updatedAt) {
+    // judge each field by its OWN edit time — a margin import must not make
+    // the note file look stale (and vice versa)
+    const fieldStamp = row ? (field === "main" ? row.mainUpdatedAt : row.marginUpdatedAt) ?? row.updatedAt : 0;
+    if (!row || disk.lastModified > fieldStamp) {
       const next: DayRow = {
         date,
         main: field === "main" ? disk.text : row?.main ?? "",
         margin: field === "margin" ? disk.text : row?.margin ?? "",
         createdAt: row?.createdAt ?? disk.lastModified,
-        updatedAt: disk.lastModified,
+        updatedAt: Math.max(row?.updatedAt ?? 0, disk.lastModified),
+        mainUpdatedAt: field === "main" ? disk.lastModified : row?.mainUpdatedAt ?? row?.updatedAt,
+        marginUpdatedAt: field === "margin" ? disk.lastModified : row?.marginUpdatedAt ?? row?.updatedAt,
       };
       if (hasDayContent(next.main, next.margin) || row) {
         await db.days.put(next);
         imported += 1;
       }
     } else {
-      // the app's copy is newer — push it back to disk
+      // the app's copy of this field is newer — push it back to disk
       await writeTextFile(handle, field === "main" ? [`${date}.md`] : ["margins", `${date}.md`], current);
     }
   };
