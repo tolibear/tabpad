@@ -304,10 +304,192 @@
   footer a:hover { color: var(--ink); }
   footer nav { display: flex; gap: 18px; }
 
+  /* ---- live demos: a miniature tab pad in a browser frame ---- */
+  .browser {
+    margin-top: 46px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: 0 18px 48px -24px rgba(0, 0, 0, 0.18);
+  }
+
+  .b-chrome {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .b-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--line); }
+
+  .b-tab {
+    margin-left: 12px;
+    font-size: 11px;
+    color: var(--faint);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    padding: 4px 14px 6px;
+    transform: translateY(11px);
+    background: var(--m-bg, var(--paper));
+  }
+
+  /* the mini app carries its own theme variables so demos can switch live */
+  .mini {
+    --m-bg: #fafaf7; --m-surface: #ffffff; --m-ink: #1c1c1a; --m-muted: #6e6e6a;
+    --m-faint: #a6a6a1; --m-line: #e8e8e3; --m-accent: #2f6bff;
+    --m-font: var(--sans);
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    height: 420px;
+    background: var(--m-bg);
+    color: var(--m-ink);
+    font-family: var(--m-font);
+    font-size: 13px;
+    line-height: 1.65;
+    transition: background-color 400ms ease, color 400ms ease;
+    text-align: left;
+    user-select: none;
+  }
+
+  .mini.dark {
+    --m-bg: #111113; --m-surface: #19191c; --m-ink: #ededea; --m-muted: #9c9c99;
+    --m-faint: #5e5e5c; --m-line: #26262a;
+  }
+
+  .mini[data-accent="blue"] { --m-accent: #2f6bff; }
+  .mini.dark[data-accent="blue"] { --m-accent: #6b94ff; }
+  .mini[data-accent="green"] { --m-accent: #16a34a; }
+  .mini.dark[data-accent="green"] { --m-accent: #4ade80; }
+  .mini[data-accent="purple"] { --m-accent: #7c3aed; }
+  .mini.dark[data-accent="purple"] { --m-accent: #a78bfa; }
+  .mini[data-accent="orange"] { --m-accent: #ea580c; }
+  .mini.dark[data-accent="orange"] { --m-accent: #fb923c; }
+  .mini.font-serif { --m-font: var(--serif); }
+  .mini.font-mono { --m-font: var(--mono); font-size: 12px; }
+
+  .m-rail {
+    border-right: 1px solid var(--m-line);
+    padding: 14px 12px;
+    color: var(--m-muted);
+  }
+
+  .m-brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 620;
+    color: var(--m-ink);
+    margin-bottom: 14px;
+  }
+
+  .m-branddot, .m-todaydot { width: 5px; height: 5px; border-radius: 999px; background: var(--m-accent); flex: none; }
+
+  .m-month { font-size: 9px; color: var(--m-muted); text-align: center; margin-bottom: 6px; font-weight: 620; }
+
+  .m-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+
+  .m-cell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 15px;
+    font-size: 8px;
+    color: var(--m-muted);
+    border-radius: 3px;
+  }
+  .m-cell.out { color: var(--m-faint); opacity: 0.5; }
+  .m-cell.today { background: var(--m-accent); color: #fff; border-radius: 999px; }
+  .mini.dark .m-cell.today { color: #111113; }
+  .m-cell.noted::after {
+    content: ""; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 2.5px; height: 2.5px; border-radius: 999px; background: var(--m-accent);
+  }
+  .m-cell.today.noted::after { content: none; }
+
+  .m-tl {
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: 0 26px;
+    scroll-behavior: auto;
+  }
+  .m-tl::-webkit-scrollbar { display: none; }
+
+  .m-day { padding: 16px 0 18px; border-bottom: 1px solid var(--m-line); transition: background-color 300ms ease; }
+  .m-day.flash { background: color-mix(in srgb, var(--m-accent) 11%, transparent); }
+
+  .m-dayhead { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+  .m-daynum { font-size: 15px; font-weight: 650; color: var(--m-ink); }
+  .m-day.is-today .m-daynum { color: var(--m-accent); }
+  .m-daywd { font-size: 8px; font-weight: 600; text-transform: uppercase; color: var(--m-faint); letter-spacing: 0.05em; }
+
+  .m-body { color: var(--m-muted); min-height: 1.6em; }
+  .m-body > div { min-height: 1.65em; }
+  .m-h { color: var(--m-ink); font-weight: 650; font-size: 15px; }
+  .m-b { color: var(--m-ink); font-weight: 640; }
+  .m-i { font-style: italic; }
+  .m-syntax { color: var(--m-accent); opacity: 0.75; }
+
+  .m-task { display: flex; align-items: center; gap: 7px; }
+  .m-box {
+    width: 11px; height: 11px; flex: none;
+    border: 1.3px solid var(--m-faint); border-radius: 3px;
+    display: inline-grid; place-items: center;
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .m-task.done .m-box { background: var(--m-accent); border-color: var(--m-accent); }
+  .m-task.done .m-box::after {
+    content: ""; width: 5.5px; height: 3px;
+    border: 1.6px solid #fff; border-top: 0; border-right: 0;
+    transform: translateY(-0.5px) rotate(-45deg);
+  }
+  .mini.dark .m-task.done .m-box::after { border-color: #111113; }
+  .m-task.done > span { color: var(--m-faint); text-decoration: line-through; }
+
+  .m-caret {
+    display: inline-block; width: 1.5px; height: 1em; margin-left: 1px;
+    background: var(--m-accent); vertical-align: -0.15em;
+    animation: blink 1.05s steps(1) infinite;
+  }
+
+  /* mini command-k palette */
+  .m-mini-wrap { position: relative; overflow: hidden; }
+  .m-palette {
+    position: absolute; top: 34px; left: 50%; transform: translateX(-50%);
+    width: min(66%, 300px);
+    display: flex; align-items: center; gap: 8px;
+    background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 8px;
+    padding: 9px 13px;
+    font-size: 12px; color: var(--m-ink);
+    box-shadow: 0 10px 32px -12px rgba(0, 0, 0, 0.3);
+    opacity: 0; pointer-events: none;
+    transition: opacity 220ms ease, transform 220ms ease;
+    z-index: 3;
+  }
+  .m-palette.open { opacity: 1; }
+  .m-palette .m-pk {
+    font-family: var(--mono); font-size: 9px; color: var(--m-faint);
+    border: 1px solid var(--m-line); border-radius: 4px; padding: 1px 5px; flex: none;
+  }
+  .m-palette .m-pinput { min-height: 1.4em; color: var(--m-muted); }
+
+  .swatch { transition: transform 200ms ease, box-shadow 200ms ease; }
+  .swatch.active { transform: scale(1.25); box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--ink); }
+
+  @media (max-width: 620px) {
+    .mini { grid-template-columns: 1fr; height: 380px; }
+    .m-rail { display: none; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     .caret { animation: none; }
     .install { transition: none; }
+    .m-caret { animation: none; }
   }
 </style>
 </head>
@@ -344,8 +526,9 @@
       <span class="cta-note">no account · zero permissions · works offline</span>
     </div>
 
-    <div class="shot big" role="img" aria-label="screenshot placeholder: today's page ready to write">
-      <div><em>screenshot</em>a fresh tab: today's page, cursor blinking, half-written note</div>
+    <div class="browser" id="demo-write" aria-label="live demo: a note typing itself in today's page">
+      <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
+      <div class="mini" data-accent="blue"></div>
     </div>
   </section>
 
@@ -358,8 +541,9 @@
       <span><kbd>⌘K</kbd> "two weeks ago", "friday", "nov 12"</span>
       <span><kbd>shift</kbd> + <kbd>↑</kbd><kbd>↓</kbd> step between days</span>
     </div>
-    <div class="shot wide" role="img" aria-label="screenshot placeholder: the timeline mid-scroll">
-      <div><em>screenshot</em>the timeline mid-scroll — three days flowing past</div>
+    <div class="browser" id="demo-scroll" aria-label="live demo: scrolling the timeline and jumping with command-k">
+      <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
+      <div class="mini" data-accent="blue"></div>
     </div>
   </section>
 
@@ -381,25 +565,23 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
       <li>one-click backup — export everything as a single file</li>
       <li>optional folder mirror: each day saved as a plain <span style="font-family:var(--mono);font-size:0.9em">.md</span> file, ready for obsidian or anything else</li>
     </ul>
-    <div class="shot wide" role="img" aria-label="screenshot placeholder: storage settings">
-      <div><em>screenshot</em>settings → storage: export + folder mirror</div>
-    </div>
   </section>
 
   <section class="day" aria-label="four days ago">
     <div class="day-head"><span class="day-date" data-ago="4">7/1</span><span class="day-wd" data-ago-wd="4">wed</span></div>
     <h2>a page that looks like yours</h2>
     <p>light or dark, six accent colors, serif · sans · monospace. keep a scratchpad panel beside your days, give every day its own margin, or hide it all.</p>
-    <div class="swatches" aria-label="accent colors">
-      <span class="swatch" style="background:#2f6bff"></span>
-      <span class="swatch" style="background:#16a34a"></span>
-      <span class="swatch" style="background:#dc2626"></span>
-      <span class="swatch" style="background:#ca8a04"></span>
-      <span class="swatch" style="background:#ea580c"></span>
-      <span class="swatch" style="background:#7c3aed"></span>
+    <div class="swatches" id="theme-swatches" aria-label="accent colors">
+      <span class="swatch" data-sw="blue" style="background:#2f6bff"></span>
+      <span class="swatch" data-sw="green" style="background:#16a34a"></span>
+      <span class="swatch" data-sw="red" style="background:#dc2626"></span>
+      <span class="swatch" data-sw="yellow" style="background:#ca8a04"></span>
+      <span class="swatch" data-sw="orange" style="background:#ea580c"></span>
+      <span class="swatch" data-sw="purple" style="background:#7c3aed"></span>
     </div>
-    <div class="shot wide" role="img" aria-label="screenshot placeholder: dark theme with margin layout">
-      <div><em>screenshot</em>dark theme, purple accent, per-day margin</div>
+    <div class="browser" id="demo-theme" aria-label="live demo: themes, accent colors and fonts changing">
+      <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
+      <div class="mini" data-accent="blue"></div>
     </div>
   </section>
 
@@ -460,6 +642,225 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
     btn.addEventListener("mouseenter", () => cta.classList.add("done"));
     btn.addEventListener("mouseleave", () => cta.classList.remove("done"));
   });
+</script>
+
+<script>
+// ---- live demos: a miniature tab pad running scripted loops ----
+(() => {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const dayAt = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return d; };
+  const label = (d) => (d.getMonth() + 1) + "/" + d.getDate();
+  const wd = (d) => d.toLocaleDateString(undefined, { weekday: "short" }).toLowerCase();
+
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const task = (text, done) => `<div class="m-task${done ? " done" : ""}"><span class="m-box"></span><span>${esc(text)}</span></div>`;
+  const line = (html) => `<div>${html}</div>`;
+  const heading = (text) => `<div class="m-h">${esc(text)}</div>`;
+
+  function calendar(notedOffsets) {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const start = new Date(first); start.setDate(first.getDate() - first.getDay());
+    const notedKeys = new Set(notedOffsets.map((o) => dayAt(o).toDateString()));
+    let cells = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const cls = ["m-cell",
+        d.getMonth() !== now.getMonth() ? "out" : "",
+        d.toDateString() === now.toDateString() ? "today" : "",
+        notedKeys.has(d.toDateString()) ? "noted" : "",
+      ].filter(Boolean).join(" ");
+      cells += `<span class="${cls}">${d.getDate()}</span>`;
+    }
+    const month = now.toLocaleDateString(undefined, { month: "long", year: "numeric" }).toLowerCase();
+    return `<div class="m-month">${month}</div><div class="m-cal">${"smtwtfs".split("").map((c) => `<span class="m-cell out">${c}</span>`).join("")}${cells}</div>`;
+  }
+
+  function daySection(offset, bodyHtml, extraClass = "") {
+    const d = dayAt(offset);
+    const today = offset === 0;
+    return `<div class="m-day${today ? " is-today" : ""}${extraClass ? " " + extraClass : ""}" data-offset="${offset}">
+      <div class="m-dayhead"><span class="m-daynum">${label(d)}</span><span class="m-daywd">${wd(d)}</span>${today ? '<span class="m-todaydot"></span>' : ""}</div>
+      <div class="m-body">${bodyHtml}</div>
+    </div>`;
+  }
+
+  function buildMini(rootId, daysHtml, notedOffsets, withPalette) {
+    const mini = document.querySelector(`#${rootId} .mini`);
+    if (!mini) return null;
+    mini.innerHTML = `
+      <aside class="m-rail">
+        <div class="m-brand"><span class="m-branddot"></span>tab pad</div>
+        ${calendar(notedOffsets)}
+      </aside>
+      <div class="m-mini-wrap">
+        ${withPalette ? '<div class="m-palette"><span class="m-pk">⌘K</span><span class="m-pinput"></span><span class="m-caret"></span></div>' : ""}
+        <div class="m-tl">${daysHtml}</div>
+      </div>`;
+    return mini;
+  }
+
+  // run a demo loop only while it's on screen
+  function loopWhenVisible(el, script) {
+    if (reduced) return; // static final states only
+    let visible = false;
+    let waiters = [];
+    new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      if (visible) { waiters.forEach((w) => w()); waiters = []; }
+    }, { threshold: 0.35 }).observe(el);
+    const whenVisible = () => (visible ? Promise.resolve() : new Promise((r) => waiters.push(r)));
+    (async () => {
+      for (;;) {
+        await whenVisible();
+        try { await script(() => visible); } catch { /* keep looping */ }
+        await sleep(120);
+      }
+    })();
+  }
+
+  async function typeInto(el, text, speed = 42) {
+    for (const ch of text) {
+      el.textContent += ch;
+      await sleep(speed + Math.random() * 40);
+    }
+  }
+
+  function animateScroll(el, to, dur) {
+    return new Promise((done) => {
+      const from = el.scrollTop; const start = performance.now();
+      const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+      const tick = (now) => {
+        const p = Math.min(1, (now - start) / dur);
+        el.scrollTop = from + (to - from) * ease(p);
+        p < 1 ? requestAnimationFrame(tick) : done();
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  const pastDays = [
+    [-1, task("meal prep for the week", true) + task("call grandpa", true) + line("sauce day — 6 jars. worth it.")],
+    [-2, line("farmers market: peaches, sourdough, <span class=\"m-b\">too many tomatoes</span>")],
+    [-4, heading("launch prep") + task("store listing copy", true) + task("submit for review", false)],
+    [-8, line("ran 5k before work — <span class=\"m-b\">27:41</span>, new best")],
+    [-11, heading("ideas") + line("a tiny cli that turns screenshots into diagrams")],
+    [-14, heading("retro notes") + task("ship the editor rewrite", true) + line("action: <span class=\"m-b\">no-meeting wednesdays</span>")],
+  ];
+  const noted = pastDays.map(([o]) => o);
+
+  // ---- demo 1: a note typing itself in today's page ----
+  {
+    const mini = buildMini("demo-write", daySection(0, "") + pastDays.slice(0, 2).map(([o, h]) => daySection(o, h)).join(""), noted, false);
+    if (mini) {
+      const body = mini.querySelector('.m-day[data-offset="0"] .m-body');
+      const finalState = () => {
+        body.innerHTML = heading("today") + task("pick up flowers", true) + task("water the ficus", false) +
+          line("dinner with sam — <span class=\"m-i\">don't be late</span>");
+      };
+      if (reduced) finalState();
+      else loopWhenVisible(mini, async (alive) => {
+        body.innerHTML = "<div><span class='m-t'></span><span class='m-caret'></span></div>";
+        let target = body.querySelector(".m-t");
+        await sleep(700);
+        await typeInto(target, "# today"); if (!alive()) return;
+        await sleep(420);
+        // enter: the heading styles itself, caret moves to a new line
+        body.innerHTML = heading("today") + "<div><span class='m-t'></span><span class='m-caret'></span></div>";
+        target = body.querySelector(".m-t");
+        await sleep(320);
+        await typeInto(target, "[] "); if (!alive()) return;
+        // "[] " snaps into a real checkbox
+        body.innerHTML = heading("today") + `<div class="m-task"><span class="m-box"></span><span><span class='m-t'></span><span class='m-caret'></span></span></div>`;
+        target = body.querySelector(".m-t");
+        await typeInto(target, "pick up flowers"); if (!alive()) return;
+        await sleep(380);
+        body.innerHTML = heading("today") + task("pick up flowers", false) +
+          `<div class="m-task"><span class="m-box"></span><span><span class='m-t'></span><span class='m-caret'></span></span></div>`;
+        target = body.querySelector(".m-t");
+        await typeInto(target, "water the ficus"); if (!alive()) return;
+        await sleep(380);
+        body.innerHTML = heading("today") + task("pick up flowers", false) + task("water the ficus", false) +
+          "<div><span class='m-t'></span><span class='m-caret'></span></div>";
+        target = body.querySelector(".m-t");
+        await typeInto(target, "dinner with sam — *don't be late*"); if (!alive()) return;
+        await sleep(500);
+        // the italics resolve, then a task gets ticked
+        body.innerHTML = heading("today") + task("pick up flowers", false) + task("water the ficus", false) +
+          `<div>dinner with sam — <span class="m-i">don't be late</span><span class='m-caret'></span></div>`;
+        await sleep(900);
+        body.querySelector(".m-task").classList.add("done");
+        await sleep(2600);
+      });
+    }
+  }
+
+  // ---- demo 2: the timeline scrolls, then ⌘K jumps two weeks back ----
+  {
+    const todayHtml = heading("today") + task("finish the launch checklist", false) + line("one thing at a time.");
+    const mini = buildMini("demo-scroll", daySection(0, todayHtml) + pastDays.map(([o, h]) => daySection(o, h)).join(""), noted, true);
+    if (mini) {
+      const tl = mini.querySelector(".m-tl");
+      const palette = mini.querySelector(".m-palette");
+      const pinput = mini.querySelector(".m-pinput");
+      const targetDay = mini.querySelector('.m-day[data-offset="-14"]');
+      if (reduced) { tl.scrollTop = 120; palette.remove(); }
+      else loopWhenVisible(mini, async (alive) => {
+        tl.scrollTop = 0; pinput.textContent = ""; palette.classList.remove("open");
+        await sleep(900);
+        await animateScroll(tl, 300, 2600); if (!alive()) return;
+        await sleep(700);
+        palette.classList.add("open");
+        await sleep(500);
+        await typeInto(pinput, "two weeks ago", 62); if (!alive()) return;
+        await sleep(650);
+        palette.classList.remove("open");
+        await animateScroll(tl, targetDay.offsetTop - tl.offsetTop - 8, 750);
+        targetDay.classList.add("flash");
+        await sleep(1500);
+        targetDay.classList.remove("flash");
+        await sleep(900);
+        await animateScroll(tl, 0, 1100);
+        await sleep(1400);
+      });
+    }
+  }
+
+  // ---- demo 3: themes, accents and fonts switch live ----
+  {
+    const themeHtml = heading("today") + task("morning run", true) + task("review pr #42", false) +
+      line("focus: <span class=\"m-b\">one thing at a time</span>");
+    const mini = buildMini("demo-theme", daySection(0, themeHtml) + daySection(-1, pastDays[0][1]), noted, false);
+    if (mini) {
+      const swatches = document.querySelectorAll("#theme-swatches .swatch");
+      const states = [
+        { dark: false, accent: "blue", font: "" },
+        { dark: true, accent: "blue", font: "" },
+        { dark: true, accent: "purple", font: "font-serif" },
+        { dark: false, accent: "green", font: "font-mono" },
+        { dark: false, accent: "orange", font: "" },
+      ];
+      const apply = (s) => {
+        mini.classList.toggle("dark", s.dark);
+        mini.classList.remove("font-serif", "font-mono");
+        if (s.font) mini.classList.add(s.font);
+        mini.dataset.accent = s.accent;
+        swatches.forEach((sw) => sw.classList.toggle("active", sw.dataset.sw === s.accent));
+      };
+      if (reduced) apply(states[2]);
+      else {
+        let i = 0;
+        apply(states[0]);
+        loopWhenVisible(mini, async () => {
+          await sleep(1700);
+          i = (i + 1) % states.length;
+          apply(states[i]);
+        });
+      }
+    }
+  }
+})();
 </script>
 
 </body>
