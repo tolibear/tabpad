@@ -300,9 +300,21 @@ export async function syncWithDisk(
 }
 
 // remove every note file from the folder — used by "erase all notes" so the
-// files can't resurrect the notes on the next sync
+// files can't resurrect the notes on the next sync. each file is copied to
+// .tabpad-trash/ first: the folder may hold external edits the app (and the
+// pre-erase JSON backup) never saw
 export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): Promise<void> {
   if (!handle.values) return;
+  const trashThenRemove = async (dir: FileSystemDirectoryHandleLike, name: string, segments: string[]) => {
+    try {
+      const disk = await readDiskFile(dir, name);
+      if (disk && disk.text.trim() !== "") await writeTrashCopy(handle, segments, disk.text);
+    } catch (error) {
+      console.warn("Tab Pad pre-erase trash copy failed", error);
+    }
+    await dir.removeEntry?.(name);
+  };
+
   const names: string[] = [];
   for await (const entry of handle.values()) {
     if (entry.kind === "file" && (DAY_FILE.test(entry.name) || entry.name === "scratchpad.md")) {
@@ -310,7 +322,7 @@ export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): P
     }
   }
   for (const name of names) {
-    await handle.removeEntry?.(name);
+    await trashThenRemove(handle, name, [name]);
   }
   try {
     const margins = await handle.getDirectoryHandle("margins");
@@ -320,7 +332,7 @@ export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): P
         if (entry.kind === "file" && DAY_FILE.test(entry.name)) marginNames.push(entry.name);
       }
       for (const name of marginNames) {
-        await margins.removeEntry?.(name);
+        await trashThenRemove(margins, name, ["margins", name]);
       }
     }
   } catch {
@@ -374,6 +386,9 @@ and which surfaces are currently visible in the app.
 - \`<YYYY-MM-DD>.md\` — that day's note (create the file to write to a new date, past or future)
 - \`margins/<YYYY-MM-DD>.md\` — that day's side notes${surfaces.margins ? "" : " (currently hidden in the app, but still synced)"}
 - \`scratchpad.md\` — the persistent scratchpad${surfaces.scratchpad ? "" : " (currently hidden in the app, but still synced)"}
+- \`.tabpad-trash/\` — before the app overwrites or erases file content it didn't
+  write itself, the losing version is copied here (newest ~60 kept). Recover
+  lost text from here; never write to it.
 
 ## Editing
 
@@ -409,6 +424,17 @@ export function isMirrorPermissionError(error: unknown): boolean {
   return error instanceof DOMException && ["NotAllowedError", "SecurityError", "AbortError"].includes(error.name);
 }
 
+// every overwrite is recoverable: before replacing file content the app did
+// not write itself (an external edit, or files found in a newly-connected
+// folder), the losing version is copied into .tabpad-trash/ first
+const TRASH_DIR = ".tabpad-trash";
+const TRASH_KEEP = 60;
+const MACHINE_FILES = new Set(["tabpad.json", "AGENTS.md"]);
+
+// what this tab last wrote per path — overwriting our own previous write is
+// the normal keystroke flow and must not spam the trash
+const lastWrittenByUs = new Map<string, string>();
+
 async function writeTextFile(
   directory: FileSystemDirectoryHandleLike,
   pathSegments: string[],
@@ -422,10 +448,57 @@ async function writeTextFile(
     target = await target.getDirectoryHandle(segment, { create: true });
   }
 
+  const pathKey = pathSegments.join("/");
+  if (!MACHINE_FILES.has(filename)) {
+    try {
+      const existing = await readDiskFile(target, filename);
+      if (
+        existing &&
+        existing.text.trim() !== "" &&
+        existing.text !== content &&
+        existing.text !== lastWrittenByUs.get(pathKey)
+      ) {
+        await writeTrashCopy(directory, pathSegments, existing.text);
+      }
+    } catch (error) {
+      // the safety copy is best-effort; the write itself must still happen
+      console.warn("Tab Pad trash copy failed", error);
+    }
+  }
+
   const file = await target.getFileHandle(filename, { create: true });
   const writable = await file.createWritable();
   await writable.write(encoder.encode(content));
   await writable.close();
+  lastWrittenByUs.set(pathKey, content);
+}
+
+async function writeTrashCopy(
+  root: FileSystemDirectoryHandleLike,
+  pathSegments: string[],
+  text: string,
+): Promise<void> {
+  const trash = await root.getDirectoryHandle(TRASH_DIR, { create: true });
+  // numeric timestamp prefix keeps names sorting oldest-first for pruning
+  const name = `${Date.now()}-${pathSegments.join("-")}`;
+  const file = await trash.getFileHandle(name, { create: true });
+  const writable = await file.createWritable();
+  await writable.write(encoder.encode(text));
+  await writable.close();
+  void pruneTrash(trash).catch(() => undefined);
+}
+
+async function pruneTrash(trash: FileSystemDirectoryHandleLike): Promise<void> {
+  if (!trash.values || !trash.removeEntry) return;
+  const names: string[] = [];
+  for await (const entry of trash.values()) {
+    if (entry.kind === "file") names.push(entry.name);
+  }
+  if (names.length <= TRASH_KEEP) return;
+  names.sort();
+  for (const name of names.slice(0, names.length - TRASH_KEEP)) {
+    await trash.removeEntry(name);
+  }
 }
 
 function isDirectoryHandle(value: unknown): value is FileSystemDirectoryHandleLike {
