@@ -25,7 +25,6 @@ interface TimelineProps {
   showMargins: boolean;
   layoutMode: string;
   focusDayKey: string | null;
-  activeDayKey: string | null;
   privacyMode: boolean;
   onToggleFocusDay: (key: string) => void;
   onDayTextChange: (key: string, value: string) => void;
@@ -46,7 +45,6 @@ export const Timeline = memo(function Timeline({
   showMargins,
   layoutMode,
   focusDayKey,
-  activeDayKey,
   privacyMode,
   onToggleFocusDay,
   onDayTextChange,
@@ -330,11 +328,22 @@ export const Timeline = memo(function Timeline({
   }, []);
 
   // entering focus mode collapses the content to one day — the old scroll
-  // offset would leave its top cut off above the viewport
+  // offset would leave its top cut off above the viewport. on exit, restore
+  // the view to that day instantly (no animated scroll).
+  const lastFocusKey = useRef<string | null>(null);
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
-    if (scroller && focusDayKey) scroller.scrollTop = 0;
-  }, [focusDayKey]);
+    if (!scroller) return;
+    if (focusDayKey) {
+      lastFocusKey.current = focusDayKey;
+      scroller.scrollTop = 0;
+    } else if (lastFocusKey.current) {
+      const node = sectionRefs.current.get(lastFocusKey.current);
+      lastFocusKey.current = null;
+      if (node) scroller.scrollTop = sectionTop(scroller, node);
+      reportTopDate();
+    }
+  }, [focusDayKey, reportTopDate]);
 
   const activateDay = useCallback((key: string, part: "main" | "margin" = "main") => {
     // scrambled notes must never swap in a real editor
@@ -374,7 +383,6 @@ export const Timeline = memo(function Timeline({
             key={entry.kind === "today" ? `${entry.key}-today` : entry.key}
             today={today}
             activated={activatedKeys.has(entry.key)}
-            isActive={activeDayKey === entry.key}
             isFocusDay={focusDayKey === entry.key}
             forceStatic={privacyMode}
             onToggleFocus={onToggleFocusDay}
@@ -411,7 +419,6 @@ interface TimelineDayProps {
   entry: TimelineEntry;
   today: Date;
   activated: boolean;
-  isActive: boolean;
   isFocusDay: boolean;
   forceStatic: boolean;
   onToggleFocus: (key: string) => void;
@@ -432,7 +439,6 @@ const TimelineDay = memo(function TimelineDay({
   entry,
   today,
   activated,
-  isActive,
   isFocusDay,
   forceStatic,
   onToggleFocus,
@@ -459,7 +465,6 @@ const TimelineDay = memo(function TimelineDay({
       date={entry.date}
       isToday={isToday}
       isStatic={isStatic}
-      isActive={isActive}
       isFocusDay={isFocusDay}
       onToggleFocus={() => onToggleFocus(entry.key)}
       showMargin={showMargin}

@@ -5,7 +5,7 @@ import { eraseAllNotes, getDay, hasDayContent, listAllDays, listContentDays, sav
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { getPanel, savePanel } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
-import { addDays, dateFromKey, dateKey, daysBetween } from "./lib/dates";
+import { addDays, dateKey, daysBetween } from "./lib/dates";
 import {
   applyAccent,
   applyTheme,
@@ -72,7 +72,6 @@ export function App() {
   const mirrorDayTimers = useRef(new Map<string, { timer: number; row: DayRow }>());
   const mirrorPanelTimers = useRef(new Map<PanelRow["id"], { timer: number; panel: PanelRow }>());
   const eraseGuardTimer = useRef(0);
-  const lastKeyJumpRef = useRef<string | null>(null);
   const queueMirrorDayRef = useRef<(row: DayRow | null) => void>(() => {});
   const syncMtimes = useRef(new Map<string, number>());
   const syncFailures = useRef(0);
@@ -100,9 +99,8 @@ export function App() {
   const [jumpTarget, setJumpTarget] = useState<JumpTarget | null>(null);
   const [currentTopKey, setCurrentTopKey] = useState(todayKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // focus mode: one day takes over the whole view; active day shows the toggle
+  // focus mode: one day takes over the whole view
   const [focusDayKey, setFocusDayKey] = useState<string | null>(null);
-  const [activeDayKey, setActiveDayKey] = useState<string | null>(null);
   const [privacyMode, setPrivacyMode] = useState(() => readPrivacyPreference());
   const resolvedTheme = resolveTheme(themePreference, systemTheme);
   const todayText = dayTexts[todayKey] ?? "";
@@ -623,14 +621,10 @@ export function App() {
 
   const handleDayFocusChange = useCallback((key: string, focused: boolean) => {
     focusedDayRef.current = focused ? key : null;
-    // blur of one day can arrive after focus of another — only clear if it's
-    // still ours
-    setActiveDayKey((current) => (focused ? key : current === key ? null : current));
   }, []);
 
   const handleDayMarginFocusChange = useCallback((key: string, focused: boolean) => {
     focusedMarginRef.current = focused ? key : null;
-    setActiveDayKey((current) => (focused ? key : current === key ? null : current));
   }, []);
 
   const togglePrivacy = useCallback(() => {
@@ -905,15 +899,10 @@ export function App() {
     setJumpTarget({ date: clamped, id: Date.now() });
   }, [today]);
 
+  // the Timeline restores the scroll position to this day itself on exit
   const toggleFocusDay = useCallback((key: string) => {
-    const exiting = focusDayKey === key;
-    setFocusDayKey(exiting ? null : key);
-    if (exiting) {
-      // re-center the timeline on the day we were focused on
-      const date = dateFromKey(key);
-      if (date) jumpToDate(date);
-    }
-  }, [focusDayKey, jumpToDate]);
+    setFocusDayKey((current) => (current === key ? null : key));
+  }, []);
 
   // Escape leaves focus mode
   useEffect(() => {
@@ -924,14 +913,6 @@ export function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [focusDayKey, toggleFocusDay]);
-
-  useEffect(() => {
-    // only release the stepping base once the scroll has caught up with it —
-    // intermediate positions during the smooth scroll must not reset it
-    if (lastKeyJumpRef.current === currentTopKey) {
-      lastKeyJumpRef.current = null;
-    }
-  }, [currentTopKey]);
 
   // a hidden tab can't be typed in: release focus guards so cross-tab
   // broadcasts keep this tab's copies fresh while it's in the background
@@ -963,30 +944,6 @@ export function App() {
       window.removeEventListener("focus", onWindowFocus);
     };
   }, [refreshContentDays]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
-      // inside an editor, shift+arrows must keep selecting text
-      if ((event.target as HTMLElement)?.closest?.(".cm-editor, input, textarea, [contenteditable='true']")) return;
-
-      // Shift+Up = one day forward (future is above today), Shift+Down = one day back
-      if (event.code === "ArrowUp" || event.code === "ArrowDown") {
-        // step from the last keyboard jump so rapid presses advance multiple
-        // days even before the scroll position catches up
-        const baseKey = lastKeyJumpRef.current ?? currentTopKey;
-        const current = dateFromKey(baseKey) ?? today;
-        const next = addDays(current, event.code === "ArrowUp" ? 1 : -1);
-        lastKeyJumpRef.current = dateKey(next);
-        event.preventDefault();
-        event.stopPropagation();
-        jumpToDate(next);
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-  }, [currentTopKey, jumpToDate, today]);
 
   const fixedPanelId: PanelRow["id"] = "scratchpad";
   const shellClassName = [
@@ -1028,7 +985,6 @@ export function App() {
         showMargins={showDayMargins}
         layoutMode={`${showScratchpad}-${showDayMargins}`}
         focusDayKey={focusDayKey}
-        activeDayKey={activeDayKey}
         privacyMode={privacyMode}
         onToggleFocusDay={toggleFocusDay}
         onDayTextChange={changeDayText}

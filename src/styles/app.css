@@ -609,6 +609,19 @@
   line-height: 1.45;
 }
 
+.settings-credit {
+  margin-top: 2px;
+}
+
+.settings-credit a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.settings-credit a:hover {
+  color: var(--accent);
+}
+
 .shortcut-list {
   display: grid;
   gap: 7px;
@@ -1218,7 +1231,6 @@
 }
 
 .day-section:hover .focus-toggle,
-.focus-toggle.shown,
 .focus-toggle.active,
 .focus-toggle:focus-visible {
   opacity: 1;

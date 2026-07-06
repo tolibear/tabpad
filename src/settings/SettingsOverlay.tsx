@@ -187,10 +187,7 @@ export function SettingsOverlay({
           <h3>shortcuts</h3>
           <dl className="shortcut-list">
             <div><dt>⌘K / Ctrl+K</dt><dd>jump to any date ("friday", "nov 12"...)</dd></div>
-            <div><dt>Shift+↑ / Shift+↓</dt><dd>next / previous day (outside a note)</dd></div>
-            <div><dt>Tab / Shift+Tab</dt><dd>indent / outdent a list item</dd></div>
-            <div><dt>⌘B / ⌘I</dt><dd>bold / italic</dd></div>
-            <div><dt>[] + space</dt><dd>make a checkbox</dd></div>
+            <div><dt>⌘R / Ctrl+R</dt><dd>refresh — back to today</dd></div>
           </dl>
           <a className="guide-link" href="https://tabpad.app/markdown.html" target="_blank" rel="noreferrer">
             full markdown guide ↗
@@ -279,6 +276,12 @@ export function SettingsOverlay({
 
         <p className="settings-footer">
           everything lives in this browser profile. enable the folder mirror or export periodically if that worries you.
+        </p>
+        <p className="settings-footer settings-credit">
+          built by{" "}
+          <a href="https://x.com/tolibear_" target="_blank" rel="noreferrer">
+            toli
+          </a>
         </p>
       </aside>
     </div>

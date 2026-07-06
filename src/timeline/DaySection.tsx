@@ -8,7 +8,6 @@ export interface DaySectionProps {
   value: string;
   isToday?: boolean;
   isStatic?: boolean;
-  isActive?: boolean;
   isFocusDay?: boolean;
   showMargin?: boolean;
   marginValue?: string;
@@ -28,7 +27,6 @@ export function DaySection({
   value,
   isToday = false,
   isStatic = false,
-  isActive = false,
   isFocusDay = false,
   showMargin = false,
   marginValue = "",
@@ -56,7 +54,7 @@ export function DaySection({
         {isToday ? <span className="today-dot" aria-hidden="true" /> : null}
         {onToggleFocus ? (
           <button
-            className={["focus-toggle", isFocusDay ? "active" : "", isActive ? "shown" : ""].filter(Boolean).join(" ")}
+            className={isFocusDay ? "focus-toggle active" : "focus-toggle"}
             type="button"
             aria-label={isFocusDay ? "exit focus mode" : "focus on this day"}
             aria-pressed={isFocusDay}
