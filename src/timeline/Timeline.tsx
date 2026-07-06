@@ -70,7 +70,16 @@ export const Timeline = memo(function Timeline({
     const built = buildTimelineWindow({ today, futureCount, pastCount, contentDays });
     return built.map((entry) => {
       const cached = entryCache.current.get(entry.key);
-      if (cached && cached.kind === entry.kind && cached.source === entry.source) return cached;
+      // compare source by value — listContentDays returns fresh objects every
+      // call, so identity comparison would defeat the row memoization entirely
+      if (
+        cached &&
+        cached.kind === entry.kind &&
+        cached.source?.main === entry.source?.main &&
+        cached.source?.margin === entry.source?.margin
+      ) {
+        return cached;
+      }
       entryCache.current.set(entry.key, entry);
       return entry;
     });
@@ -238,6 +247,11 @@ export const Timeline = memo(function Timeline({
       settleTimer = window.setTimeout(() => {
         scroller.removeEventListener("scroll", settle);
         jumpScrollActive.current = false;
+        // the top observer only fires on intersection transitions; if the jump
+        // landed inside its margin while extension was suppressed, extend now
+        if (scroller.scrollTop < 2500) {
+          setFutureCount((count) => count + 21);
+        }
         reportTopDate();
       }, 120);
     };

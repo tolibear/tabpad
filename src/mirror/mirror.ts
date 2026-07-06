@@ -1,3 +1,4 @@
+import { dateFromKey } from "../lib/dates";
 import { db, type DayRow, type PanelRow } from "../db/db";
 import { hasDayContent } from "../db/days";
 import { getPanel } from "../db/panels";
@@ -90,7 +91,11 @@ export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day:
   // content than the app's copy — sync will import it instead. also never
   // create files just to hold empty content.
   const mainDisk = await readDiskFile(handle, `${day.date}.md`);
-  if (mainDisk ? mainDisk.text !== day.main && mainDisk.lastModified <= (day.mainUpdatedAt ?? day.updatedAt) : day.main !== "") {
+  if (
+    mainDisk
+      ? mainDisk.text !== day.main && Math.min(mainDisk.lastModified, Date.now()) <= (day.mainUpdatedAt ?? day.updatedAt)
+      : day.main !== ""
+  ) {
     await writeTextFile(handle, [`${day.date}.md`], day.main);
   }
 
@@ -101,7 +106,12 @@ export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day:
     marginsDir = null;
   }
   const marginDisk = marginsDir ? await readDiskFile(marginsDir, `${day.date}.md`) : null;
-  if (marginDisk ? marginDisk.text !== day.margin && marginDisk.lastModified <= (day.marginUpdatedAt ?? day.updatedAt) : day.margin !== "") {
+  if (
+    marginDisk
+      ? marginDisk.text !== day.margin &&
+        Math.min(marginDisk.lastModified, Date.now()) <= (day.marginUpdatedAt ?? day.updatedAt)
+      : day.margin !== ""
+  ) {
     await writeTextFile(handle, ["margins", `${day.date}.md`], day.margin);
   }
 }
@@ -110,7 +120,7 @@ export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, pa
   if (panel.id !== "scratchpad") return;
   const disk = await readDiskFile(handle, "scratchpad.md");
   if (!disk && panel.content === "") return;
-  if (disk && disk.text !== panel.content && disk.lastModified > panel.updatedAt) return;
+  if (disk && disk.text !== panel.content && Math.min(disk.lastModified, Date.now()) > panel.updatedAt) return;
   if (disk?.text === panel.content) return;
   await writeTextFile(handle, ["scratchpad.md"], panel.content);
 }
@@ -163,48 +173,67 @@ export async function syncWithDisk(
     if ((field === "main" && skip?.day === date) || (field === "margin" && skip?.margin === date)) {
       return;
     }
-    const row = await db.days.get(date);
-    const current = (field === "main" ? row?.main : row?.margin) ?? "";
-    if (disk.text === current) return;
-    // clamp file mtimes to now — a future mtime (clock skew, cloud folders)
-    // must not win every merge forever
-    const diskStamp = Math.min(disk.lastModified, Date.now());
-    // judge each field by its OWN edit time — a margin import must not make
-    // the note file look stale (and vice versa)
-    const fieldStamp = row ? (field === "main" ? row.mainUpdatedAt : row.marginUpdatedAt) ?? row.updatedAt : 0;
-    if (!row || diskStamp > fieldStamp) {
-      const next: DayRow = {
-        date,
-        main: field === "main" ? disk.text : row?.main ?? "",
-        margin: field === "margin" ? disk.text : row?.margin ?? "",
-        createdAt: row?.createdAt ?? diskStamp,
-        updatedAt: Math.max(row?.updatedAt ?? 0, diskStamp),
-        mainUpdatedAt: field === "main" ? diskStamp : row?.mainUpdatedAt ?? row?.updatedAt,
-        marginUpdatedAt: field === "margin" ? diskStamp : row?.marginUpdatedAt ?? row?.updatedAt,
-      };
-      if (hasDayContent(next.main, next.margin) || row) {
-        await db.days.put(next);
-        imported += 1;
+    // read-check-put atomically so a concurrent keystroke save can't be
+    // clobbered by a row built from a stale read
+    let pushContent: string | null = null;
+    await db.transaction("rw", db.days, async () => {
+      const row = await db.days.get(date);
+      const current = (field === "main" ? row?.main : row?.margin) ?? "";
+      if (disk.text === current) return;
+      // clamp file mtimes to now — a future mtime (clock skew, cloud folders)
+      // must not win every merge forever
+      const diskStamp = Math.min(disk.lastModified, Date.now());
+      // judge each field by its OWN edit time — a margin import must not make
+      // the note file look stale (and vice versa)
+      const fieldStamp = row ? (field === "main" ? row.mainUpdatedAt : row.marginUpdatedAt) ?? row.updatedAt : 0;
+      if (!row || diskStamp > fieldStamp) {
+        const next: DayRow = {
+          date,
+          main: field === "main" ? disk.text : row?.main ?? "",
+          margin: field === "margin" ? disk.text : row?.margin ?? "",
+          createdAt: row?.createdAt ?? diskStamp,
+          updatedAt: Math.max(row?.updatedAt ?? 0, diskStamp),
+          mainUpdatedAt: field === "main" ? diskStamp : row?.mainUpdatedAt ?? row?.updatedAt,
+          marginUpdatedAt: field === "margin" ? diskStamp : row?.marginUpdatedAt ?? row?.updatedAt,
+        };
+        if (hasDayContent(next.main, next.margin) || row) {
+          await db.days.put(next);
+          imported += 1;
+        }
+      } else {
+        // the app's copy of this field is newer — push it back to disk
+        pushContent = current;
       }
-    } else {
-      // the app's copy of this field is newer — push it back to disk
-      await writeTextFile(handle, field === "main" ? [`${date}.md`] : ["margins", `${date}.md`], current);
+    });
+    if (pushContent !== null) {
+      await writeTextFile(handle, field === "main" ? [`${date}.md`] : ["margins", `${date}.md`], pushContent);
     }
   };
 
   // note: the cache is only updated AFTER a change is fully applied, so a
-  // failed reconcile is retried on the next pass instead of lost
-  const readIfChanged = async (dir: FileSystemDirectoryHandleLike, name: string, cacheKey: string) => {
-    const disk = await readDiskFile(dir, name);
-    if (!disk) return null;
-    if (mtimes && mtimes.get(cacheKey) === disk.lastModified) return null;
-    return disk;
+  // failed reconcile is retried on the next pass instead of lost. contents
+  // are only read when the mtime actually moved — polls stay cheap.
+  const readIfChanged = async (
+    dir: FileSystemDirectoryHandleLike,
+    name: string,
+    cacheKey: string,
+  ): Promise<DiskFile | null> => {
+    try {
+      const fileHandle = await dir.getFileHandle(name);
+      if (!fileHandle.getFile) return null;
+      const file = (await fileHandle.getFile()) as { text(): Promise<string>; lastModified?: number };
+      const lastModified = file.lastModified ?? 0;
+      if (mtimes && mtimes.get(cacheKey) === lastModified) return null;
+      return { text: await file.text(), lastModified };
+    } catch {
+      return null;
+    }
   };
 
   for await (const entry of handle.values()) {
     if (entry.kind === "file") {
       const match = DAY_FILE.exec(entry.name);
-      if (match) {
+      if (match && dateFromKey(match[1])) {
         const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) {
           const skipped = skip?.day === match[1];
@@ -234,7 +263,7 @@ export async function syncWithDisk(
       for await (const marginEntry of margins.values()) {
         if (marginEntry.kind !== "file") continue;
         const match = DAY_FILE.exec(marginEntry.name);
-        if (!match) continue;
+        if (!match || !dateFromKey(match[1])) continue;
         const disk = await readIfChanged(margins, marginEntry.name, `margins/${marginEntry.name}`);
         if (disk) {
           const skipped = skip?.margin === match[1];

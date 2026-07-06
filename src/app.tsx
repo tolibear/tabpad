@@ -59,6 +59,10 @@ export function App() {
   const mirrorPanelTimers = useRef(new Map<PanelRow["id"], number>());
   const lastKeyJumpRef = useRef<string | null>(null);
   const queueMirrorDayRef = useRef<(row: DayRow | null) => void>(() => {});
+  const syncMtimes = useRef(new Map<string, number>());
+  const syncFailures = useRef(0);
+  const syncChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const erasingRef = useRef(false);
 
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => readThemePreference());
   const [accent, setAccent] = useState<AccentColor>(() => readAccentPreference());
@@ -137,8 +141,14 @@ export function App() {
   const refreshContentDays = useCallback(async () => {
     const rows = await listContentDays();
     setContentDays(rows);
+    const have = new Set(rows.map((row) => row.date));
     setDayTexts((current) => {
       const next = { ...current };
+      // a day cleared externally is absent from rows — blank its stale state
+      // too, or the old text would linger and get saved back
+      for (const key of Object.keys(next)) {
+        if (!have.has(key) && focusedDayRef.current !== key) next[key] = "";
+      }
       for (const row of rows) {
         if (focusedDayRef.current !== row.date) {
           next[row.date] = row.main;
@@ -148,6 +158,9 @@ export function App() {
     });
     setDayMargins((current) => {
       const next = { ...current };
+      for (const key of Object.keys(next)) {
+        if (!have.has(key) && focusedMarginRef.current !== key) next[key] = "";
+      }
       for (const row of rows) {
         if (focusedMarginRef.current !== row.date) {
           next[row.date] = row.margin;
@@ -164,7 +177,17 @@ export function App() {
     try {
       const handle = await getMirrorDirectory();
       if (handle && (await queryMirrorPermission(handle)) === "granted") {
-        await syncWithDisk(handle);
+        const run = async () => {
+          if (erasingRef.current) return;
+          await syncWithDisk(handle, syncMtimes.current, {
+            day: focusedDayRef.current,
+            margin: focusedMarginRef.current,
+            scratchpad: focusedPanelRef.current === "scratchpad",
+          });
+        };
+        const pass = syncChainRef.current.then(run, run);
+        syncChainRef.current = pass.catch(() => undefined);
+        await pass;
       }
     } catch (error) {
       console.warn("Tab Pad folder sync failed", error);
@@ -271,22 +294,29 @@ export function App() {
 
   // shared sync entry point: always uses the mtime cache and always skips
   // whatever the user currently has focused, then propagates imports to state
-  const syncMtimes = useRef(new Map<string, number>());
-  const syncFailures = useRef(0);
-  const syncFolderNow = useCallback(async (handle: FileSystemDirectoryHandleLike) => {
-    const imported = await syncWithDisk(handle, syncMtimes.current, {
-      day: focusedDayRef.current,
-      margin: focusedMarginRef.current,
-      scratchpad: focusedPanelRef.current === "scratchpad",
-    });
-    if (imported > 0) {
-      await refreshContentDays();
-      const scratch = await getPanel("scratchpad");
-      setPanelTexts((current) =>
-        focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratch.content },
-      );
-    }
-    return imported;
+  const syncFolderNow = useCallback((handle: FileSystemDirectoryHandleLike) => {
+    // serialize all sync entrances (poll, blur nudge, window focus, regrant)
+    // so two passes can't interleave reconciles of the same file
+    const run = async () => {
+      if (erasingRef.current) return 0;
+      const imported = await syncWithDisk(handle, syncMtimes.current, {
+        day: focusedDayRef.current,
+        margin: focusedMarginRef.current,
+        scratchpad: focusedPanelRef.current === "scratchpad",
+      });
+      syncFailures.current = 0;
+      if (imported > 0) {
+        await refreshContentDays();
+        const scratch = await getPanel("scratchpad");
+        setPanelTexts((current) =>
+          focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratch.content },
+        );
+      }
+      return imported;
+    };
+    const result = syncChainRef.current.then(run, run);
+    syncChainRef.current = result.catch(() => undefined);
+    return result;
   }, [refreshContentDays]);
 
   // deferred (focused-note) changes land the moment the user clicks away
@@ -312,7 +342,6 @@ export function App() {
       running = true;
       try {
         await syncFolderNow(handle);
-        syncFailures.current = 0;
       } catch (error) {
         console.warn("Tab Pad live sync failed", error);
         // a deleted/unplugged folder must not stay silently "connected"
@@ -419,9 +448,12 @@ export function App() {
 
     try {
       await writeDayMirror(handle, row);
+      syncFailures.current = 0;
     } catch (error) {
       console.warn("Tab Pad mirror day write failed", error);
-      setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
+      // permission loss is definitive; transient write errors get 3 strikes
+      if (isMirrorPermissionError(error)) setMirrorStatus("reconnect");
+      else if ((syncFailures.current += 1) >= 3) setMirrorStatus("error");
     }
   }, [mirrorStatus]);
 
@@ -443,9 +475,11 @@ export function App() {
 
     try {
       await writePanelMirror(handle, panel);
+      syncFailures.current = 0;
     } catch (error) {
       console.warn("Tab Pad mirror panel write failed", error);
-      setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
+      if (isMirrorPermissionError(error)) setMirrorStatus("reconnect");
+      else if ((syncFailures.current += 1) >= 3) setMirrorStatus("error");
     }
   }, [mirrorStatus]);
 
@@ -603,33 +637,45 @@ export function App() {
       "erase all notes and scratchpad content from this browser? this cannot be undone. (settings are kept.)",
     );
     if (!confirmed) return;
-    // cancel pending mirror writes so they can't resurrect anything
-    for (const timer of mirrorDayTimers.current.values()) window.clearTimeout(timer);
-    for (const timer of mirrorPanelTimers.current.values()) window.clearTimeout(timer);
-    mirrorDayTimers.current.clear();
-    mirrorPanelTimers.current.clear();
-    await eraseAllNotes();
-    // the folder is the source of truth — erase the files too, or the next
-    // sync would silently restore every note
-    const handle = mirrorHandleRef.current;
-    if (handle) {
-      try {
-        await eraseMirrorFiles(handle);
-      } catch (error) {
-        console.warn("Tab Pad folder erase failed", error);
-        setDataMessage("notes erased here, but some files in the notes folder could not be removed");
+    let folderEraseFailed = false;
+    erasingRef.current = true;
+    try {
+      // let any in-flight sync finish, then block new ones while erasing
+      await syncChainRef.current.catch(() => undefined);
+      // cancel pending mirror writes so they can't resurrect anything
+      for (const timer of mirrorDayTimers.current.values()) window.clearTimeout(timer);
+      for (const timer of mirrorPanelTimers.current.values()) window.clearTimeout(timer);
+      mirrorDayTimers.current.clear();
+      mirrorPanelTimers.current.clear();
+      // the folder is the source of truth — erase the FILES first, then the
+      // database, so no sync window can restore notes from leftover files
+      const handle = mirrorHandleRef.current;
+      if (handle) {
+        try {
+          await eraseMirrorFiles(handle);
+        } catch (error) {
+          console.warn("Tab Pad folder erase failed", error);
+          folderEraseFailed = true;
+        }
       }
+      await eraseAllNotes();
+      syncMtimes.current.clear();
+      setDayTexts({});
+      setDayMargins({});
+      setPanelTexts({ scratchpad: "" } as Record<PanelRow["id"], string>);
+      dayTextsRef.current = {};
+      dayMarginsRef.current = {};
+      panelTextsRef.current = { scratchpad: "" } as Record<PanelRow["id"], string>;
+    } finally {
+      erasingRef.current = false;
     }
-    syncMtimes.current.clear();
-    setDayTexts({});
-    setDayMargins({});
-    setPanelTexts({ scratchpad: "" } as Record<PanelRow["id"], string>);
-    dayTextsRef.current = {};
-    dayMarginsRef.current = {};
-    panelTextsRef.current = { scratchpad: "" } as Record<PanelRow["id"], string>;
     await loadDocuments();
     channelRef.current?.post({ type: "import", key: "all", updatedAt: Date.now() });
-    setDataMessage("all notes erased");
+    setDataMessage(
+      folderEraseFailed
+        ? "notes erased here, but some files in the notes folder could not be removed — they may come back"
+        : "all notes erased",
+    );
   };
 
   const importJson = async (file: File | undefined) => {
@@ -663,6 +709,9 @@ export function App() {
       setMirrorName(handle.name);
       setMirrorStatus("connected");
       syncFailures.current = 0;
+      // a new folder is a new world — stale mtimes from the old one must not
+      // suppress imports
+      syncMtimes.current.clear();
       // pull anything already in the folder first, then push the full state
       await syncFolderNow(handle);
       await writeFullMirror(handle);
@@ -671,6 +720,11 @@ export function App() {
       channelRef.current?.post({ type: "settings", key: "settings", updatedAt: Date.now() });
       setDataMessage(`notes folder: ${handle.name}`);
     } catch (error) {
+      // cancelling the picker isn't a failure — restore the true status
+      if (error instanceof DOMException && error.name === "AbortError") {
+        void refreshMirrorState();
+        return;
+      }
       console.warn("Tab Pad mirror setup failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
@@ -690,6 +744,7 @@ export function App() {
       setMirrorName(handle.name);
       setMirrorStatus("connected");
       syncFailures.current = 0;
+      syncMtimes.current.clear();
       // pull external edits first (last write wins), then push the full state
       await syncFolderNow(handle);
       await writeFullMirror(handle);
@@ -697,6 +752,10 @@ export function App() {
       channelRef.current?.post({ type: "settings", key: "settings", updatedAt: Date.now() });
       setDataMessage(`notes folder: ${handle.name}`);
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        void refreshMirrorState();
+        return;
+      }
       console.warn("Tab Pad folder reconnect failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }

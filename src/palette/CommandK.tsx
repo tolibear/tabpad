@@ -22,7 +22,9 @@ export function CommandK({ today, onJumpToDate }: CommandKProps) {
         setError("");
         return;
       }
-      // any other global shortcut dismisses the palette
+      // any other global shortcut dismisses the palette — but shift+arrows
+      // inside a text field is just selection, never a shortcut
+      if ((event.target as HTMLElement)?.closest?.("input, textarea, .cm-editor")) return;
       if (event.shiftKey && (event.code === "ArrowUp" || event.code === "ArrowDown")) {
         setOpen(false);
         setValue("");

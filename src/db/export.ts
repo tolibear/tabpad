@@ -74,7 +74,15 @@ function parsePayload(payload: unknown): TabPadExport & { hasSettings: boolean }
 // merge against legitimate local edits forever
 function clampDayTimestamps(day: DayRow): DayRow {
   const now = Date.now();
-  return { ...day, createdAt: Math.min(day.createdAt, now), updatedAt: Math.min(day.updatedAt, now) };
+  return {
+    ...day,
+    createdAt: Math.min(day.createdAt, now),
+    updatedAt: Math.min(day.updatedAt, now),
+    // the per-field stamps are what folder sync actually compares — clamp
+    // them too, and drop non-numeric junk
+    mainUpdatedAt: typeof day.mainUpdatedAt === "number" ? Math.min(day.mainUpdatedAt, now) : undefined,
+    marginUpdatedAt: typeof day.marginUpdatedAt === "number" ? Math.min(day.marginUpdatedAt, now) : undefined,
+  };
 }
 
 function sanitizeSettings(value: Record<string, unknown>): Settings {
