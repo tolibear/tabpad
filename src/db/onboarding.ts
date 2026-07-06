@@ -40,15 +40,19 @@ export async function seedOnboardingIfFirstRun(today: Date): Promise<void> {
 
     const [dayCount, panelCount] = await Promise.all([db.days.count(), db.panels.count()]);
     if (dayCount === 0 && panelCount === 0) {
-      const now = Date.now();
+      // seed with an EPOCH edit stamp, not now: if the user later connects a
+      // folder that already holds real notes for these dates, the files must
+      // win the last-write-wins merge — untouched onboarding filler should
+      // lose to everything (a stamp of `now` overwrote real files on disk)
+      const SEED_STAMP = 1;
       const day = (date: Date, main: string): DayRow => ({
         date: dateKey(date),
         main,
         margin: "",
-        createdAt: now,
-        updatedAt: now,
-        mainUpdatedAt: now,
-        marginUpdatedAt: now,
+        createdAt: SEED_STAMP,
+        updatedAt: SEED_STAMP,
+        mainUpdatedAt: SEED_STAMP,
+        marginUpdatedAt: SEED_STAMP,
       });
       await db.transaction("rw", db.days, db.panels, db.meta, async () => {
         await db.days.bulkPut([
@@ -56,8 +60,10 @@ export async function seedOnboardingIfFirstRun(today: Date): Promise<void> {
           day(today, TODAY_NOTE),
           day(addDays(today, 1), TOMORROW_NOTE),
         ]);
-        await db.panels.put({ id: "scratchpad", content: SCRATCHPAD_NOTE, updatedAt: now });
-        await db.meta.put({ id: ONBOARDED_ID, value: now });
+        // updatedAt 0 = the explicit "never saved, always yield to the file"
+        // marker in the scratchpad sync
+        await db.panels.put({ id: "scratchpad", content: SCRATCHPAD_NOTE, updatedAt: 0 });
+        await db.meta.put({ id: ONBOARDED_ID, value: Date.now() });
       });
     } else {
       // existing data (legacy migration, import) — never seed, just mark done
