@@ -899,7 +899,7 @@ body.link-modifier .cm-md-link * {
   /* margin notes are annotations, not the main text: always visibly muted,
      with a slight lift while actually writing in them. the editor's own theme
      reads --editor-ink (plain `color` loses to CodeMirror's injected theme). */
-  --editor-ink: color-mix(in srgb, var(--muted) 55%, var(--faint));
+  --editor-ink: var(--faint);
   color: var(--editor-ink);
   cursor: text;
   transition: color 160ms ease;
@@ -910,7 +910,7 @@ body.link-modifier .cm-md-link * {
 }
 
 .day-margin:focus-within {
-  --editor-ink: var(--muted);
+  --editor-ink: color-mix(in srgb, var(--muted) 55%, var(--faint));
 }
 
 .day-margin .cm-editor {
