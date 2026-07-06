@@ -36,7 +36,7 @@ export const livePreview = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged || update.selectionSet || update.viewportChanged) {
+      if (update.docChanged || update.selectionSet || update.viewportChanged || update.focusChanged) {
         this.decorations = buildDecorations(update.view);
       }
     }
@@ -48,7 +48,9 @@ export const livePreview = ViewPlugin.fromClass(
 
 function buildDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
-  const activeLines = selectionLineNumbers(view);
+  // an unfocused editor has no "current line" — its parked cursor must not
+  // keep markdown syntax visible
+  const activeLines = view.hasFocus ? selectionLineNumbers(view) : new Set<number>();
   let inFence = false;
 
   for (let lineNumber = 1; lineNumber <= view.state.doc.lines; lineNumber += 1) {
