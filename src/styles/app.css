@@ -1042,6 +1042,18 @@ body.link-modifier .cm-md-link * {
   color: var(--muted);
 }
 
+/* hanging indents: wrapped task/bullet text aligns under the first line's
+   text, not under the checkbox or bullet marker */
+.cm-md-task-line {
+  padding-left: 22px;
+  text-indent: -22px;
+}
+
+.cm-md-bullet-line {
+  padding-left: 18px;
+  text-indent: -18px;
+}
+
 .cm-md-task-checked {
   color: var(--done);
   text-decoration: line-through;

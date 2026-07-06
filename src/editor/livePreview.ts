@@ -99,9 +99,13 @@ function addLineDecorations(
   if (task) {
     const markerFrom = lineFrom + task[1].length + 2;
     const markerTo = lineFrom + task[0].length;
-    if (task[2].toLowerCase() === "x") {
-      builder.add(lineFrom, lineFrom, Decoration.line({ class: "cm-md-task-checked" }));
-    }
+    // the line class carries a hanging indent so wrapped text aligns under
+    // the first line's text instead of under the checkbox
+    builder.add(
+      lineFrom,
+      lineFrom,
+      Decoration.line({ class: `cm-md-task-line${task[2].toLowerCase() === "x" ? " cm-md-task-checked" : ""}` }),
+    );
     builder.add(lineFrom + task[1].length, markerTo, Decoration.replace({ widget: new CheckboxWidget(task[2].toLowerCase() === "x", markerFrom) }));
     // the task text still gets bold/links/etc — all inline matches start at or
     // after the marker, so builder order stays sorted
@@ -112,6 +116,7 @@ function addLineDecorations(
   if (!isActive) {
     const bullet = /^(\s*)-\s/.exec(text);
     if (bullet) {
+      builder.add(lineFrom, lineFrom, Decoration.line({ class: "cm-md-bullet-line" }));
       builder.add(lineFrom + bullet[1].length, lineFrom + bullet[0].length, Decoration.replace({ widget: new BulletWidget() }));
     }
 
