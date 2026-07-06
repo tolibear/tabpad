@@ -441,10 +441,15 @@
   .m-target.hot { border-color: var(--m-accent); }
   .m-target.hot::after { background: var(--m-accent); }
 
+  /* matches the real app: rail and panel gone, the day's column stays centered
+     at its measure and stretches to fill the full height */
   .mini.focus { grid-template-columns: minmax(0, 1fr); }
   .mini.focus .m-rail, .mini.focus .m-panel { display: none; }
   .mini.focus .m-day:not(.is-today) { display: none; }
-  .mini.focus .m-day.is-today { border-bottom: 0; }
+  .mini.focus .m-tl { width: min(100%, 560px); margin: 0 auto; }
+  .mini.focus .m-day.is-today { border-bottom: 0; min-height: 100%; }
+
+  .m-agent { color: var(--m-faint); font-style: italic; font-size: 0.85em; }
 
   .m-lock {
     margin-left: auto;
@@ -692,7 +697,17 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
   </section>
 
   <section class="day" aria-label="six days ago">
-    <div class="day-head"><span class="day-date" data-ago="6">6/29</span><span class="day-wd" data-ago-wd="6">mon</span></div>
+    <div class="day-head"><span class="day-date" data-ago="6">6/29</span><span class="day-wd" data-ago-wd="6">sun</span></div>
+    <h2>your ai agent can write here too</h2>
+    <p>your days are plain markdown files in a folder, so agents can work with them directly. tell claude (or any coding agent) <em>"remind me thursday"</em> — the task lands on thursday's page and appears in your open tab within seconds, signed, deferred while you're typing.</p>
+    <div class="browser" id="demo-agent" aria-label="live demo: an ai agent adding tasks and notes to the human's day">
+      <div class="b-chrome"><span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span><span class="b-tab">new tab</span></div>
+      <div class="mini" data-accent="blue"></div>
+    </div>
+  </section>
+
+  <section class="day" aria-label="seven days ago">
+    <div class="day-head"><span class="day-date" data-ago="7">6/28</span><span class="day-wd" data-ago-wd="7">sat</span></div>
     <h2>a page that looks like yours</h2>
     <p>light or dark, six accent colors, serif · sans · monospace. try them on the page below.</p>
     <div class="swatches" id="theme-swatches" aria-label="accent colors — click to try">
@@ -891,13 +906,20 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
   const noted = pastDays.map(([o]) => o);
   const pastContent = new Map(pastDays);
 
-  // ---- hero demo: write today → jump to the past → schedule in the future → back ----
+  // ---- hero demo: today's full page → jump to the past → schedule in the future → back ----
   {
+    // today opens already written-in, like a real day mid-use
+    const todayStart = heading("today") +
+      task("standup notes sent", true) +
+      task("review maya's pr", false) +
+      task("draft the migration plan", false) +
+      line("dinner with sam — <span class=\"m-i\">don't be late</span>");
     // EVERY day exists, like the real timeline — jumps scroll through them all
     const fridayOffset = ((5 - new Date().getDay() + 7) % 7) || 7;
     let daysHtml = "";
     for (let o = fridayOffset + 1; o >= -16; o -= 1) {
-      if (o === 0 || o === fridayOffset) daysHtml += daySection(o, "");
+      if (o === 0) daysHtml += daySection(0, todayStart);
+      else if (o === fridayOffset) daysHtml += daySection(o, "");
       else daysHtml += daySection(o, pastContent.get(o) ?? "");
     }
     const mini = buildMini("demo-jump", daysHtml, noted, { palette: true });
@@ -938,7 +960,6 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
       };
 
       const staticState = () => {
-        todayBody.innerHTML = heading("today") + task("pick up flowers", false) + line("dinner with sam — <span class=\"m-i\">don't be late</span>");
         fridayBody.innerHTML = task("book flights", false);
         tl.scrollTop = topOf(todayEl);
         palette.remove();
@@ -946,37 +967,34 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
 
       if (reduced) staticState();
       else loopWhenVisible(mini, async (alive) => {
-        // reset
-        todayBody.innerHTML = "";
+        // reset: today already has its page, friday is still empty
+        todayBody.innerHTML = todayStart;
         fridayBody.innerHTML = "";
         pinput.textContent = "";
         palette.classList.remove("open");
         tl.scrollTop = topOf(todayEl);
+        await sleep(1400);
+
+        // 1) one more line lands in today
+        await typeTask(todayBody, todayStart, "call the venue back", alive); if (!alive()) return;
         await sleep(900);
 
-        // 1) write in today
-        todayBody.innerHTML = "<div><span class='m-t'></span><span class='m-caret'></span></div>";
-        await typeInto(todayBody.querySelector(".m-t"), "# today"); if (!alive()) return;
-        await sleep(350);
-        await typeTask(todayBody, heading("today"), "pick up flowers", alive); if (!alive()) return;
-        await sleep(700);
-
-        // 2) jump into the past to check something — a long scroll DOWN through every day
+        // 2) ⌘K into the past to find something — a long scroll DOWN through every day
         if (!(await openPalette("two weeks ago", alive))) return;
-        await arriveAt(dayEl(-14), 2400); if (!alive()) return;
-        await sleep(900);
+        await arriveAt(dayEl(-14), 2600); if (!alive()) return;
+        await sleep(1100);
 
-        // 3) jump to the future to schedule something — all the way UP past today
+        // 3) ⌘K to the future to schedule something — scrolls UP past today
         if (!(await openPalette("next friday", alive))) return;
-        await arriveAt(dayEl(fridayOffset), 2800); if (!alive()) return;
+        await arriveAt(dayEl(fridayOffset), 3000); if (!alive()) return;
         await sleep(400);
         await typeTask(fridayBody, "", "book flights", alive); if (!alive()) return;
-        await sleep(900);
+        await sleep(1000);
 
-        // 4) home again
+        // 4) ⌘K home — scrolls back DOWN to today
         if (!(await openPalette("today", alive))) return;
-        await arriveAt(todayEl, 1600);
-        await sleep(2000);
+        await arriveAt(todayEl, 1800);
+        await sleep(2200);
       });
     }
   }
@@ -1069,6 +1087,39 @@ this part is just <span class="syn">**</span><b>notes</b><span class="syn">**</s
         await typeInto(panelBody.querySelector(".m-t"), "passport renewal — oct", 55); if (!alive()) return;
         panelBody.innerHTML = panelBase + line("passport renewal — oct");
         await sleep(2800);
+      });
+    }
+  }
+
+  // ---- demo: an agent writes tasks into the human's day, signed ----
+  {
+    const todayHtml = heading("today") + task("standup notes sent", true) + task("prep offsite agenda", false);
+    const mini = buildMini(
+      "demo-agent",
+      daySection(0, todayHtml) + pastDays.slice(0, 2).map(([o, h]) => daySection(o, h)).join(""),
+      noted,
+    );
+    if (mini) {
+      const todayDay = mini.querySelector('.m-day[data-offset="0"]');
+      const body = todayDay.querySelector(".m-body");
+      const agentAdds =
+        task("renew passport — expires before the offsite", false) +
+        line('<span class="m-agent">— added by claude</span>');
+      if (reduced) body.innerHTML = todayHtml + agentAdds;
+      else loopWhenVisible(mini, async (alive) => {
+        body.innerHTML = todayHtml;
+        await sleep(2200);
+        // the agent writes the file; the app picks it up and the day flashes —
+        // agents type fast
+        body.innerHTML = todayHtml + `<div class="m-task"><span class="m-box"></span><span><span class='m-t'></span></span></div>`;
+        todayDay.classList.add("flash");
+        await typeInto(body.querySelector(".m-t"), "renew passport — expires before the offsite", 14); if (!alive()) return;
+        body.innerHTML = todayHtml + task("renew passport — expires before the offsite", false) +
+          `<div><span class="m-agent m-t"></span></div>`;
+        await typeInto(body.querySelector(".m-t"), "— added by claude", 14); if (!alive()) return;
+        todayDay.classList.remove("flash");
+        body.innerHTML = todayHtml + agentAdds;
+        await sleep(3600);
       });
     }
   }
