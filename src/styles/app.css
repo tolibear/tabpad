@@ -798,15 +798,32 @@
   width: min(100%, calc(var(--editor-measure) + 304px));
 }
 
-.day-content-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 24px;
-  align-items: stretch;
-}
-
+/* the margin column spans the FULL day block (header row included) so its
+   first line starts exactly at the top of the separator line */
 .day-section.with-margin {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-rows: auto 1fr;
+  column-gap: 24px;
+}
+
+.day-section.with-margin .day-header {
+  grid-column: 1;
+}
+
+.day-section.with-margin .day-content-grid {
+  display: contents;
+}
+
+.day-section.with-margin .day-body {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.day-section.with-margin .day-margin {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 /* one divider drawn against the day section itself, with identical top/bottom
@@ -1101,8 +1118,12 @@
     padding-inline: 28px;
   }
 
-  .day-content-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .day-section.with-margin {
+    display: block;
+  }
+
+  .day-section.with-margin .day-content-grid {
+    display: block;
   }
 
   .day-section.with-margin::after {
