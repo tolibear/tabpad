@@ -1,18 +1,18 @@
-export type DaybookChange =
+export type TabPadChange =
   | { type: "day"; key: string; updatedAt: number }
   | { type: "panel"; key: "scratchpad" | "masterList"; updatedAt: number }
   | { type: "settings"; key: "settings"; updatedAt: number }
   | { type: "import"; key: "all"; updatedAt: number };
 
-export interface DaybookChannel {
-  post: (message: DaybookChange) => void;
-  listen: (handler: (message: DaybookChange) => void) => () => void;
+export interface TabPadChannel {
+  post: (message: TabPadChange) => void;
+  listen: (handler: (message: TabPadChange) => void) => () => void;
   close: () => void;
 }
 
-export const channelName = "daybook";
+export const channelName = "tabpad";
 
-export function createDaybookChannel(): DaybookChannel {
+export function createTabPadChannel(): TabPadChannel {
   if (!("BroadcastChannel" in globalThis)) {
     return {
       post: () => undefined,
@@ -26,7 +26,7 @@ export function createDaybookChannel(): DaybookChannel {
   return {
     post: (message) => channel.postMessage(message),
     listen: (handler) => {
-      const listener = (event: MessageEvent<DaybookChange>) => handler(event.data);
+      const listener = (event: MessageEvent<TabPadChange>) => handler(event.data);
       channel.addEventListener("message", listener);
       return () => channel.removeEventListener("message", listener);
     },

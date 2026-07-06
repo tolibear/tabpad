@@ -62,7 +62,7 @@ export async function queryMirrorStatus(handle: FileSystemDirectoryHandleLike | 
     const permission = await queryMirrorPermission(handle);
     return permission === "granted" ? "connected" : "reconnect";
   } catch (error) {
-    console.warn("Daybook mirror permission check failed", error);
+    console.warn("Tab Pad mirror permission check failed", error);
     return "error";
   }
 }

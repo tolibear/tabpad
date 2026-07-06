@@ -4,7 +4,7 @@ import { App } from "./app";
 import "./styles/tokens.css";
 import "./styles/app.css";
 
-performance.mark("daybook:main");
+performance.mark("tabpad:main");
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

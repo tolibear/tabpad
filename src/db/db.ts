@@ -43,13 +43,13 @@ export const defaultSettings: Settings = {
   font: "sans",
 };
 
-export class DaybookDB extends Dexie {
+export class TabPadDB extends Dexie {
   days!: Table<DayRow, string>;
   panels!: Table<PanelRow, PanelRow["id"]>;
   meta!: Table<MetaRow, string>;
 
   constructor() {
-    super("daybook");
+    super("tabpad");
     this.version(1).stores({
       days: "date, updatedAt",
       panels: "id",
@@ -58,4 +58,34 @@ export class DaybookDB extends Dexie {
   }
 }
 
-export const db = new DaybookDB();
+export const db = new TabPadDB();
+
+// one-time carry-over from the pre-rename "daybook" database: notes, panels,
+// settings, and the notes-folder connection all move across, then the old
+// database is deleted
+export async function migrateLegacyDb(): Promise<void> {
+  try {
+    if (!(await Dexie.exists("daybook"))) return;
+
+    const counts = await Promise.all([db.days.count(), db.panels.count(), db.meta.count()]);
+    if (counts.every((count) => count === 0)) {
+      const legacy = new Dexie("daybook");
+      legacy.version(1).stores({ days: "date, updatedAt", panels: "id", meta: "id" });
+      await legacy.open();
+      const [days, panels, meta] = await Promise.all([
+        legacy.table("days").toArray(),
+        legacy.table("panels").toArray(),
+        legacy.table("meta").toArray(),
+      ]);
+      await db.transaction("rw", db.days, db.panels, db.meta, async () => {
+        if (days.length) await db.days.bulkPut(days);
+        if (panels.length) await db.panels.bulkPut(panels);
+        if (meta.length) await db.meta.bulkPut(meta);
+      });
+      legacy.close();
+    }
+    await Dexie.delete("daybook");
+  } catch (error) {
+    console.warn("Tab Pad legacy database migration failed", error);
+  }
+}

@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 
-export const daybookEditorTheme = EditorView.theme({
+export const tabPadEditorTheme = EditorView.theme({
   "&": {
     backgroundColor: "transparent",
     color: "var(--ink)",

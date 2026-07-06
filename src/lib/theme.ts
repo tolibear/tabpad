@@ -4,8 +4,10 @@ export type AccentColor = "blue" | "green" | "red" | "yellow" | "orange" | "purp
 
 export const accentColors: AccentColor[] = ["blue", "green", "red", "yellow", "orange", "purple"];
 
-const THEME_KEY = "daybook:theme:v1";
-const ACCENT_KEY = "daybook:accent:v1";
+const THEME_KEY = "tabpad:theme:v1";
+const LEGACY_THEME_KEY = "daybook:theme:v1";
+const ACCENT_KEY = "tabpad:accent:v1";
+const LEGACY_ACCENT_KEY = "daybook:accent:v1";
 
 export function isAccentColor(value: unknown): value is AccentColor {
   return accentColors.includes(value as AccentColor);
@@ -13,7 +15,7 @@ export function isAccentColor(value: unknown): value is AccentColor {
 
 export function readAccentPreference(): AccentColor {
   try {
-    const raw = localStorage.getItem(ACCENT_KEY);
+    const raw = localStorage.getItem(ACCENT_KEY) ?? localStorage.getItem(LEGACY_ACCENT_KEY);
     return raw && isAccentColor(raw) ? raw : "blue";
   } catch {
     return "blue";
@@ -24,7 +26,7 @@ export function writeAccentPreference(accent: AccentColor): void {
   try {
     localStorage.setItem(ACCENT_KEY, accent);
   } catch {
-    // Accent persistence is a convenience; Daybook remains usable without localStorage.
+    // Accent persistence is a convenience; Tab Pad remains usable without localStorage.
   }
 }
 
@@ -38,7 +40,7 @@ export function applyAccent(accent: AccentColor): void {
 
 export function readThemePreference(): ThemePreference {
   try {
-    const raw = localStorage.getItem(THEME_KEY);
+    const raw = localStorage.getItem(THEME_KEY) ?? localStorage.getItem(LEGACY_THEME_KEY);
     if (!raw) return "system";
     const value = JSON.parse(raw) as { theme?: unknown };
     return value.theme === "light" || value.theme === "dark" || value.theme === "system" ? value.theme : "system";
@@ -51,7 +53,7 @@ export function writeThemePreference(theme: ThemePreference): void {
   try {
     localStorage.setItem(THEME_KEY, JSON.stringify({ theme }));
   } catch {
-    // Theme persistence is a convenience; Daybook remains usable without localStorage.
+    // Theme persistence is a convenience; Tab Pad remains usable without localStorage.
   }
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createDaybookChannel, type DaybookChannel } from "./db/broadcast";
-import type { DayRow, PanelRow, Settings } from "./db/db";
+import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
+import { migrateLegacyDb, type DayRow, type PanelRow, type Settings } from "./db/db";
 import { eraseAllNotes, getDay, listContentDays, saveDayFields } from "./db/days";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { getPanel, savePanel } from "./db/panels";
@@ -43,7 +43,7 @@ import {
 export function App() {
   const today = useToday();
   const todayKey = dateKey(today);
-  const channelRef = useRef<DaybookChannel | null>(null);
+  const channelRef = useRef<TabPadChannel | null>(null);
   const focusedDayRef = useRef<string | null>(null);
   const focusedMarginRef = useRef<string | null>(null);
   const focusedPanelRef = useRef<PanelRow["id"] | null>(null);
@@ -81,15 +81,15 @@ export function App() {
   const todayText = dayTexts[todayKey] ?? "";
 
   useLayoutEffect(() => {
-    if (!performance.getEntriesByName("daybook:shell-ready").length) {
-      performance.mark("daybook:shell-ready");
+    if (!performance.getEntriesByName("tabpad:shell-ready").length) {
+      performance.mark("tabpad:shell-ready");
     }
   }, []);
 
   useEffect(() => {
-    if (!loaded || performance.getEntriesByName("daybook:today-content-ready").length) return;
+    if (!loaded || performance.getEntriesByName("tabpad:today-content-ready").length) return;
     if (document.querySelector(".day-section.today .cm-content")) {
-      performance.mark("daybook:today-content-ready");
+      performance.mark("tabpad:today-content-ready");
     }
   }, [loaded, todayKey]);
 
@@ -154,6 +154,7 @@ export function App() {
   }, []);
 
   const loadDocuments = useCallback(async () => {
+    await migrateLegacyDb();
     // pull in any file edits (agents, other apps) before loading state below —
     // humans and agents share the same files
     try {
@@ -203,7 +204,7 @@ export function App() {
   }, [loadDocuments]);
 
   useEffect(() => {
-    const channel = createDaybookChannel();
+    const channel = createTabPadChannel();
     channelRef.current = channel;
     const stop = channel.listen((message) => {
       if (message.type === "day") {
@@ -386,7 +387,7 @@ export function App() {
     try {
       await writeDayMirror(handle, row);
     } catch (error) {
-      console.warn("Daybook mirror day write failed", error);
+      console.warn("Tab Pad mirror day write failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
   }, [mirrorStatus]);
@@ -410,7 +411,7 @@ export function App() {
     try {
       await writePanelMirror(handle, panel);
     } catch (error) {
-      console.warn("Daybook mirror panel write failed", error);
+      console.warn("Tab Pad mirror panel write failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
   }, [mirrorStatus]);
@@ -457,7 +458,7 @@ export function App() {
         channelRef.current?.post({ type: "day", key, updatedAt: row?.updatedAt ?? Date.now() });
       })
       .catch((error) => {
-        console.warn("Daybook save failed", error);
+        console.warn("Tab Pad save failed", error);
         setSaveError(true);
       });
     daySaveChains.current.set(key, next);
@@ -510,7 +511,7 @@ export function App() {
         channelRef.current?.post({ type: "panel", key: id, updatedAt: panel.updatedAt });
       })
       .catch((error) => {
-        console.warn("Daybook panel save failed", error);
+        console.warn("Tab Pad panel save failed", error);
         setSaveError(true);
       });
     panelSaveChains.current.set(id, next);
@@ -582,7 +583,7 @@ export function App() {
       channelRef.current?.post({ type: "import", key: "all", updatedAt: Date.now() });
       setDataMessage(`imported ${result.daysImported} days, ${result.panelsImported} panels`);
     } catch (error) {
-      console.warn("Daybook import failed", error);
+      console.warn("Tab Pad import failed", error);
       setDataMessage("import failed: not a valid tab pad export");
     }
   };
@@ -599,7 +600,7 @@ export function App() {
       await refreshContentDays();
       setDataMessage(`notes folder: ${handle.name}`);
     } catch (error) {
-      console.warn("Daybook mirror setup failed", error);
+      console.warn("Tab Pad mirror setup failed", error);
       setMirrorStatus(isMirrorPermissionError(error) ? "reconnect" : "error");
     }
   };
@@ -718,6 +719,7 @@ export function App() {
         weekStartsOn={weekStartsOn}
         currentTopKey={currentTopKey}
         mirrorStatus={mirrorStatus}
+        mirrorName={mirrorName}
         onJumpToDate={jumpToDate}
         onOpenSettings={() => setSettingsOpen(true)}
         onReconnectMirror={() => void reconnectMirror()}

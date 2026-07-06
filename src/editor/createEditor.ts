@@ -6,7 +6,7 @@ import { Strikethrough, TaskList } from "@lezer/markdown";
 import { inputRules } from "./inputRules";
 import { markdownKeymap } from "./listKeymap";
 import { livePreview } from "./livePreview";
-import { daybookEditorTheme } from "./theme";
+import { tabPadEditorTheme } from "./theme";
 
 export interface CreateEditorOptions {
   parent: HTMLElement;
@@ -33,7 +33,7 @@ export function createEditor(options: CreateEditorOptions): EditorView {
         // with our list continuation and can delete continuation lines
         markdown({ base: markdownLanguage, extensions: [TaskList, Strikethrough], addKeymap: false }),
         placeholder(options.placeholderText ?? ""),
-        daybookEditorTheme,
+        tabPadEditorTheme,
         livePreview,
         inputRules,
         markdownKeymap,
@@ -60,7 +60,7 @@ export function createEditor(options: CreateEditorOptions): EditorView {
     }),
   });
 
-  view.dom.classList.add("daybook-editor");
+  view.dom.classList.add("tabpad-editor");
   if (options.className) {
     view.dom.classList.add(options.className);
   }

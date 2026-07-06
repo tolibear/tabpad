@@ -271,6 +271,44 @@
   margin-top: auto;
 }
 
+.link-indicator {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+}
+
+.link-indicator.ok {
+  color: var(--accent);
+}
+
+.link-indicator.warn {
+  color: #dc2626;
+  animation: indicator-pulse 1.6s ease infinite;
+}
+
+.link-indicator.none {
+  color: var(--faint);
+}
+
+.link-indicator:hover {
+  background: var(--surface);
+}
+
+@keyframes indicator-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-indicator.warn { animation: none; }
+}
+
 .rail-settings {
   margin-left: auto;
 }
@@ -817,8 +855,8 @@
 }
 
 .editor-host,
-.daybook-editor,
-.daybook-editor .cm-editor {
+.tabpad-editor,
+.tabpad-editor .cm-editor {
   width: 100%;
 }
 

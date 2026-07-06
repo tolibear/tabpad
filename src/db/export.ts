@@ -2,7 +2,7 @@ import { dateFromKey } from "../lib/dates";
 import { db, defaultSettings, type DayRow, type PanelRow, type Settings } from "./db";
 import { getSettings } from "./settings";
 
-export interface DaybookExport {
+export interface TabPadExport {
   schemaVersion: 1;
   exportedAt: number;
   days: DayRow[];
@@ -10,7 +10,7 @@ export interface DaybookExport {
   settings: Settings;
 }
 
-export async function createExportPayload(): Promise<DaybookExport> {
+export async function createExportPayload(): Promise<TabPadExport> {
   const [days, panels, settings] = await Promise.all([db.days.toArray(), db.panels.toArray(), getSettings()]);
   return {
     schemaVersion: 1,
@@ -21,7 +21,7 @@ export async function createExportPayload(): Promise<DaybookExport> {
   };
 }
 
-export function serializeExport(payload: DaybookExport): string {
+export function serializeExport(payload: TabPadExport): string {
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
@@ -55,9 +55,9 @@ export async function importPayload(payload: unknown): Promise<{ daysImported: n
   return { daysImported, panelsImported };
 }
 
-function parsePayload(payload: unknown): DaybookExport & { hasSettings: boolean } {
+function parsePayload(payload: unknown): TabPadExport & { hasSettings: boolean } {
   if (!isObject(payload) || payload.schemaVersion !== 1) {
-    throw new Error("Unsupported Daybook export");
+    throw new Error("Unsupported Tab Pad export");
   }
 
   return {

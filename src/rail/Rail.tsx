@@ -1,6 +1,8 @@
 import {
   ChevronLeft,
   ChevronRight,
+  Link2,
+  Link2Off,
   Settings,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -16,6 +18,7 @@ interface RailProps {
   weekStartsOn: 0 | 1;
   currentTopKey: string;
   mirrorStatus: MirrorStatus;
+  mirrorName: string;
   onJumpToDate: (date: Date) => void;
   onOpenSettings: () => void;
   onReconnectMirror: () => void;
@@ -28,6 +31,7 @@ export function Rail({
   weekStartsOn,
   currentTopKey,
   mirrorStatus,
+  mirrorName,
   onJumpToDate,
   onOpenSettings,
   onReconnectMirror,
@@ -40,6 +44,31 @@ export function Rail({
       <div className="rail-mark">
         <span className="brand-dot" aria-hidden="true" />
         <span>tab pad</span>
+        <button
+          className={`link-indicator ${mirrorStatus === "connected" ? "ok" : needsReconnect ? "warn" : "none"}`}
+          type="button"
+          aria-label={
+            mirrorStatus === "connected"
+              ? `notes folder connected: ${mirrorName}`
+              : needsReconnect
+                ? "notes folder disconnected — click to reconnect"
+                : "no notes folder yet — click to set one up"
+          }
+          title={
+            mirrorStatus === "connected"
+              ? `synced with "${mirrorName}"`
+              : needsReconnect
+                ? "disconnected — click to reconnect"
+                : "choose a notes folder"
+          }
+          onClick={needsReconnect ? onReconnectMirror : onOpenSettings}
+        >
+          {mirrorStatus === "connected" ? (
+            <Link2 aria-hidden="true" size={13} strokeWidth={2} />
+          ) : (
+            <Link2Off aria-hidden="true" size={13} strokeWidth={2} />
+          )}
+        </button>
         <button className="icon-button rail-settings" type="button" aria-label="settings" onClick={onOpenSettings}>
           <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
         </button>
