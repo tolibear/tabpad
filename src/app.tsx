@@ -7,7 +7,7 @@ import { sanitizeWidgetConfig } from "./widgets/registry";
 import type { WidgetContext } from "./widgets/WidgetShell";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { seedOnboardingIfFirstRun } from "./db/onboarding";
-import { getPanel, savePanel } from "./db/panels";
+import { getPanel, savePanel, scratchpadPanelId } from "./db/panels";
 import { getSettings, saveSettings } from "./db/settings";
 import { addDays, dateFromKey, dateKey, daysBetween } from "./lib/dates";
 import {
@@ -338,6 +338,7 @@ export function App() {
             day: focusedDayRef.current,
             margin: focusedMarginRef.current,
             scratchpad: focusedPanelRef.current === "scratchpad",
+            panel: focusedPanelRef.current,
           }), applyWidgetIssues);
         };
         const pass = syncChainRef.current.then(run, run);
@@ -375,6 +376,24 @@ export function App() {
     setPanelTexts((current) =>
       focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratchpad.content },
     );
+    // each non-core scratchpad widget's text lives in its own widget:<id> panel
+    const scratchpadPanels = await Promise.all(
+      widgetRows
+        .filter((w) => w.type === "scratchpad" && w.id !== "scratchpad")
+        .map(async (w) => {
+          const panelId = scratchpadPanelId(w.id);
+          return [panelId, (await getPanel(panelId)).content] as const;
+        }),
+    );
+    if (scratchpadPanels.length) {
+      setPanelTexts((current) => {
+        const next = { ...current };
+        for (const [panelId, content] of scratchpadPanels) {
+          if (focusedPanelRef.current !== panelId) next[panelId] = content;
+        }
+        return next;
+      });
+    }
     applySettingsState(settings);
     void refreshMirrorState();
     setContentDays(rows);
@@ -407,11 +426,14 @@ export function App() {
           queueMirrorDayRef.current(row ?? null);
         });
       }
-      if (message.type === "panel" && message.key === "scratchpad") {
-        void getPanel(message.key).then((panel) => {
+      // any panel edit from another tab: the core scratchpad or a widget:<id>
+      // scratchpad. masterList has no editor here, so ignore it.
+      if (message.type === "panel" && (message.key === "scratchpad" || message.key.startsWith("widget:"))) {
+        const key = message.key;
+        void getPanel(key).then((panel) => {
           if (erasingRef.current) return;
           setPanelTexts((current) =>
-            focusedPanelRef.current === message.key ? current : { ...current, [message.key]: panel.content },
+            focusedPanelRef.current === key ? current : { ...current, [key]: panel.content },
           );
         });
       }
@@ -494,22 +516,34 @@ export function App() {
         day: focusedDayRef.current,
         margin: focusedMarginRef.current,
         scratchpad: focusedPanelRef.current === "scratchpad",
+        panel: focusedPanelRef.current,
       }), applyWidgetIssues);
       syncFailures.current = 0;
       if (imported > 0) {
         await refreshContentDays();
-        await refreshWidgets();
-        const scratch = await getPanel("scratchpad");
-        setPanelTexts((current) =>
-          focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratch.content },
-        );
+        const widgetRows = await listWidgets();
+        setWidgets(widgetRows);
+        // reload the core scratchpad and every widget:<id> scratchpad panel
+        // that a disk edit may have changed
+        const panelIds = [
+          "scratchpad",
+          ...widgetRows.filter((w) => w.type === "scratchpad" && w.id !== "scratchpad").map((w) => scratchpadPanelId(w.id)),
+        ];
+        const contents = await Promise.all(panelIds.map(async (id) => [id, (await getPanel(id)).content] as const));
+        setPanelTexts((current) => {
+          const next = { ...current };
+          for (const [id, content] of contents) {
+            if (focusedPanelRef.current !== id) next[id] = content;
+          }
+          return next;
+        });
       }
       return imported;
     };
     const result = syncChainRef.current.then(run, run);
     syncChainRef.current = result.catch(() => undefined);
     return result;
-  }, [applyWidgetIssues, refreshContentDays, refreshWidgets]);
+  }, [applyWidgetIssues, refreshContentDays]);
 
   // deferred (focused-note) changes land the moment the user clicks away
   const nudgeSync = useCallback(() => {
@@ -1122,9 +1156,29 @@ export function App() {
     };
   }, [refreshContentDays]);
 
-  const fixedPanelId: PanelRow["id"] = "scratchpad";
   // the right rail is present whenever any enabled widget lives in it
   const hasRightRail = widgets.some((w) => w.enabled && sanitizeColumn(w.column) === "right");
+
+  // resolve a scratchpad widget's editor plumbing by widget id: the core
+  // scratchpad uses the classic "scratchpad" panel, every other one its own
+  // widget:<id> panel. same save/blur/focus behavior for all of them.
+  const scratchpadFor = useCallback(
+    (widgetId: string) => {
+      const panelId = scratchpadPanelId(widgetId);
+      return {
+        value: panelTexts[panelId] ?? "",
+        onChange: (value: string) => changePanelText(panelId, value),
+        onBlur: () => {
+          void persistPanel(panelId, true);
+          nudgeSync();
+        },
+        onFocusChange: (focused: boolean) => {
+          focusedPanelRef.current = focused ? panelId : null;
+        },
+      };
+    },
+    [panelTexts, changePanelText, persistPanel, nudgeSync],
+  );
 
   const widgetContext: WidgetContext = useMemo(
     () => ({
@@ -1133,19 +1187,9 @@ export function App() {
       currentTopKey,
       privacyMode,
       onJumpToDate: jumpToDate,
-      scratchpad: {
-        value: panelTexts[fixedPanelId],
-        onChange: (value) => changePanelText(fixedPanelId, value),
-        onBlur: () => {
-          void persistPanel(fixedPanelId, true);
-          nudgeSync();
-        },
-        onFocusChange: (focused) => {
-          focusedPanelRef.current = focused ? fixedPanelId : null;
-        },
-      },
+      scratchpadFor,
     }),
-    [today, todayText, contentDays, weekStartsOn, currentTopKey, privacyMode, jumpToDate, panelTexts, changePanelText, persistPanel, nudgeSync],
+    [today, todayText, contentDays, weekStartsOn, currentTopKey, privacyMode, jumpToDate, scratchpadFor],
   );
 
   const shellClassName = [

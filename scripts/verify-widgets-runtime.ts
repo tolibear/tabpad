@@ -228,10 +228,12 @@ import {
   removeWidgetMirrorFile,
   serializeWidgetFile,
   syncWithDisk,
+  writeFullMirror,
   writeWidgetsMirror,
   type FileSystemDirectoryHandleLike,
   type WidgetFileIssue,
 } from "../src/mirror/mirror";
+import { getPanel, savePanel, scratchpadPanelId } from "../src/db/panels";
 
 // minimal in-memory FileSystemDirectoryHandleLike for sync tests
 interface FakeDir {
@@ -455,6 +457,71 @@ await db.widgets.put({ id: "noted-days", type: "day-list", title: "my days", con
 await ensureDefaultWidgets();
 const customTitle = await db.widgets.get("noted-days");
 assert(customTitle?.title === "my days" && customTitle.updatedAt === 7, "a custom noted-days title survives the rename migration untouched");
+
+// ---- F4: multiple independent scratchpads ----
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+
+// the classic scratchpad keeps the "scratchpad" panel id; every other
+// scratchpad widget owns a widget:<id> panel — content never collides
+assert(scratchpadPanelId("scratchpad") === "scratchpad", "the core scratchpad keeps the classic panel id");
+assert(scratchpadPanelId("notes-2") === "widget:notes-2", "a non-core scratchpad uses a widget:<id> panel id");
+
+await savePanel("scratchpad", "CORE scratch");
+await saveWidget({ id: "notes-2", type: "scratchpad", title: "second pad", config: {}, order: 5, enabled: true, column: "right", updatedAt: Date.now() });
+await savePanel(scratchpadPanelId("notes-2"), "SECOND scratch");
+assert((await getPanel("scratchpad")).content === "CORE scratch", "saving a second scratchpad never touches panels('scratchpad')");
+assert((await getPanel("widget:notes-2")).content === "SECOND scratch", "second scratchpad content is stored under widget:<id>");
+
+// mirror: widgets/notes-2.md holds the widget's content, widgets/notes-2.json
+// its config; root scratchpad.md holds only the CORE content
+const sp = makeFakeDir();
+await writeFullMirror(sp.handle);
+const spWidgets = sp.dirs.get("widgets");
+assert(spWidgets?.files.get("notes-2.md")?.text === "SECOND scratch", "mirror writes the widget scratchpad content to widgets/<id>.md");
+assert(spWidgets?.files.has("notes-2.json"), "the widget's config json is written alongside its .md");
+assert(sp.files.get("scratchpad.md")?.text === "CORE scratch", "root scratchpad.md holds the core scratchpad, untouched by the widget");
+
+// a disk edit of widgets/notes-2.md syncs into the widget:<id> panel, and
+// leaves the core scratchpad alone
+spWidgets!.files.set("notes-2.md", { text: "edited on disk", lastModified: Date.now() + 1_000 });
+await syncWithDisk(sp.handle, undefined, undefined, () => {});
+assert((await getPanel("widget:notes-2")).content === "edited on disk", "a disk edit of widgets/<id>.md imports into the widget panel");
+assert((await getPanel("scratchpad")).content === "CORE scratch", "editing a widget .md never changes the core scratchpad");
+
+// deleting the widget trash-copies then removes BOTH its .json and .md; root
+// scratchpad.md is never touched
+await removeWidgetMirrorFile(sp.handle, "notes-2");
+assert(!spWidgets!.files.has("notes-2.json") && !spWidgets!.files.has("notes-2.md"), "delete removes both the widget json and md");
+const spTrash = [...sp.dirs.get(".tabpad-trash")?.files.keys() ?? []];
+assert(spTrash.some((n) => n.includes("notes-2.json")) && spTrash.some((n) => n.includes("notes-2.md")), "both widget files are trash-copied on delete");
+assert(sp.files.get("scratchpad.md")?.text === "CORE scratch", "deleting a scratchpad widget never touches root scratchpad.md");
+
+// a tombstoned widget's stale .md cannot resurrect anything — sync cleans it up
+await deleteWidget("notes-2");
+spWidgets!.files.set("notes-2.md", { text: "stale ghost text", lastModified: Date.now() - 5_000 });
+await syncWithDisk(sp.handle, undefined, undefined, () => {});
+assert(!spWidgets!.files.has("notes-2.md"), "a stale .md for a tombstoned scratchpad is cleaned up, not imported");
+
+// PanelRow string ids round-trip export/import
+await db.panels.clear();
+await savePanel("scratchpad", "core text");
+await savePanel("widget:pad-x", "widget text");
+const panelPayload = await createExportPayload();
+assert(panelPayload.panels.some((p) => p.id === "widget:pad-x"), "export includes widget:<id> panels");
+await db.panels.clear();
+const panelImport = await importPayload({
+  schemaVersion: 1,
+  exportedAt: Date.now(),
+  days: [],
+  panels: panelPayload.panels.map((p) => ({ ...p, updatedAt: Date.now() })),
+  widgets: [],
+  settings: {},
+});
+assert(panelImport.panelsImported === 2, "both panel rows import");
+assert((await getPanel("widget:pad-x")).content === "widget text", "a widget:<id> panel round-trips through export/import");
+assert((await getPanel("scratchpad")).content === "core text", "the classic scratchpad panel still round-trips");
 
 await db.delete();
 console.log("runtime asserts passed");

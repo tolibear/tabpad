@@ -4,13 +4,13 @@ import { scrambleText } from "../lib/scramble";
 import { sanitizeScratchpadConfig } from "./registry";
 import type { WidgetContext } from "./WidgetShell";
 
-// the one persistent scratchpad — backed by panels("scratchpad") and mirrored
-// to scratchpad.md exactly as the old right panel was. the editor plumbing
-// (value + save/focus handlers) rides in on the widget context so every rail
-// shares one source of truth.
+// a scratchpad editor — the core "scratchpad" widget is backed by
+// panels("scratchpad") + root scratchpad.md, and every other scratchpad widget
+// by its own panels("widget:<id>") + widgets/<id>.md. the context resolves the
+// right content source by widget id, so each instance is independent.
 export function ScratchpadWidget({ row, context }: { row: WidgetRow; context: WidgetContext }) {
   const config = sanitizeScratchpadConfig(row.config);
-  const scratchpad = context.scratchpad;
+  const scratchpad = context.scratchpadFor(row.id);
   const style = config.height === "fixed" ? { maxHeight: `${config.maxHeight}px` } : undefined;
 
   return (

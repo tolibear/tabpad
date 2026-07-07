@@ -6,8 +6,9 @@ import { DayListWidget } from "./DayListWidget";
 import { ScratchpadWidget } from "./ScratchpadWidget";
 import { CounterWidget, TaskRollupWidget, TextWidget } from "./SimpleWidgets";
 
-// the live scratchpad editor plumbing — one instance shared by whichever rail
-// hosts the scratchpad widget, so its content stays the single panels() row
+// the live editor plumbing for one scratchpad widget — its content is a panel
+// row (the core scratchpad's classic "scratchpad" row, or a `widget:<id>` row
+// for every other scratchpad), resolved per widget by scratchpadFor(id)
 export interface ScratchpadContext {
   value: string;
   onChange: (value: string) => void;
@@ -22,7 +23,7 @@ export interface WidgetContext {
   currentTopKey: string;
   privacyMode: boolean;
   onJumpToDate: (date: Date) => void;
-  scratchpad: ScratchpadContext;
+  scratchpadFor: (widgetId: string) => ScratchpadContext;
 }
 
 interface WidgetProps {

@@ -50,5 +50,7 @@ assert(overlay.includes("WidgetSettings"), "settings must render the widget mana
 const mirrorSource = readFileSync("src/mirror/mirror.ts", "utf8");
 assert(mirrorSource.includes("Sidebar widgets"), "AGENTS.md guide must document widgets");
 assert(mirrorSource.includes("widgets/<slug>.json"), "tabpad.json manifest must name the widget files");
+assert(mirrorSource.includes("widgets/<slug>.md"), "AGENTS.md guide must document the scratchpad widget json/md pairing");
+assert(!mirrorSource.includes("noted days with excerpts"), "day-list copy must use 'days with notes', not 'noted days'");
 
 console.log("widgets verification passed");
