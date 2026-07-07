@@ -227,6 +227,18 @@ assert("row" in roundTrip && roundTrip.row.type === "counter" && roundTrip.row.o
 assert("error" in parseWidgetFile("x", "{nope"), "broken JSON is a named error");
 assert("error" in parseWidgetFile("x", JSON.stringify({ type: "iframe" })), "unknown type is a named error");
 
+// forward-compat: fields this version doesn't know (e.g. a future `column`)
+// must survive the file → row → file round-trip, so an older app never
+// strips a newer app's data from widgets/*.json
+const futureFile = JSON.stringify({ type: "counter", title: "streak", enabled: true, order: 2, config: {}, column: "right", futureFlag: 7 });
+const futureParsed = parseWidgetFile("streak", futureFile);
+assert("row" in futureParsed && (futureParsed.row as Record<string, unknown>).column === "right", "unknown top-level fields survive parsing");
+assert("row" in futureParsed && (futureParsed.row as Record<string, unknown>).futureFlag === 7, "all unknown fields ride along, not just known-future ones");
+assert("row" in futureParsed && futureParsed.row.id === "streak", "a stray id field in the file can never override the filename id");
+const futureRewritten = "row" in futureParsed ? serializeWidgetFile({ ...futureParsed.row, updatedAt: 1 } as import("../src/db/db").WidgetRow) : "";
+assert(JSON.parse(futureRewritten).column === "right" && JSON.parse(futureRewritten).futureFlag === 7, "unknown fields survive re-serialization");
+assert(!("id" in JSON.parse(futureRewritten)) && !("updatedAt" in JSON.parse(futureRewritten)), "id stays in the filename and updatedAt stays local");
+
 // app → disk: mirror writes every row as widgets/<id>.json
 const root = makeFakeDir();
 await writeWidgetsMirror(root.handle, await listWidgets());

@@ -151,8 +151,12 @@ export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, pa
 }
 
 export function serializeWidgetFile(row: WidgetRow): string {
+  // spread first so fields from newer app versions round-trip through this
+  // one instead of being stripped from the file; id lives in the filename and
+  // updatedAt is a local merge stamp — neither belongs on disk
+  const { id: _id, updatedAt: _updatedAt, ...rest } = row as WidgetRow & Record<string, unknown>;
   return `${JSON.stringify(
-    { type: row.type, title: row.title, enabled: row.enabled, order: row.order, config: row.config },
+    { ...rest, type: row.type, title: row.title, enabled: row.enabled, order: row.order, config: row.config },
     null,
     2,
   )}\n`;
@@ -175,7 +179,10 @@ export function parseWidgetFile(id: string, text: string): { row: Omit<WidgetRow
     return { error: `built-in widget "${id}" must keep type "${core.type}"` };
   }
   return {
+    // keep fields this version doesn't know so a newer app's data survives
+    // syncing through an older one; the filename always wins over a stray id
     row: {
+      ...raw,
       id,
       type: raw.type,
       title: typeof raw.title === "string" ? raw.title : "",
@@ -575,6 +582,10 @@ Types and their config:
 - \`counter\` — one number. config: { "source": "noted-days"|"streak"|"open-tasks"|"words-today"|"words-total", "format": "text with {n}" }
 - \`task-rollup\` — open \`- [ ]\` lines from recent days. config: { "days": 1-90, "limit": 1-100 }
 - \`text\` — fixed text. config: { "content": "..." }
+
+Unknown fields are preserved as-is (never strip them — older and newer app
+versions share these files). \`column\` is reserved for a future two-rail
+layout: omit it, or set \`"left"\` (default) or \`"right"\`.
 
 Rules:
 - \`calendar\` and \`noted-days\` are built-in: retitle, reorder, or disable
