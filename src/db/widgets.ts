@@ -86,7 +86,12 @@ export async function readWidgetTombstones(): Promise<Record<string, number>> {
   const row = await db.meta.get(TOMBSTONES_ID);
   const value = (row?.value ?? {}) as Record<string, number>;
   const now = Date.now();
-  const live = Object.fromEntries(Object.entries(value).filter(([, at]) => now - at < TOMBSTONE_TTL));
+  // a deleted CORE widget must stay gone forever: its tombstone is never pruned,
+  // so ensureDefaultWidgets can't re-seed it after the TTL window. custom ids
+  // still expire after 30 days — reusing a custom slug after that is acceptable.
+  const live = Object.fromEntries(
+    Object.entries(value).filter(([id, at]) => isCoreWidget(id) || now - at < TOMBSTONE_TTL),
+  );
   return live;
 }
 

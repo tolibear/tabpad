@@ -449,9 +449,12 @@ export async function syncWithDisk(
           if (!disk) continue;
           const id = mdMatch[1];
           // a stale content file for a deleted widget must not resurrect
-          // anything — clean it up (its config .json is handled alongside)
+          // anything — clean it up (its config .json is handled alongside).
+          // an untrusted FUTURE mtime (clock skew, cloud sync) is never proof of
+          // a post-deletion re-create, so it's treated as stale too instead of
+          // being allowed to beat the tombstone.
           const deletedAt = tombstones[id];
-          if (deletedAt !== undefined && Math.min(disk.lastModified, Date.now()) <= deletedAt) {
+          if (deletedAt !== undefined && (disk.lastModified > Date.now() + 2000 || disk.lastModified <= deletedAt)) {
             await removeWidgetMirrorFile(handle, id);
             continue;
           }
@@ -485,8 +488,11 @@ export async function syncWithDisk(
         // tombstone: a file no newer than the in-app deletion is the STALE
         // leftover — remove it instead of resurrecting the widget. a file
         // written after the deletion is an intentional re-create and imports.
+        // an untrusted FUTURE mtime (clock skew, cloud sync) is never proof of
+        // a post-deletion re-create, so it's treated as stale too — clamping it
+        // to now is not enough, since now still outranks a past deletion stamp.
         const deletedAt = tombstones[match[1]];
-        if (deletedAt !== undefined && Math.min(disk.lastModified, Date.now()) <= deletedAt) {
+        if (deletedAt !== undefined && (disk.lastModified > Date.now() + 2000 || disk.lastModified <= deletedAt)) {
           await removeWidgetMirrorFile(handle, match[1]);
           continue;
         }

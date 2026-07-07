@@ -103,6 +103,24 @@ await saveWidget({ id: "streak", type: "counter", title: "streak", config: {}, o
 assert(!("streak" in (await readWidgetTombstones())), "re-saving an id must clear its tombstone");
 await deleteWidget("streak");
 
+// #4: core-widget tombstones are PERMANENT — an aged core tombstone still
+// blocks reseed, while an aged custom tombstone is pruned by the 30-day TTL
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+await deleteWidget("calendar"); // remove the row + leave a (fresh) tombstone
+const AGED = Date.now() - 40 * 24 * 60 * 60 * 1000; // older than the 30-day TTL
+// backdate the tombstone past the TTL, plus an aged custom tombstone for contrast
+await db.meta.put({ id: "widgetTombstones", value: { calendar: AGED, "old-custom": AGED } });
+const agedTombstones = await readWidgetTombstones();
+assert("calendar" in agedTombstones, "an aged CORE tombstone survives the TTL prune");
+assert(!("old-custom" in agedTombstones), "an aged custom tombstone is pruned by the 30-day TTL");
+await ensureDefaultWidgets();
+assert(!(await listWidgets()).some((w) => w.id === "calendar"), "an aged core tombstone still blocks reseed of the deleted core");
+// leave a pristine db for the sections below
+await db.delete();
+await db.open();
+
 assert(WIDGET_ID_PATTERN.test("my-widget-2"), "slug ids must pass the pattern");
 assert(!WIDGET_ID_PATTERN.test("My Widget") && !WIDGET_ID_PATTERN.test("-x") && !WIDGET_ID_PATTERN.test(""), "non-slugs must fail the pattern");
 
@@ -411,6 +429,24 @@ widgetsDir!.files.set("ghost.json", {
 });
 await syncWithDisk(root.handle, undefined, undefined, () => {});
 assert((await listWidgets()).find((w) => w.id === "ghost")?.title === "ghost2", "a post-delete re-created file revives the widget");
+
+// #7: a future-dated (clock-skew / cloud) STALE file must not beat the tombstone
+widgetsDir!.files.set("skew.json", {
+  text: JSON.stringify({ type: "text", title: "skew", enabled: true, order: 8, config: { content: "x" } }),
+  lastModified: Date.now() - 5_000,
+});
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert((await listWidgets()).some((w) => w.id === "skew"), "skew imports first");
+await deleteWidget("skew");
+// the leftover file now carries a bogus far-future mtime; clamping it to now
+// would still outrank the past deletion stamp, so it must count as stale
+widgetsDir!.files.set("skew.json", {
+  text: JSON.stringify({ type: "text", title: "skew", enabled: true, order: 8, config: { content: "x" } }),
+  lastModified: Date.now() + 10 * 365 * 24 * 60 * 60 * 1000,
+});
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert(!(await listWidgets()).some((w) => w.id === "skew"), "a future-dated stale file must not resurrect a deleted widget");
+assert(!widgetsDir!.files.has("skew.json"), "the future-dated stale file is cleaned up by the sync pass");
 
 // missing-file reconcile: a DB row whose file vanished gets its file back
 widgetsDir!.files.delete("noted-days.json");
