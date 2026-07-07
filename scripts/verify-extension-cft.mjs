@@ -76,6 +76,9 @@ async function main() {
     `--user-data-dir=${profile}`,
     `--disable-extensions-except=${dist}`,
     `--load-extension=${dist}`,
+    // headless by default (new headless renders extensions + layout faithfully)
+    // so test runs don't pop a window and steal focus; HEADED=1 to watch a run
+    ...(process.env.HEADED ? [] : ["--headless=new"]),
     "--window-size=1440,1000",
     "chrome://newtab/",
   ], {

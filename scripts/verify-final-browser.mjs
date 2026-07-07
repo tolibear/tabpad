@@ -211,6 +211,9 @@ async function launchChrome(executable, userDataDir, startUrl = "chrome://newtab
     `--user-data-dir=${userDataDir}`,
     `--disable-extensions-except=${dist}`,
     `--load-extension=${dist}`,
+    // headless by default (new headless renders extensions + layout faithfully)
+    // so test runs don't pop a window and steal focus; HEADED=1 to watch a run
+    ...(process.env.HEADED ? [] : ["--headless=new"]),
     "--window-size=1440,1000",
     startUrl,
   ], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
