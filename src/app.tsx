@@ -332,23 +332,35 @@ export function App() {
           window.clearTimeout(pendingPanel.timer);
           mirrorPanelTimers.current.delete(panelId);
         }
+        // commit the tombstone FIRST: deleteWidget records the deletion (and
+        // empties the paired panel) so a racing panel flush's own tombstone
+        // guard in writePanelMirror sees it, and so a delete from a tab without
+        // the folder connection still can't resurrect the widget on the next
+        // sync pass.
+        await deleteWidget(id);
+        // then serialize the mirror-file removal on syncChainRef — the SAME
+        // chain panel flushes run on (delete runs on widgetSaveChainRef, a
+        // separate chain, so it can't order against a flush directly). the
+        // removal lands AFTER any flush already in flight that read tombstones
+        // before the commit above and wrote the file, and no later flush can
+        // recreate it (its debounce timer is cleared above; a cross-tab flush
+        // hits the committed tombstone). covers the core (root scratchpad.md)
+        // and custom (widgets/<id>.md + .json) content files.
         const handle = mirrorHandleRef.current;
         if (handle && mirrorStatus === "connected") {
-          await removeWidgetMirrorFile(handle, id).catch((error) =>
-            console.warn("Tab Pad widget file removal failed", error),
-          );
-          // the core scratchpad's content lives in root scratchpad.md, not
-          // widgets/ — an explicit delete erases it too (trash-copied first)
-          if (id === "scratchpad") {
-            await removeScratchpadMirrorFile(handle).catch((error) =>
-              console.warn("Tab Pad scratchpad file removal failed", error),
+          const run = async () => {
+            await removeWidgetMirrorFile(handle, id).catch((error) =>
+              console.warn("Tab Pad widget file removal failed", error),
             );
-          }
+            if (id === "scratchpad") {
+              await removeScratchpadMirrorFile(handle).catch((error) =>
+                console.warn("Tab Pad scratchpad file removal failed", error),
+              );
+            }
+          };
+          const result = syncChainRef.current.then(run, run);
+          syncChainRef.current = result.catch(() => undefined);
         }
-        // deleteWidget tombstones the id, so even a failed/racing file removal
-        // (or a delete from a tab without the folder connection) cannot
-        // resurrect the widget on the next sync pass
-        await deleteWidget(id);
       });
     },
     [applyWidgetChange, mirrorStatus],
