@@ -69,8 +69,9 @@ export function firstLineExcerpt(source: string, maxLength = 40): string {
   const first = source
     .split(/\r?\n/)
     // the task prefix must go before the bullet prefix — stripping "- " first
-    // would leave "[ ] task" behind
-    .map((line) => line.replace(/^#+\s*/, "").replace(/^- \[[ xX]\]\s+/, "").replace(/^-\s+/, "").trim())
+    // would leave "[ ] task" behind. `/` is the in-progress marker, stripped
+    // like `[ ]` and `[x]` so "[/] task" never leaks into an excerpt.
+    .map((line) => line.replace(/^#+\s*/, "").replace(/^- \[[ xX/]\]\s+/, "").replace(/^-\s+/, "").trim())
     .find(Boolean);
 
   if (!first) return "";

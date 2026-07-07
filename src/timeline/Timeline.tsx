@@ -306,8 +306,13 @@ export const Timeline = memo(function Timeline({
     }
     window.clearTimeout(lineHighlightTimer.current);
     if (taskText) {
-      const lines = node.querySelectorAll<HTMLElement>(".cm-line, .static-task, .static-line, .static-bullet");
-      const line = Array.from(lines).find((el) => (el.textContent ?? "").includes(taskText));
+      const lines = Array.from(node.querySelectorAll<HTMLElement>(".cm-line, .static-task, .static-line, .static-bullet"));
+      // prefer an exact trimmed-line match so an earlier line that merely
+      // CONTAINS the task text as a substring can't steal the highlight; fall
+      // back to the first substring match only when nothing matches exactly
+      const line =
+        lines.find((el) => (el.textContent ?? "").trim() === taskText) ??
+        lines.find((el) => (el.textContent ?? "").includes(taskText));
       if (line) {
         line.classList.add("task-line-highlight");
         highlightedLine.current = line;

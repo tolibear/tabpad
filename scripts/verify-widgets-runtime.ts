@@ -277,6 +277,12 @@ import {
 import { getPanel, savePanel, scratchpadPanelId } from "../src/db/panels";
 import { eraseAllNotes, firstLineExcerpt } from "../src/db/days";
 
+// #9: the in-progress `- [/]` marker is stripped from excerpts, like `- [ ]`
+// and `- [x]`, so it never leaks into the rail or the day-list widget
+assert(firstLineExcerpt("- [/] wire up the api") === "wire up the api", "firstLineExcerpt strips the [/] in-progress marker");
+assert(firstLineExcerpt("- [ ] plain") === "plain", "firstLineExcerpt still strips [ ]");
+assert(firstLineExcerpt("- [x] done") === "done" && firstLineExcerpt("- [X] done") === "done", "firstLineExcerpt still strips [x]/[X]");
+
 // minimal in-memory FileSystemDirectoryHandleLike for sync tests
 interface FakeDir {
   handle: FileSystemDirectoryHandleLike;
