@@ -18,6 +18,7 @@
     "verify:m5": "node scripts/verify-m5.mjs",
     "verify:m6": "node scripts/verify-m6.mjs",
     "verify:m7": "node scripts/verify-m7.mjs",
+    "verify:widgets": "node scripts/verify-widgets.mjs",
     "verify:extension": "node scripts/verify-extension-cft.mjs",
     "verify:acceptance": "node scripts/verify-acceptance.mjs && node scripts/verify-final-browser.mjs"
   },

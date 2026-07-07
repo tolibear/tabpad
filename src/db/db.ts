@@ -18,6 +18,18 @@ export interface PanelRow {
   updatedAt: number;
 }
 
+export type WidgetType = "calendar" | "day-list" | "counter" | "task-rollup" | "text";
+
+export interface WidgetRow {
+  id: string;
+  type: WidgetType;
+  title: string;
+  config: Record<string, unknown>;
+  order: number;
+  enabled: boolean;
+  updatedAt: number;
+}
+
 export interface Settings {
   theme: ThemePreference;
   accent: AccentColor;
@@ -47,6 +59,7 @@ export class TabPadDB extends Dexie {
   days!: Table<DayRow, string>;
   panels!: Table<PanelRow, PanelRow["id"]>;
   meta!: Table<MetaRow, string>;
+  widgets!: Table<WidgetRow, string>;
 
   constructor() {
     super("tabpad");
@@ -54,6 +67,9 @@ export class TabPadDB extends Dexie {
       days: "date, updatedAt",
       panels: "id",
       meta: "id",
+    });
+    this.version(2).stores({
+      widgets: "id, order",
     });
   }
 }
