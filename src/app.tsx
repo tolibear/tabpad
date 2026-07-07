@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
-import { migrateLegacyDb, type DayRow, type PanelRow, type Settings } from "./db/db";
+import { migrateLegacyDb, type DayRow, type PanelRow, type Settings, type WidgetRow } from "./db/db";
 import { eraseAllNotes, getDay, hasDayContent, listAllDays, listContentDays, saveDayFields } from "./db/days";
+import { ensureDefaultWidgets, listWidgets } from "./db/widgets";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { seedOnboardingIfFirstRun } from "./db/onboarding";
 import { getPanel, savePanel } from "./db/panels";
@@ -22,7 +23,7 @@ import {
 } from "./lib/theme";
 import { CommandK } from "./palette/CommandK";
 import { RightPanel } from "./panel/RightPanel";
-import { Rail } from "./rail/Rail";
+import { Rail, type WidgetFileIssue } from "./rail/Rail";
 import { SettingsOverlay } from "./settings/SettingsOverlay";
 import { Timeline, type JumpTarget } from "./timeline/Timeline";
 import { useToday } from "./timeline/useToday";
@@ -105,6 +106,8 @@ export function App() {
   const [dayMargins, setDayMargins] = useState<Record<string, string>>({});
   const [panelTexts, setPanelTexts] = useState<Record<PanelRow["id"], string>>({ scratchpad: "" } as Record<PanelRow["id"], string>);
   const [contentDays, setContentDays] = useState<DayRow[]>([]);
+  const [widgets, setWidgets] = useState<WidgetRow[]>([]);
+  const [widgetFileIssues] = useState<WidgetFileIssue[]>([]);
   const [loaded, setLoaded] = useState(false);
   const loadedRef = useRef(false);
   const [saveError, setSaveError] = useState(false);
@@ -194,6 +197,10 @@ export function App() {
     });
   }, []);
 
+  const refreshWidgets = useCallback(async () => {
+    setWidgets(await listWidgets());
+  }, []);
+
   const loadDocuments = useCallback(async () => {
     await migrateLegacyDb();
     // after migration so legacy users are never treated as fresh installs.
@@ -202,6 +209,7 @@ export function App() {
     if (await seedOnboardingIfFirstRun(today)) {
       setFocusDayKey(todayKey);
     }
+    await ensureDefaultWidgets();
     // pull in any file edits (agents, other apps) before loading state below —
     // humans and agents share the same files
     try {
@@ -223,11 +231,12 @@ export function App() {
       console.warn("Tab Pad folder sync failed", error);
     }
 
-    const [day, scratchpad, settings, rows] = await Promise.all([
+    const [day, scratchpad, settings, rows, widgetRows] = await Promise.all([
       getDay(todayKey),
       getPanel("scratchpad"),
       getSettings(),
       listContentDays(),
+      listWidgets(),
     ]);
     // apply-time focus guards: never overwrite the day/panel currently being typed in
     setDayTexts((current) => {
@@ -252,6 +261,7 @@ export function App() {
     applySettingsState(settings);
     void refreshMirrorState();
     setContentDays(rows);
+    setWidgets(widgetRows);
     loadedRef.current = true;
     setLoaded(true);
   }, [applySettingsState, refreshMirrorState, todayKey]);
@@ -993,6 +1003,8 @@ export function App() {
         today={today}
         todayText={todayText}
         contentDays={contentDays}
+        widgets={widgets}
+        widgetFileIssues={widgetFileIssues}
         weekStartsOn={weekStartsOn}
         currentTopKey={currentTopKey}
         mirrorStatus={mirrorStatus}

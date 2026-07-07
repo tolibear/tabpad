@@ -94,9 +94,63 @@
   background: var(--accent);
 }
 
-.calendar-shell {
+/* the widget stack is the rail's one scrolling region — widgets stack
+   inside it, the brand mark above and buttons below stay put */
+.rail-widgets {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.rail-widgets::-webkit-scrollbar {
+  display: none;
+}
+
+.rail-widget {
+  flex-shrink: 0;
+}
+
+.rail-widget h2 {
+  margin: 0 0 10px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.widget-calendar {
   border-bottom: 1px solid var(--line);
   padding-bottom: 17px;
+}
+
+.widget-counter {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 640;
+}
+
+.widget-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.widget-error {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  padding: 8px;
 }
 
 .month-row {
@@ -210,27 +264,6 @@
 
 .date-cell.today.noted::after {
   content: none;
-}
-
-/* the list scrolls on its own — the calendar above and buttons below stay put */
-.noted-days {
-  flex: 1;
-  min-height: 0;
-  padding-top: 20px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.noted-days::-webkit-scrollbar {
-  display: none;
-}
-
-.noted-days h2 {
-  margin: 0 0 10px;
-  color: var(--faint);
-  font-size: 11px;
-  font-weight: 650;
-  text-transform: uppercase;
 }
 
 .noted-list {
