@@ -1,6 +1,6 @@
 # Tab Pad — Chrome Web Store submission kit
 
-Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at the repo root (rebuilt from `dist/` — run `npm run build` then re-zip if you change code).
+Everything needed to publish. The packaged extension is `tab-pad-1.1.0.zip` at the repo root (rebuilt from `dist/` — run `npm run build` then re-zip if you change code).
 
 ---
 
@@ -25,7 +25,7 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 > • The cursor is ready the moment the tab opens — just type
 > • Every keystroke saves instantly to your device
 > • Markdown as you type: headings, **bold**, *italic*, ~~strikethrough~~, lists, quotes, dividers, code
-> • Checkboxes you can tick off on any day ([] + space makes one)
+> • Tri-state to-dos you click through — to-do, in progress, done ([] + space makes one)
 > • Cmd/Ctrl+click opens links in a new tab
 >
 > YOUR WHOLE HISTORY, ONE SCROLL
@@ -38,7 +38,8 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 > • Privacy: one click scrambles every note into unreadable text — for screen sharing and streaming. Click again to restore.
 >
 > MAKE IT YOURS
-> • A persistent scratchpad panel, and a quiet per-day margin for side notes
+> • Widget sidebars: arrange a calendar, a list of your noted days, live scratchpads (one or several), counters (streaks, open to-dos, word counts), a to-do rollup, or pinned notes — on the left and right, in any order
+> • A quiet per-day margin beside each day for side notes
 > • Light, dark, or system theme; six accent colors; serif, sans, or monospace
 >
 > YOUR DATA IS YOURS
@@ -96,7 +97,7 @@ Everything needed to publish. The packaged extension is `tab-pad-1.0.0.zip` at t
 ## Publishing steps
 
 1. Create a developer account at https://chrome.google.com/webstore/devconsole ($5 one-time fee).
-2. "New item" → upload `tab-pad-1.0.0.zip`.
+2. "New item" (or a new version on the existing item) → upload `tab-pad-1.1.0.zip`.
 3. Fill the Store Listing tab with the texts above + screenshots.
 4. Privacy tab: single-purpose statement, "no permissions", data disclosures as above, privacy policy URL.
 5. Distribution: Public, all regions (or your pick). Pricing: free.
