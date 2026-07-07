@@ -18,18 +18,21 @@ await build({
 await import(`${pathToFileURL("/tmp/daybook-verify-m5-runtime.mjs").href}?t=${Date.now()}`);
 
 const rail = readFileSync("src/rail/Rail.tsx", "utf8");
-for (const required of [
-  "setVisibleMonth",
-  "ChevronLeft",
-  "ChevronRight",
-  "weekStartsOn",
-  "calendarDays",
-  "hasDayContent",
-  "currentTopKey",
-  "onJumpToDate",
-]) {
+for (const required of ["weekStartsOn", "currentTopKey", "onJumpToDate"]) {
   assert(rail.includes(required), `rail must include ${required}`);
 }
+
+// the calendar rendering moved out of Rail into its own widget — the same
+// month-navigation internals now live here
+const calendarWidget = readFileSync("src/widgets/CalendarWidget.tsx", "utf8");
+for (const required of ["setVisibleMonth", "ChevronLeft", "ChevronRight", "calendarDays"]) {
+  assert(calendarWidget.includes(required), `calendar widget must include ${required}`);
+}
+
+// noted-day detection moved into the widget data sources, where the calendar
+// reads it through contentDateKeys
+const widgetSources = readFileSync("src/widgets/sources.ts", "utf8");
+assert(widgetSources.includes("hasDayContent"), "widget sources must include hasDayContent");
 
 const palette = readFileSync("src/palette/CommandK.tsx", "utf8");
 for (const required of ["metaKey", "ctrlKey", "parseDateJump", "Enter", "Escape", "onJumpToDate"]) {
