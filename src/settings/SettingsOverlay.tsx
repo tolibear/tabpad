@@ -12,12 +12,13 @@ const fontOptions: Array<{ value: Settings["font"]; label: string }> = [
   { value: "serif", label: "serif" },
   { value: "mono", label: "monospace" },
 ];
+// the scratchpad moved to a sidebar widget; only per-day margins remain a
+// layout toggle here
 const layoutToggles: Array<{
-  key: "scratchpad" | "margins";
+  key: "margins";
   label: string;
   description: string;
 }> = [
-  { key: "scratchpad", label: "scratchpad", description: "one persistent note in a right panel" },
   { key: "margins", label: "per-day margins", description: "every day gets its own side notes" },
 ];
 
@@ -25,7 +26,6 @@ interface SettingsOverlayProps {
   open: boolean;
   theme: ThemePreference;
   accent: AccentColor;
-  scratchpad: boolean;
   margins: boolean;
   weekStartsOn: Settings["weekStartsOn"];
   editorSize: Settings["editorSize"];
@@ -42,7 +42,6 @@ interface SettingsOverlayProps {
   onClose: () => void;
   onThemeChange: (theme: ThemePreference) => void;
   onAccentChange: (accent: AccentColor) => void;
-  onScratchpadChange: (on: boolean) => void;
   onMarginsChange: (on: boolean) => void;
   onWeekStartsOnChange: (day: Settings["weekStartsOn"]) => void;
   onEditorSizeChange: (size: Settings["editorSize"]) => void;
@@ -58,7 +57,6 @@ export function SettingsOverlay({
   open,
   theme,
   accent,
-  scratchpad,
   margins,
   weekStartsOn,
   editorSize,
@@ -75,7 +73,6 @@ export function SettingsOverlay({
   onClose,
   onThemeChange,
   onAccentChange,
-  onScratchpadChange,
   onMarginsChange,
   onWeekStartsOnChange,
   onEditorSizeChange,
@@ -161,8 +158,8 @@ export function SettingsOverlay({
           <h3>layout</h3>
           <div className="mode-list">
             {layoutToggles.map((toggle) => {
-              const on = toggle.key === "scratchpad" ? scratchpad : margins;
-              const change = toggle.key === "scratchpad" ? onScratchpadChange : onMarginsChange;
+              const on = margins;
+              const change = onMarginsChange;
               return (
                 <button
                   className={on ? "mode-choice selected" : "mode-choice"}

@@ -1,8 +1,8 @@
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { WidgetRow, WidgetType } from "../db/db";
-import { isCoreWidget, WIDGET_ID_PATTERN } from "../db/widgets";
-import { widgetRegistry, widgetTypes, type WidgetField } from "../widgets/registry";
+import { isCoreWidget, sanitizeColumn, WIDGET_ID_PATTERN } from "../db/widgets";
+import { columnField, widgetRegistry, widgetTypes, type WidgetField } from "../widgets/registry";
 
 interface WidgetSettingsProps {
   widgets: WidgetRow[];
@@ -16,6 +16,7 @@ interface Draft {
   id: string | null; // null = adding
   type: WidgetType;
   title: string;
+  column: "left" | "right";
   config: Record<string, unknown>;
 }
 
@@ -25,7 +26,7 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
 
   const startAdd = (type: WidgetType) => {
     setPicking(false);
-    setDraft({ id: null, type, title: widgetRegistry[type].label, config: { ...widgetRegistry[type].defaultConfig } });
+    setDraft({ id: null, type, title: widgetRegistry[type].label, column: "left", config: { ...widgetRegistry[type].defaultConfig } });
   };
 
   const submit = () => {
@@ -38,6 +39,7 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
       config: draft.config,
       order: existing?.order ?? (widgets.length ? Math.max(...widgets.map((w) => w.order)) + 1 : 0),
       enabled: existing?.enabled ?? true,
+      column: draft.column,
       updatedAt: Date.now(),
     });
     setDraft(null);
@@ -88,7 +90,7 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
                 className="icon-button ghost"
                 type="button"
                 aria-label={`edit ${row.id}`}
-                onClick={() => setDraft({ id: row.id, type: row.type, title: row.title, config: { ...row.config } })}
+                onClick={() => setDraft({ id: row.id, type: row.type, title: row.title, column: sanitizeColumn(row.column), config: { ...row.config } })}
               >
                 <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
               </button>
@@ -116,6 +118,14 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
               type="text"
               value={draft.title}
               onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+            />
+          </label>
+          <label className="widget-field">
+            <span>{columnField.label}</span>
+            <FieldInput
+              field={columnField}
+              value={draft.column}
+              onChange={(value) => setDraft({ ...draft, column: sanitizeColumn(value) })}
             />
           </label>
           {widgetRegistry[draft.type].fields.map((field) => (
