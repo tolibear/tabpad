@@ -134,6 +134,7 @@ import {
   openTasks,
   sourceOptions,
   streakCount,
+  stripInlineMarkdown,
   type WidgetDataInput,
 } from "../src/widgets/sources";
 
@@ -177,6 +178,16 @@ assert(computeSource("streak", input) === 3, "streak source matches streakCount"
 assert(computeSource("words-today", input) > 0 && computeSource("words-total", input) > computeSource("words-today", input), "word counts are positive and total exceeds today");
 assert(isSourceId("streak") && !isSourceId("nope"), "isSourceId guards the union");
 assert(sourceOptions.length === 5, "five sources are exposed to the settings form");
+
+// #13: the task-rollup keeps a to-do's RAW markdown, but the timeline renders it
+// stripped — normalizing both sides lets the jump highlight match a styled to-do
+// by exact text instead of failing to a loose substring.
+assert(stripInlineMarkdown("**bold task**") === "bold task", "bold markers are stripped");
+assert(stripInlineMarkdown("a [link](https://x.y) here") === "a link here", "links reduce to their label");
+assert(stripInlineMarkdown("run `npm test` now") === "run npm test now", "inline code backticks are stripped");
+assert(stripInlineMarkdown("~~old~~ and *new*") === "old and new", "strikethrough and italics are stripped");
+assert(stripInlineMarkdown("plain task") === "plain task", "plain text is unchanged");
+assert(stripInlineMarkdown("call `run(x)` on [the site](http://a.b)") === "call run(x) on the site", "code and links strip together");
 
 // F7: tri-state to-dos — `- [/]` is in-progress, still counted as open, and
 // carries an inProgress flag; `- [x]` stays excluded
@@ -683,6 +694,20 @@ assert([...(erDir.dirs.get(".tabpad-trash")?.files.keys() ?? [])].some((n) => n.
 // after erase + a reload sync, the erased content must NOT resurrect
 await syncWithDisk(erDir.handle, undefined, undefined, () => {});
 assert((await getPanel("widget:erase-pad")).content === "", "a custom scratchpad widget's content stays erased after reload");
+
+// E: erase is best-effort per file — a single locked file must not abort the
+// loop and leave the rest of a user's notes on disk.
+const lockedDir = makeFakeDir();
+lockedDir.files.set("2026-01-01.md", { text: "note one", lastModified: Date.now() });
+lockedDir.files.set("2026-01-02.md", { text: "note two", lastModified: Date.now() });
+const realRemove = lockedDir.handle.removeEntry!.bind(lockedDir.handle);
+lockedDir.handle.removeEntry = async (name: string) => {
+  if (name === "2026-01-01.md") throw new Error("EBUSY: file is locked");
+  await realRemove(name);
+};
+await eraseMirrorFiles(lockedDir.handle);
+assert(lockedDir.files.has("2026-01-01.md"), "the locked file could not be removed (still present)");
+assert(!lockedDir.files.has("2026-01-02.md"), "erase still removed the other file despite the locked one");
 
 await db.delete();
 console.log("runtime asserts passed");

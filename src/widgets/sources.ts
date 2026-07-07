@@ -42,6 +42,20 @@ export function contentDateKeys(input: WidgetDataInput): Set<string> {
   return new Set(collectDays(input).keys());
 }
 
+// strip the inline markdown the app renders (links, bold, strike, italic, code)
+// down to its visible text. the task-rollup keeps a to-do's raw markdown while
+// the timeline renders it stripped — normalizing both sides lets a styled to-do's
+// jump highlight match by exact text instead of falling to a loose substring.
+export function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // [label](url) → label
+    .replace(/(\*\*|__)(.+?)\1/g, "$2") // **bold** / __bold__ (before single-mark italics)
+    .replace(/~~(.+?)~~/g, "$1") // ~~strikethrough~~
+    .replace(/(\*|_)(.+?)\1/g, "$2") // *italic* / _italic_
+    .replace(/`([^`]+)`/g, "$1") // `code`
+    .trim();
+}
+
 // prefer the first markdown heading among the first 5 non-empty lines —
 // notes often lead with a stray word before their real title — else the
 // plain first-line excerpt. markdown is stripped either way.

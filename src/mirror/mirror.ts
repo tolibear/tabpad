@@ -628,7 +628,13 @@ export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): P
     } catch (error) {
       console.warn("Tab Pad pre-erase trash copy failed", error);
     }
-    await dir.removeEntry?.(name);
+    // erase is best-effort per file: one locked/undeletable file must not abort
+    // the loop and leave the rest of the user's notes on disk
+    try {
+      await dir.removeEntry?.(name);
+    } catch (error) {
+      console.warn("Tab Pad erase remove failed", error);
+    }
   };
 
   const names: string[] = [];

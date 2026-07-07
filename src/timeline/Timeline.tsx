@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { DayRow } from "../db/db";
 import { dateFromKey, dateKey, daysBetween } from "../lib/dates";
 import { scrambleText } from "../lib/scramble";
+import { stripInlineMarkdown } from "../widgets/sources";
 import { DaySection, focusEditorAtPoint } from "./DaySection";
 
 const noopChange = () => undefined;
@@ -307,12 +308,15 @@ export const Timeline = memo(function Timeline({
     window.clearTimeout(lineHighlightTimer.current);
     if (taskText) {
       const lines = Array.from(node.querySelectorAll<HTMLElement>(".cm-line, .static-task, .static-line, .static-bullet"));
-      // prefer an exact trimmed-line match so an earlier line that merely
-      // CONTAINS the task text as a substring can't steal the highlight; fall
-      // back to the first substring match only when nothing matches exactly
+      // the rollup keeps a to-do's RAW markdown, but the rendered line shows it
+      // stripped — normalize both sides so a styled to-do (**bold**, [link], `code`)
+      // matches by exact text. prefer that exact match so an earlier line that
+      // merely CONTAINS the task as a substring can't steal the highlight; fall
+      // back to a (normalized) substring match only when nothing matches exactly.
+      const normalizedTask = stripInlineMarkdown(taskText);
       const line =
-        lines.find((el) => (el.textContent ?? "").trim() === taskText) ??
-        lines.find((el) => (el.textContent ?? "").includes(taskText));
+        lines.find((el) => stripInlineMarkdown((el.textContent ?? "").trim()) === normalizedTask) ??
+        lines.find((el) => stripInlineMarkdown(el.textContent ?? "").includes(normalizedTask));
       if (line) {
         line.classList.add("task-line-highlight");
         highlightedLine.current = line;
