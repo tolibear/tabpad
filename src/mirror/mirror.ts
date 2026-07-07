@@ -1,7 +1,7 @@
 import { dateFromKey } from "../lib/dates";
 import { db, type DayRow, type PanelRow, type WidgetRow } from "../db/db";
 import { hasDayContent } from "../db/days";
-import { getPanel } from "../db/panels";
+import { getPanel, scratchpadPanelId, widgetIdFromPanelId } from "../db/panels";
 import { CORE_WIDGETS, clearWidgetTombstone, readWidgetTombstones, sanitizeColumn } from "../db/widgets";
 import { isWidgetType, widgetTypes } from "../widgets/registry";
 
@@ -10,6 +10,8 @@ const encoder = new TextEncoder();
 
 const WIDGETS_DIR = "widgets";
 const WIDGET_FILE = /^([a-z0-9][a-z0-9-]{0,39})\.json$/;
+// a scratchpad widget's content file, sibling of its <id>.json config
+const WIDGET_MD_FILE = /^([a-z0-9][a-z0-9-]{0,39})\.md$/;
 
 export interface WidgetFileIssue {
   file: string;
@@ -95,6 +97,14 @@ export async function writeFullMirror(handle: FileSystemDirectoryHandleLike): Pr
 
   await writePanelMirror(handle, scratchpad);
   await writeWidgetsMirror(handle, widgets);
+
+  // each non-core scratchpad widget's content rides alongside its config as
+  // widgets/<id>.md (config stays in widgets/<id>.json)
+  for (const widget of widgets) {
+    if (widget.type === "scratchpad" && widget.id !== "scratchpad") {
+      await writePanelMirror(handle, await getPanel(scratchpadPanelId(widget.id)));
+    }
+  }
 }
 
 export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day: DayRow): Promise<void> {
@@ -134,9 +144,32 @@ export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day:
   }
 }
 
+// the file a panel's content mirrors to: the core scratchpad → root
+// scratchpad.md; a `widget:<id>` scratchpad → widgets/<id>.md; masterList and
+// anything else is not mirrored (returns null)
+export function panelMirrorPath(id: string): string[] | null {
+  if (id === "scratchpad") return ["scratchpad.md"];
+  const widgetId = widgetIdFromPanelId(id);
+  if (widgetId) return [WIDGETS_DIR, `${widgetId}.md`];
+  return null;
+}
+
 export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, panel: PanelRow): Promise<void> {
-  if (panel.id !== "scratchpad") return;
-  const disk = await readDiskFile(handle, "scratchpad.md");
+  const path = panelMirrorPath(panel.id);
+  if (!path) return;
+  // resolve the directory the file lives in so the freshness read can find it;
+  // a missing subdirectory just means no disk file yet
+  let dir: FileSystemDirectoryHandleLike | null = handle;
+  for (const segment of path.slice(0, -1)) {
+    try {
+      dir = await dir.getDirectoryHandle(segment);
+    } catch {
+      dir = null;
+      break;
+    }
+  }
+  const name = path[path.length - 1];
+  const disk = dir ? await readDiskFile(dir, name) : null;
   if (!disk && panel.content === "") return;
   if (
     disk &&
@@ -147,7 +180,7 @@ export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, pa
     return;
   }
   if (disk?.text === panel.content) return;
-  await writeTextFile(handle, ["scratchpad.md"], panel.content);
+  await writeTextFile(handle, path, panel.content);
 }
 
 export function serializeWidgetFile(row: WidgetRow): string {
@@ -229,10 +262,13 @@ export async function writeWidgetsMirror(handle: FileSystemDirectoryHandleLike, 
 export async function removeWidgetMirrorFile(handle: FileSystemDirectoryHandleLike, id: string): Promise<void> {
   try {
     const dir = await handle.getDirectoryHandle(WIDGETS_DIR);
-    const name = `${id}.json`;
-    const disk = await readDiskFile(dir, name);
-    if (disk && disk.text.trim() !== "") await writeTrashCopy(handle, [WIDGETS_DIR, name], disk.text);
-    await dir.removeEntry?.(name);
+    // remove the config AND, for a scratchpad widget, its content file — each
+    // trash-copied first so an external edit is always recoverable
+    for (const name of [`${id}.json`, `${id}.md`]) {
+      const disk = await readDiskFile(dir, name);
+      if (disk && disk.text.trim() !== "") await writeTrashCopy(handle, [WIDGETS_DIR, name], disk.text);
+      await dir.removeEntry?.(name);
+    }
   } catch {
     // no folder or no file — nothing to remove
   }
@@ -270,6 +306,9 @@ export interface SyncSkip {
   day?: string | null;
   margin?: string | null;
   scratchpad?: boolean;
+  // the panel id the user is currently typing in (e.g. `widget:<id>` for a
+  // non-core scratchpad) — its content file is left alone this pass
+  panel?: string | null;
 }
 
 export async function syncWithDisk(
@@ -400,9 +439,47 @@ export async function syncWithDisk(
       if (!widgetsDir.values) continue;
       for await (const widgetEntry of widgetsDir.values()) {
         if (widgetEntry.kind !== "file") continue;
+        const cacheKey = `widgets/${widgetEntry.name}`;
+
+        // scratchpad widget content file: reconcile against its widget:<id>
+        // panel, two-way last-write-wins like the root scratchpad
+        const mdMatch = WIDGET_MD_FILE.exec(widgetEntry.name);
+        if (mdMatch) {
+          const disk = await readIfChanged(widgetsDir, widgetEntry.name, cacheKey);
+          if (!disk) continue;
+          const id = mdMatch[1];
+          // a stale content file for a deleted widget must not resurrect
+          // anything — clean it up (its config .json is handled alongside)
+          const deletedAt = tombstones[id];
+          if (deletedAt !== undefined && Math.min(disk.lastModified, Date.now()) <= deletedAt) {
+            await removeWidgetMirrorFile(handle, id);
+            continue;
+          }
+          const widget = await db.widgets.get(id);
+          // only a live scratchpad widget owns a content file; anything else
+          // (no row yet, or a non-scratchpad type) is left untouched
+          if (!widget || widget.type !== "scratchpad") continue;
+          const panelId = scratchpadPanelId(id);
+          if (skip().panel === panelId) continue;
+          const panel = await getPanel(panelId);
+          if (disk.text !== panel.content) {
+            const now = Date.now();
+            const trusted = disk.lastModified <= now + 2000;
+            const diskStamp = Math.min(disk.lastModified, now);
+            // a never-saved panel (updatedAt 0) always yields to the file
+            if (panel.updatedAt === 0 || (trusted && diskStamp > Math.min(panel.updatedAt, now))) {
+              await db.panels.put({ id: panelId, content: disk.text, updatedAt: diskStamp });
+              imported += 1;
+            } else {
+              await writeTextFile(handle, [WIDGETS_DIR, widgetEntry.name], panel.content);
+            }
+          }
+          mtimes?.set(cacheKey, disk.lastModified);
+          continue;
+        }
+
         const match = WIDGET_FILE.exec(widgetEntry.name);
         if (!match) continue;
-        const cacheKey = `widgets/${widgetEntry.name}`;
         const disk = await readIfChanged(widgetsDir, widgetEntry.name, cacheKey);
         if (!disk) continue;
         // tombstone: a file no newer than the in-app deletion is the STALE
@@ -456,12 +533,22 @@ export async function syncWithDisk(
     } catch {
       dir = null;
     }
+    const missingScratchpads: WidgetRow[] = [];
     for (const row of rows) {
       if (row.id in tombstones) continue;
       const disk = dir ? await readDiskFile(dir, `${row.id}.json`) : null;
       if (!disk) missing.push(row);
+      // a scratchpad widget whose content file vanished gets it back (guarded
+      // by writePanelMirror, so an empty panel never creates an empty file)
+      if (row.type === "scratchpad" && row.id !== "scratchpad") {
+        const mdDisk = dir ? await readDiskFile(dir, `${row.id}.md`) : null;
+        if (!mdDisk) missingScratchpads.push(row);
+      }
     }
     if (missing.length) await writeWidgetsMirror(handle, missing);
+    for (const row of missingScratchpads) {
+      await writePanelMirror(handle, await getPanel(scratchpadPanelId(row.id)));
+    }
   } catch (error) {
     console.warn("Tab Pad widget file reconcile failed", error);
   }
@@ -534,6 +621,7 @@ export async function writeAgentFiles(
       margin: "margins/<YYYY-MM-DD>.md",
       scratchpad: "scratchpad.md",
       widget: "widgets/<slug>.json",
+      widgetContent: "widgets/<slug>.md (scratchpad widgets only)",
     },
     write: {
       mode: "direct",
@@ -586,20 +674,33 @@ position within that column.
 
 Types and their config:
 - \`calendar\` — mini month calendar. config: {}
-- \`day-list\` — noted days with excerpts. config: { "limit": 1-200, "order": "newest"|"oldest" }
+- \`day-list\` — days with notes, with excerpts. config: { "limit": 1-200, "order": "newest"|"oldest" }
 - \`counter\` — one number. config: { "source": "noted-days"|"streak"|"open-tasks"|"words-today"|"words-total", "format": "text with {n}" }
 - \`task-rollup\` — open \`- [ ]\` lines from recent days. config: { "days": 1-90, "limit": 1-100 }
 - \`text\` — fixed text. config: { "content": "..." }
-- \`scratchpad\` — the persistent scratchpad editor (backed by \`scratchpad.md\`). config: { "height": "full"|"fixed", "maxHeight": 160-1200 (px, used when fixed) }
+- \`scratchpad\` — a persistent scratchpad editor. config: { "height": "full"|"fixed", "maxHeight": 160-1200 (px, used when fixed) }
 
 Unknown fields are preserved as-is (never strip them — older and newer app
 versions share these files).
 
+### Scratchpad widget content
+
+A \`scratchpad\` widget splits across two sibling files: \`widgets/<slug>.json\`
+holds its config (above), and \`widgets/<slug>.md\` holds its editor text.
+Edit the \`.md\` to change the scratchpad's content; both files sync live and
+last-write-wins per file, just like notes. Deleting the widget in the app
+trash-copies and removes both files together. (The one built-in \`scratchpad\`
+is the exception: its text lives in the root \`scratchpad.md\`, not under
+\`widgets/\`.)
+
 Rules:
-- \`calendar\`, \`noted-days\`, and \`scratchpad\` are built-in: retitle,
-  reorder, recolumn, or disable them, but keep their type.
-- To hide a widget set \`"enabled": false\` — deleting the file does NOT
-  remove it (the app recreates the file).
+- \`calendar\`, \`noted-days\`, and \`scratchpad\` are seeded on a fresh install
+  and type-locked: retitle, reorder, recolumn, or disable them, but keep their
+  type. They are not permanent — they can be deleted like any widget, and a
+  deleted default is not re-seeded (it stays gone until re-added in the app).
+- To hide a widget set \`"enabled": false\`. Deleting the file does NOT delete
+  a widget that still exists in the app — the app recreates the file. To
+  remove a widget for good, delete it in the app (that also removes its files).
 - Lower \`order\` = higher in the sidebar. Widgets are data only — no code.
 
 ## Editing
