@@ -1,14 +1,28 @@
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 import { existsSync, rmSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+
+// pick a free ephemeral port so repeated/concurrent runs never collide on a
+// fixed debug port (a stale Chrome squatting a fixed port used to hang the next run)
+function freePort() {
+  return new Promise((res, rej) => {
+    const srv = createServer();
+    srv.once("error", rej);
+    srv.listen(0, "127.0.0.1", () => {
+      const chosen = srv.address().port;
+      srv.close(() => res(chosen));
+    });
+  });
+}
 
 const root = resolve(".");
 const dist = resolve("dist");
 const profile = "/tmp/daybook-final-browser-profile";
 const midnightProfile = "/tmp/daybook-final-midnight-profile";
 const evidencePath = "/tmp/daybook-final-browser-evidence.json";
-const port = 9234;
+const port = await freePort();
 const candidates = [
   "/Users/tonym/Library/Caches/ms-playwright/chromium-1228/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
   "/Users/tonym/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
