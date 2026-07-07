@@ -13,7 +13,7 @@ interface ListInfo {
 }
 
 export function getListInfo(lineText: string): ListInfo | null {
-  const task = /^(\s*)- \[([ xX])\]\s(.*)$/.exec(lineText);
+  const task = /^(\s*)- \[([ xX/])\]\s(.*)$/.exec(lineText);
   if (task) {
     return {
       kind: "task",
