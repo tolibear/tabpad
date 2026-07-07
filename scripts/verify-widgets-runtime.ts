@@ -153,5 +153,151 @@ assert(widgetProblem({ type: "counter", config: {} }) === null, "counter with de
 assert(widgetProblem({ type: "iframe" as never, config: {} })?.includes("unknown widget type"), "unknown type is a named problem");
 assert(widgetProblem({ type: "text", config: { content: "  " } })?.includes("no content"), "empty text widget is a named problem");
 
+// ---- widget mirror + sync ----
+import {
+  parseWidgetFile,
+  removeWidgetMirrorFile,
+  serializeWidgetFile,
+  syncWithDisk,
+  writeWidgetsMirror,
+  type FileSystemDirectoryHandleLike,
+  type WidgetFileIssue,
+} from "../src/mirror/mirror";
+
+// minimal in-memory FileSystemDirectoryHandleLike for sync tests
+interface FakeDir {
+  handle: FileSystemDirectoryHandleLike;
+  files: Map<string, { text: string; lastModified: number }>;
+  dirs: Map<string, FakeDir>;
+}
+
+function makeFakeDir(name = "root"): FakeDir {
+  const files = new Map<string, { text: string; lastModified: number }>();
+  const dirs = new Map<string, FakeDir>();
+  const decoder = new TextDecoder();
+  const handle: FileSystemDirectoryHandleLike = {
+    name,
+    async getFileHandle(fileName: string, options?: { create?: boolean }) {
+      if (!files.has(fileName) && !options?.create) throw new Error(`NotFound: ${fileName}`);
+      if (!files.has(fileName)) files.set(fileName, { text: "", lastModified: Date.now() });
+      return {
+        async createWritable() {
+          const chunks: string[] = [];
+          return {
+            async write(data: BlobPart) {
+              chunks.push(decoder.decode(data as Uint8Array));
+            },
+            async close() {
+              files.set(fileName, { text: chunks.join(""), lastModified: Date.now() });
+            },
+          };
+        },
+        async getFile() {
+          const file = files.get(fileName);
+          if (!file) throw new Error(`NotFound: ${fileName}`);
+          return Object.assign({ text: async () => file.text }, { lastModified: file.lastModified });
+        },
+      };
+    },
+    async getDirectoryHandle(dirName: string, options?: { create?: boolean }) {
+      if (!dirs.has(dirName) && !options?.create) throw new Error(`NotFound: ${dirName}`);
+      if (!dirs.has(dirName)) dirs.set(dirName, makeFakeDir(dirName));
+      return dirs.get(dirName)!.handle;
+    },
+    async removeEntry(entryName: string) {
+      files.delete(entryName);
+      dirs.delete(entryName);
+    },
+    values: async function* () {
+      for (const fileName of files.keys()) yield { kind: "file" as const, name: fileName };
+      for (const dirName of dirs.keys()) yield { kind: "directory" as const, name: dirName };
+    },
+  };
+  return { handle, files, dirs };
+}
+
+await db.open();
+await ensureDefaultWidgets();
+
+// serialize/parse round-trip
+const roundTrip = parseWidgetFile("streak", serializeWidgetFile({
+  id: "streak", type: "counter", title: "streak", config: { source: "streak", format: "{n}" }, order: 2, enabled: true, updatedAt: 5,
+}));
+assert("row" in roundTrip && roundTrip.row.type === "counter" && roundTrip.row.order === 2, "widget file round-trips");
+assert("error" in parseWidgetFile("x", "{nope"), "broken JSON is a named error");
+assert("error" in parseWidgetFile("x", JSON.stringify({ type: "iframe" })), "unknown type is a named error");
+
+// app → disk: mirror writes every row as widgets/<id>.json
+const root = makeFakeDir();
+await writeWidgetsMirror(root.handle, await listWidgets());
+const widgetsDir = root.dirs.get("widgets");
+assert(widgetsDir?.files.has("calendar.json") && widgetsDir.files.has("noted-days.json"), "mirror writes core widget files");
+
+// disk → app: an agent-authored file imports as a new widget
+widgetsDir!.files.set("moon.json", {
+  text: JSON.stringify({ type: "text", title: "moon", enabled: true, order: 9, config: { content: "waxing" } }),
+  lastModified: Date.now() - 5_000,
+});
+let issues: WidgetFileIssue[] = [];
+await syncWithDisk(root.handle, undefined, undefined, (list) => { issues = list; });
+const moon = (await listWidgets()).find((w) => w.id === "moon");
+assert(moon?.type === "text" && (moon.config as { content: string }).content === "waxing", "agent widget file imports");
+assert(issues.length === 0, "valid files report no issues");
+
+// invalid file: reported, not imported, not clobbered
+widgetsDir!.files.set("broken.json", { text: "{not json", lastModified: Date.now() - 5_000 });
+await syncWithDisk(root.handle, undefined, undefined, (list) => { issues = list; });
+assert(issues.some((issue) => issue.file === "widgets/broken.json"), "invalid widget file is a reported issue");
+assert(!(await listWidgets()).some((w) => w.id === "broken"), "invalid widget file must not import");
+assert(widgetsDir!.files.get("broken.json")!.text === "{not json", "invalid file must not be overwritten");
+
+// core protection: a file changing a core widget's type is an issue, not an import
+widgetsDir!.files.set("calendar.json", {
+  text: JSON.stringify({ type: "text", title: "calendar", enabled: true, order: 0, config: { content: "x" } }),
+  lastModified: Date.now() + 60_000, // even a newer stamp must not win
+});
+await syncWithDisk(root.handle, undefined, undefined, (list) => { issues = list; });
+assert((await listWidgets()).find((w) => w.id === "calendar")?.type === "calendar", "core widget type is immutable via files");
+assert(issues.some((issue) => issue.file === "widgets/calendar.json"), "core type change reports an issue");
+
+// app newer → pushes back to disk
+const moonRow = (await listWidgets()).find((w) => w.id === "moon")!;
+await saveWidget({ ...moonRow, title: "moon phase", updatedAt: Date.now() });
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert(widgetsDir!.files.get("moon.json")!.text.includes("moon phase"), "app-newer widget pushes back to disk");
+
+// delete removes the file (with a trash copy)
+await removeWidgetMirrorFile(root.handle, "moon");
+assert(!widgetsDir!.files.has("moon.json"), "removeWidgetMirrorFile deletes the file");
+assert([...root.dirs.get(".tabpad-trash")?.files.keys() ?? []].some((n) => n.includes("moon")), "deleted widget file lands in trash");
+
+// tombstone: an in-app delete + a STALE leftover file must not resurrect —
+// the sync pass removes the file instead
+widgetsDir!.files.set("ghost.json", {
+  text: JSON.stringify({ type: "text", title: "ghost", enabled: true, order: 8, config: { content: "boo" } }),
+  lastModified: Date.now() - 5_000,
+});
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert((await listWidgets()).some((w) => w.id === "ghost"), "ghost imports first");
+await deleteWidget("ghost");
+// note: NO removeWidgetMirrorFile — simulates the delete happening in a tab
+// without the folder connection; the stale file is still on disk
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert(!(await listWidgets()).some((w) => w.id === "ghost"), "tombstoned widget must not resurrect from a stale file");
+assert(!widgetsDir!.files.has("ghost.json"), "the stale file is cleaned up by the sync pass");
+
+// …but a file RE-CREATED after the deletion is intentional and imports
+widgetsDir!.files.set("ghost.json", {
+  text: JSON.stringify({ type: "text", title: "ghost2", enabled: true, order: 8, config: { content: "back" } }),
+  lastModified: Date.now() + 1_000, // newer than the tombstone
+});
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert((await listWidgets()).find((w) => w.id === "ghost")?.title === "ghost2", "a post-delete re-created file revives the widget");
+
+// missing-file reconcile: a DB row whose file vanished gets its file back
+widgetsDir!.files.delete("noted-days.json");
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert(widgetsDir!.files.has("noted-days.json"), "deleting a widget file does not delete the widget — the file is recreated");
+
 await db.delete();
 console.log("runtime asserts passed");

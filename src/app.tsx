@@ -24,7 +24,7 @@ import {
 } from "./lib/theme";
 import { CommandK } from "./palette/CommandK";
 import { RightPanel } from "./panel/RightPanel";
-import { Rail, type WidgetFileIssue } from "./rail/Rail";
+import { Rail } from "./rail/Rail";
 import { SettingsOverlay } from "./settings/SettingsOverlay";
 import { Timeline, type JumpTarget } from "./timeline/Timeline";
 import { useToday } from "./timeline/useToday";
@@ -40,10 +40,13 @@ import {
   syncWithDisk,
   type FileSystemDirectoryHandleLike,
   type MirrorStatus,
+  type WidgetFileIssue,
+  removeWidgetMirrorFile,
   writeAgentFiles,
   writeDayMirror,
   writeFullMirror,
   writePanelMirror,
+  writeWidgetsMirror,
 } from "./mirror/mirror";
 
 // privacy mode persists in localStorage (not the settings db) so every new
@@ -88,6 +91,7 @@ export function App() {
   const mirrorPanelTimers = useRef(new Map<PanelRow["id"], { timer: number; panel: PanelRow }>());
   const eraseGuardTimer = useRef(0);
   const queueMirrorDayRef = useRef<(row: DayRow | null) => void>(() => {});
+  const queueMirrorWidgetsRef = useRef<() => void>(() => {});
   const syncMtimes = useRef(new Map<string, number>());
   const syncFailures = useRef(0);
   const syncChainRef = useRef<Promise<unknown>>(Promise.resolve());
@@ -108,7 +112,7 @@ export function App() {
   const [panelTexts, setPanelTexts] = useState<Record<PanelRow["id"], string>>({ scratchpad: "" } as Record<PanelRow["id"], string>);
   const [contentDays, setContentDays] = useState<DayRow[]>([]);
   const [widgets, setWidgets] = useState<WidgetRow[]>([]);
-  const [widgetFileIssues] = useState<WidgetFileIssue[]>([]);
+  const [widgetFileIssues, setWidgetFileIssues] = useState<WidgetFileIssue[]>([]);
   const [loaded, setLoaded] = useState(false);
   const loadedRef = useRef(false);
   const [saveError, setSaveError] = useState(false);
@@ -202,15 +206,62 @@ export function App() {
     setWidgets(await listWidgets());
   }, []);
 
-  // every widget change: persist, refresh this tab, tell other tabs.
-  // (task 7 adds mirror-file queueing here.)
+  // apply reported widget-file issues without churning identity — the 3-second
+  // poll calls this every pass, and an unchanged list must not re-render the rail
+  const applyWidgetIssues = useCallback((issues: WidgetFileIssue[]) => {
+    setWidgetFileIssues((current) =>
+      current.length === issues.length &&
+      current.every((issue, index) => issue.file === issues[index].file && issue.error === issues[index].error)
+        ? current
+        : issues,
+    );
+  }, []);
+
+  // widget changes are tiny and rare — one debounced full rewrite of widgets/
+  const mirrorWidgetsTimer = useRef(0);
+  const flushMirrorWidgets = useCallback(() => {
+    if (mirrorStatus !== "connected" || erasingRef.current) return Promise.resolve();
+    const run = async () => {
+      if (erasingRef.current) return;
+      const handle = mirrorHandleRef.current;
+      if (!handle) return;
+      try {
+        await writeWidgetsMirror(handle, await listWidgets());
+        syncFailures.current = 0;
+      } catch (error) {
+        console.warn("Tab Pad widget mirror failed", error);
+        if (isMirrorPermissionError(error)) setMirrorStatus("reconnect");
+        else if ((syncFailures.current += 1) >= 3) setMirrorStatus("error");
+      }
+    };
+    const result = syncChainRef.current.then(run, run);
+    syncChainRef.current = result.catch(() => undefined);
+    return result;
+  }, [mirrorStatus]);
+
+  const queueMirrorWidgets = useCallback(() => {
+    if (mirrorStatus !== "connected" || erasingRef.current) return;
+    window.clearTimeout(mirrorWidgetsTimer.current);
+    mirrorWidgetsTimer.current = window.setTimeout(() => {
+      void flushMirrorWidgets();
+    }, 800);
+  }, [flushMirrorWidgets, mirrorStatus]);
+
+  // keep a ref current so the broadcast listener (bound once) can mirror
+  // another tab's widget edit through this tab's connection
+  useEffect(() => {
+    queueMirrorWidgetsRef.current = queueMirrorWidgets;
+  }, [queueMirrorWidgets]);
+
+  // every widget change: persist, refresh this tab, tell other tabs, mirror.
   const applyWidgetChange = useCallback(
     async (change: () => Promise<void>) => {
       await change();
       await refreshWidgets();
       channelRef.current?.post({ type: "widgets", key: "all", updatedAt: Date.now() });
+      queueMirrorWidgets();
     },
-    [refreshWidgets],
+    [queueMirrorWidgets, refreshWidgets],
   );
 
   const handleWidgetSave = useCallback(
@@ -254,10 +305,19 @@ export function App() {
   const handleWidgetDelete = useCallback(
     (id: string) => {
       void applyWidgetChange(async () => {
+        const handle = mirrorHandleRef.current;
+        if (handle && mirrorStatus === "connected") {
+          await removeWidgetMirrorFile(handle, id).catch((error) =>
+            console.warn("Tab Pad widget file removal failed", error),
+          );
+        }
+        // deleteWidget tombstones the id, so even a failed/racing file removal
+        // (or a delete from a tab without the folder connection) cannot
+        // resurrect the widget on the next sync pass
         await deleteWidget(id);
       });
     },
-    [applyWidgetChange],
+    [applyWidgetChange, mirrorStatus],
   );
 
   const loadDocuments = useCallback(async () => {
@@ -280,7 +340,7 @@ export function App() {
             day: focusedDayRef.current,
             margin: focusedMarginRef.current,
             scratchpad: focusedPanelRef.current === "scratchpad",
-          }));
+          }), applyWidgetIssues);
         };
         const pass = syncChainRef.current.then(run, run);
         syncChainRef.current = pass.catch(() => undefined);
@@ -323,7 +383,7 @@ export function App() {
     setWidgets(widgetRows);
     loadedRef.current = true;
     setLoaded(true);
-  }, [applySettingsState, refreshMirrorState, todayKey]);
+  }, [applySettingsState, applyWidgetIssues, refreshMirrorState, todayKey]);
 
   useEffect(() => {
     void loadDocuments();
@@ -364,7 +424,7 @@ export function App() {
         });
       }
       if (message.type === "widgets") {
-        void refreshWidgets();
+        void refreshWidgets().then(() => queueMirrorWidgetsRef.current());
       }
       if (message.type === "erase") {
         // another tab is erasing: drop anything this tab could write back —
@@ -375,6 +435,8 @@ export function App() {
         for (const pending of mirrorPanelTimers.current.values()) window.clearTimeout(pending.timer);
         mirrorDayTimers.current.clear();
         mirrorPanelTimers.current.clear();
+        window.clearTimeout(mirrorWidgetsTimer.current);
+        mirrorWidgetsTimer.current = 0;
         syncMtimes.current = new Map();
         setDayTexts({});
         setDayMargins({});
@@ -434,10 +496,11 @@ export function App() {
         day: focusedDayRef.current,
         margin: focusedMarginRef.current,
         scratchpad: focusedPanelRef.current === "scratchpad",
-      }));
+      }), applyWidgetIssues);
       syncFailures.current = 0;
       if (imported > 0) {
         await refreshContentDays();
+        await refreshWidgets();
         const scratch = await getPanel("scratchpad");
         setPanelTexts((current) =>
           focusedPanelRef.current === "scratchpad" ? current : { ...current, scratchpad: scratch.content },
@@ -448,7 +511,7 @@ export function App() {
     const result = syncChainRef.current.then(run, run);
     syncChainRef.current = result.catch(() => undefined);
     return result;
-  }, [refreshContentDays]);
+  }, [applyWidgetIssues, refreshContentDays, refreshWidgets]);
 
   // deferred (focused-note) changes land the moment the user clicks away
   const nudgeSync = useCallback(() => {
@@ -803,10 +866,15 @@ export function App() {
         mirrorPanelTimers.current.delete(id);
         void flushMirrorPanel(pending.panel);
       }
+      if (mirrorWidgetsTimer.current) {
+        window.clearTimeout(mirrorWidgetsTimer.current);
+        mirrorWidgetsTimer.current = 0;
+        void flushMirrorWidgets();
+      }
     };
     document.addEventListener("visibilitychange", flushOnHide);
     return () => document.removeEventListener("visibilitychange", flushOnHide);
-  }, [flushMirrorDay, flushMirrorPanel]);
+  }, [flushMirrorDay, flushMirrorPanel, flushMirrorWidgets]);
 
   const exportJson = async () => {
     const payload = await createExportPayload();
@@ -849,6 +917,8 @@ export function App() {
     for (const pending of mirrorPanelTimers.current.values()) window.clearTimeout(pending.timer);
     mirrorDayTimers.current.clear();
     mirrorPanelTimers.current.clear();
+    window.clearTimeout(mirrorWidgetsTimer.current);
+    mirrorWidgetsTimer.current = 0;
     try {
       // let in-flight keystroke saves commit before the clear — a save that
       // commits after db.days.clear() would silently resurrect its row
@@ -859,6 +929,8 @@ export function App() {
       for (const pending of mirrorPanelTimers.current.values()) window.clearTimeout(pending.timer);
       mirrorDayTimers.current.clear();
       mirrorPanelTimers.current.clear();
+      window.clearTimeout(mirrorWidgetsTimer.current);
+      mirrorWidgetsTimer.current = 0;
       // let any in-flight sync or mirror flush finish, then block new ones
       await syncChainRef.current.catch(() => undefined);
       // the folder is the source of truth — erase the FILES first, then the

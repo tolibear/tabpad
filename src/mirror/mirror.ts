@@ -1,10 +1,20 @@
 import { dateFromKey } from "../lib/dates";
-import { db, type DayRow, type PanelRow } from "../db/db";
+import { db, type DayRow, type PanelRow, type WidgetRow } from "../db/db";
 import { hasDayContent } from "../db/days";
 import { getPanel } from "../db/panels";
+import { CORE_WIDGETS, clearWidgetTombstone, readWidgetTombstones } from "../db/widgets";
+import { isWidgetType, widgetTypes } from "../widgets/registry";
 
 const MIRROR_DIR_ID = "mirrorDir";
 const encoder = new TextEncoder();
+
+const WIDGETS_DIR = "widgets";
+const WIDGET_FILE = /^([a-z0-9][a-z0-9-]{0,39})\.json$/;
+
+export interface WidgetFileIssue {
+  file: string;
+  error: string;
+}
 
 export type MirrorPermission = "granted" | "denied" | "prompt";
 export type MirrorStatus = "off" | "connected" | "reconnect" | "unsupported" | "error";
@@ -77,13 +87,14 @@ export async function requestMirrorPermission(handle: FileSystemDirectoryHandleL
 }
 
 export async function writeFullMirror(handle: FileSystemDirectoryHandleLike): Promise<void> {
-  const [days, scratchpad] = await Promise.all([db.days.toArray(), getPanel("scratchpad")]);
+  const [days, scratchpad, widgets] = await Promise.all([db.days.toArray(), getPanel("scratchpad"), db.widgets.toArray()]);
 
   for (const day of days.filter((row) => hasDayContent(row.main, row.margin))) {
     await writeDayMirror(handle, day);
   }
 
   await writePanelMirror(handle, scratchpad);
+  await writeWidgetsMirror(handle, widgets);
 }
 
 export async function writeDayMirror(handle: FileSystemDirectoryHandleLike, day: DayRow): Promise<void> {
@@ -139,6 +150,84 @@ export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, pa
   await writeTextFile(handle, ["scratchpad.md"], panel.content);
 }
 
+export function serializeWidgetFile(row: WidgetRow): string {
+  return `${JSON.stringify(
+    { type: row.type, title: row.title, enabled: row.enabled, order: row.order, config: row.config },
+    null,
+    2,
+  )}\n`;
+}
+
+export function parseWidgetFile(id: string, text: string): { row: Omit<WidgetRow, "updatedAt"> } | { error: string } {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return { error: "not valid JSON" };
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return { error: "not a JSON object" };
+  const raw = value as Record<string, unknown>;
+  if (!isWidgetType(raw.type)) {
+    return { error: `unknown type "${String(raw.type)}" — one of: ${widgetTypes.join(", ")}` };
+  }
+  const core = CORE_WIDGETS.find((widget) => widget.id === id);
+  if (core && raw.type !== core.type) {
+    return { error: `built-in widget "${id}" must keep type "${core.type}"` };
+  }
+  return {
+    row: {
+      id,
+      type: raw.type,
+      title: typeof raw.title === "string" ? raw.title : "",
+      config: typeof raw.config === "object" && raw.config !== null && !Array.isArray(raw.config)
+        ? (raw.config as Record<string, unknown>)
+        : {},
+      order: Number.isFinite(raw.order) ? (raw.order as number) : 99,
+      enabled: raw.enabled !== false,
+    },
+  };
+}
+
+export async function writeWidgetsMirror(handle: FileSystemDirectoryHandleLike, widgets: WidgetRow[]): Promise<void> {
+  let dir: FileSystemDirectoryHandleLike | null = null;
+  try {
+    dir = await handle.getDirectoryHandle(WIDGETS_DIR);
+  } catch {
+    dir = null;
+  }
+  for (const row of widgets) {
+    const name = `${row.id}.json`;
+    const content = serializeWidgetFile(row);
+    const disk = dir ? await readDiskFile(dir, name) : null;
+    // an UNPARSEABLE existing file is never overwritten regardless of mtime —
+    // its author may be mid-edit; the sync pass reports it as an issue instead
+    if (disk && disk.text !== content && "error" in parseWidgetFile(row.id, disk.text)) continue;
+    // same freshness guard as notes: never clobber a newer external edit —
+    // sync imports it instead. unlike notes, absent files are always created
+    // (even for untouched defaults) so the folder documents the format
+    if (
+      disk
+        ? disk.text !== content &&
+          (disk.lastModified > Date.now() + 2000 || disk.lastModified <= Math.min(row.updatedAt, Date.now()))
+        : true
+    ) {
+      await writeTextFile(handle, [WIDGETS_DIR, name], content);
+    }
+  }
+}
+
+export async function removeWidgetMirrorFile(handle: FileSystemDirectoryHandleLike, id: string): Promise<void> {
+  try {
+    const dir = await handle.getDirectoryHandle(WIDGETS_DIR);
+    const name = `${id}.json`;
+    const disk = await readDiskFile(dir, name);
+    if (disk && disk.text.trim() !== "") await writeTrashCopy(handle, [WIDGETS_DIR, name], disk.text);
+    await dir.removeEntry?.(name);
+  } catch {
+    // no folder or no file — nothing to remove
+  }
+}
+
 export interface AgentSurfaces {
   margins: boolean;
   scratchpad: boolean;
@@ -177,9 +266,11 @@ export async function syncWithDisk(
   handle: FileSystemDirectoryHandleLike,
   mtimes?: Map<string, number>,
   getSkip?: () => SyncSkip,
+  onWidgetIssues?: (issues: WidgetFileIssue[]) => void,
 ): Promise<number> {
   if (!handle.values) return 0;
   let imported = 0;
+  const widgetIssues: WidgetFileIssue[] = [];
   // read the skip set live at each use — a pass spans many awaits, and the
   // user can focus a note mid-pass
   const skip = () => getSkip?.() ?? {};
@@ -293,9 +384,79 @@ export async function syncWithDisk(
           if (skip().margin !== match[1]) mtimes?.set(`margins/${marginEntry.name}`, disk.lastModified);
         }
       }
+    } else if (entry.kind === "directory" && entry.name === WIDGETS_DIR) {
+      const tombstones = await readWidgetTombstones();
+      const widgetsDir = await handle.getDirectoryHandle(WIDGETS_DIR);
+      if (!widgetsDir.values) continue;
+      for await (const widgetEntry of widgetsDir.values()) {
+        if (widgetEntry.kind !== "file") continue;
+        const match = WIDGET_FILE.exec(widgetEntry.name);
+        if (!match) continue;
+        const cacheKey = `widgets/${widgetEntry.name}`;
+        const disk = await readIfChanged(widgetsDir, widgetEntry.name, cacheKey);
+        if (!disk) continue;
+        // tombstone: a file no newer than the in-app deletion is the STALE
+        // leftover — remove it instead of resurrecting the widget. a file
+        // written after the deletion is an intentional re-create and imports.
+        const deletedAt = tombstones[match[1]];
+        if (deletedAt !== undefined && Math.min(disk.lastModified, Date.now()) <= deletedAt) {
+          await removeWidgetMirrorFile(handle, match[1]);
+          continue;
+        }
+        const parsed = parseWidgetFile(match[1], disk.text);
+        if ("error" in parsed) {
+          // report but never import or overwrite — the author may be mid-edit.
+          // no mtime cache either, so the issue re-reports until the file is fixed
+          widgetIssues.push({ file: cacheKey, error: parsed.error });
+          continue;
+        }
+        let push: WidgetRow | null = null;
+        let importedThis = false;
+        await db.transaction("rw", db.widgets, db.meta, async () => {
+          const row = await db.widgets.get(match[1]);
+          if (row && serializeWidgetFile(row) === disk.text) return;
+          const now = Date.now();
+          const trusted = disk.lastModified <= now + 2000;
+          const diskStamp = Math.min(disk.lastModified, now);
+          if (!row || (trusted && diskStamp > Math.min(row.updatedAt, now))) {
+            await db.widgets.put({ ...parsed.row, updatedAt: diskStamp });
+            imported += 1;
+            importedThis = true;
+          } else {
+            push = row;
+          }
+        });
+        if (importedThis) await clearWidgetTombstone(match[1]);
+        if (push) await writeTextFile(handle, [WIDGETS_DIR, `${match[1]}.json`], serializeWidgetFile(push));
+        mtimes?.set(cacheKey, disk.lastModified);
+      }
     }
   }
 
+  // rows without files get their files (re)created — covers upgrades of
+  // already-connected folders and manually-deleted files. tombstoned ids are
+  // deletions in flight, not missing files.
+  try {
+    const rows = await db.widgets.toArray();
+    const tombstones = await readWidgetTombstones();
+    const missing: WidgetRow[] = [];
+    let dir: FileSystemDirectoryHandleLike | null = null;
+    try {
+      dir = await handle.getDirectoryHandle(WIDGETS_DIR);
+    } catch {
+      dir = null;
+    }
+    for (const row of rows) {
+      if (row.id in tombstones) continue;
+      const disk = dir ? await readDiskFile(dir, `${row.id}.json`) : null;
+      if (!disk) missing.push(row);
+    }
+    if (missing.length) await writeWidgetsMirror(handle, missing);
+  } catch (error) {
+    console.warn("Tab Pad widget file reconcile failed", error);
+  }
+
+  onWidgetIssues?.(widgetIssues);
   return imported;
 }
 
@@ -356,11 +517,13 @@ export async function writeAgentFiles(
       days: true,
       margins: surfaces.margins,
       scratchpad: surfaces.scratchpad,
+      widgets: true,
     },
     files: {
       day: "<YYYY-MM-DD>.md",
       margin: "margins/<YYYY-MM-DD>.md",
       scratchpad: "scratchpad.md",
+      widget: "widgets/<slug>.json",
     },
     write: {
       mode: "direct",
@@ -389,6 +552,36 @@ and which surfaces are currently visible in the app.
 - \`.tabpad-trash/\` — before the app overwrites or erases file content it didn't
   write itself, the losing version is copied here (newest ~60 kept). Recover
   lost text from here; never write to it.
+
+## Sidebar widgets
+
+\`widgets/<slug>.json\` — each file is one widget in the app's left sidebar
+(slug: lowercase letters, digits, hyphens). Create or edit these files to add
+or change widgets; changes appear live like notes.
+
+\`\`\`json
+{
+  "type": "counter",
+  "title": "writing streak",
+  "enabled": true,
+  "order": 2,
+  "config": { "source": "streak", "format": "{n} day streak" }
+}
+\`\`\`
+
+Types and their config:
+- \`calendar\` — mini month calendar. config: {}
+- \`day-list\` — noted days with excerpts. config: { "limit": 1-200, "order": "newest"|"oldest" }
+- \`counter\` — one number. config: { "source": "noted-days"|"streak"|"open-tasks"|"words-today"|"words-total", "format": "text with {n}" }
+- \`task-rollup\` — open \`- [ ]\` lines from recent days. config: { "days": 1-90, "limit": 1-100 }
+- \`text\` — fixed text. config: { "content": "..." }
+
+Rules:
+- \`calendar\` and \`noted-days\` are built-in: retitle, reorder, or disable
+  them, but keep their type.
+- To hide a widget set \`"enabled": false\` — deleting the file does NOT
+  remove it (the app recreates the file).
+- Lower \`order\` = higher in the sidebar. Widgets are data only — no code.
 
 ## Editing
 
