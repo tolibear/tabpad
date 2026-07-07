@@ -32,7 +32,8 @@ assert((await getPanel("scratchpad")).content === "loose thread", "panel content
 await saveSettings({ theme: "dark", weekStartsOn: 1 });
 const settings = await getSettings();
 assert(settings.theme === "dark" && settings.weekStartsOn === 1, "settings patch must persist");
-assert(settings.rightPanel === "scratchpad", "settings must merge defaults");
+// rightPanel single-choice replaced by scratchpad/margins toggles; default merge still asserted
+assert(settings.scratchpad === true, "settings must merge defaults");
 
 const payload = await createExportPayload();
 assert(payload.days.length === 2, "export must include days");

@@ -18,7 +18,7 @@ await build({
 await import(`${pathToFileURL("/tmp/daybook-verify-m2-runtime.mjs").href}?t=${Date.now()}`);
 
 const app = readFileSync("src/app.tsx", "utf8");
-for (const required of ["saveDayContent", "createDaybookChannel", "createExportPayload", "importPayload", "savePanel"]) {
+for (const required of ["saveDayFields", "createTabPadChannel", "createExportPayload", "importPayload", "savePanel"]) {
   assert(app.includes(required), `app must wire ${required}`);
 }
 

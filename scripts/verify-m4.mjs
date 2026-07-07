@@ -18,7 +18,7 @@ await build({
 await import(`${pathToFileURL("/tmp/daybook-verify-m4-runtime.mjs").href}?t=${Date.now()}`);
 
 const timeline = readFileSync("src/timeline/Timeline.tsx", "utf8");
-for (const required of ["IntersectionObserver", "pendingAnchorHeight", "scrollTo", "jump-highlight", "buildTimelineWindow"]) {
+for (const required of ["IntersectionObserver", "pendingTopExtension", "scrollTo", "jump-highlight", "buildTimelineWindow"]) {
   assert(timeline.includes(required), `timeline must include ${required}`);
 }
 

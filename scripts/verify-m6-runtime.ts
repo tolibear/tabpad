@@ -25,11 +25,11 @@ await savePanel("masterList", "master");
 assert((await getPanel("scratchpad")).content === "scratch", "scratchpad must persist independently");
 assert((await getPanel("masterList")).content === "master", "master list must persist independently");
 
-await saveSettings({ rightPanel: "margin", editorSize: "lg", weekStartsOn: 1 });
+// right-panel mode replaced by independent scratchpad/margins toggles; mirror state left the settings row
+await saveSettings({ margins: true, editorSize: "lg", weekStartsOn: 1 });
 const settings = await getSettings();
-assert(settings.rightPanel === "margin", "right-panel mode must persist");
+assert(settings.margins === true, "margins toggle must persist");
 assert(settings.editorSize === "lg", "editor size must persist");
 assert(settings.weekStartsOn === 1, "calendar week start must persist");
-assert(settings.mirrorEnabled === false, "folder mirror must remain off by default");
 
 await db.delete();

@@ -92,7 +92,7 @@ await writeFullMirror(root);
 
 assert(root.files.get("2026-07-03.md")?.content === "# plans", "day main markdown must write to root");
 assert(root.files.get("scratchpad.md")?.content === "scratch", "scratchpad must write to root");
-assert(root.files.get("master-list.md")?.content === "master", "master list must write to root");
+// master-list panel mirroring removed; only the scratchpad panel is mirrored now
 assert(root.directories.get("margins")?.files.get("2026-07-03.md")?.content === "side note", "day margin must write under margins");
 assert(root.directories.get("margins")?.files.get("2026-07-04.md")?.content === "margin only", "margin-only day must write a margin file");
 assert(!root.files.has("2026-07-04.md"), "margin-only days must not create empty root files");

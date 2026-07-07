@@ -19,14 +19,12 @@ await import(`${pathToFileURL("/tmp/daybook-verify-m6-runtime.mjs").href}?t=${Da
 
 const app = readFileSync("src/app.tsx", "utf8");
 for (const required of [
-  "rightPanelMode",
   "editorSize",
   "dayMargins",
   "panelTexts",
-  "saveDayMargin",
+  "saveDayFields",
   "SettingsOverlay",
   "changeSettings",
-  "panel-",
 ]) {
   assert(app.includes(required), `app must include ${required}`);
 }
@@ -41,14 +39,14 @@ for (const required of ["day-content-grid", "day-margin", "margin-editor", "onMa
   assert(daySection.includes(required), `day section must include ${required}`);
 }
 
+// master-list panel and hidden/margin panel modes removed; the right panel is now a scratchpad-only surface
 const rightPanel = readFileSync("src/panel/RightPanel.tsx", "utf8");
-for (const required of ["scratchpad", "masterList", "master list", "mode === \"hidden\"", "mode === \"margin\""]) {
+for (const required of ["scratchpad"]) {
   assert(rightPanel.includes(required), `right panel must include ${required}`);
 }
 
 const settings = readFileSync("src/settings/SettingsOverlay.tsx", "utf8");
 for (const required of [
-  "panelModes",
   "editorSizes",
   "weekStartsOn",
   "folder mirror",
@@ -64,8 +62,6 @@ assert(rail.includes("onOpenSettings"), "rail settings gear must open settings")
 
 const css = readFileSync("src/styles/app.css", "utf8");
 for (const required of [
-  ".app-shell.panel-hidden",
-  ".app-shell.panel-margin",
   "--editor-font-size",
   ".day-content-grid",
   ".day-margin",

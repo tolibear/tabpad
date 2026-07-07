@@ -57,10 +57,13 @@ for (const required of [
 ]) {
   assert(mirror.includes(required), `mirror module must include ${required}`);
 }
-assert(!mirror.includes("removeEntry"), "mirror must never delete files");
+// M7 originally forbade all deletion; the accepted erase-all-wipes-folder design now
+// removes note files, but must copy non-empty content to .tabpad-trash first — assert that safety net
+assert(mirror.includes("writeTrashCopy") && mirror.includes(".tabpad-trash"), "mirror deletions must trash non-empty content first");
 
 const settings = readFileSync("src/settings/SettingsOverlay.tsx", "utf8");
-for (const required of ["choose folder", "reconnect", "mirrorStatus", "edits made to these files outside daybook will be overwritten"]) {
+// external edits are now synced in live (no longer clobbered), so the warning copy changed
+for (const required of ["choose folder", "reconnect", "mirrorStatus", "your days live in this folder as plain .md files"]) {
   assert(settings.includes(required), `settings mirror UI must include ${required}`);
 }
 
@@ -72,11 +75,15 @@ for (const required of ["manualChunks", "editor", "vendor"]) {
   assert(vite.includes(required), `vite config must include ${required}`);
 }
 
+// invariant: no automatic network calls; user-clicked links in settings are allowed (56d86a2)
 const sourceFiles = ["src/app.tsx", "src/db/export.ts", "src/mirror/mirror.ts", "src/settings/SettingsOverlay.tsx"];
 for (const file of sourceFiles) {
   const source = readFileSync(file, "utf8");
-  for (const forbidden of ["fetch(", "XMLHttpRequest", "sendBeacon(", "https://", "http://"]) {
-    assert(!source.includes(forbidden), `${file} must not include network primitive ${forbidden}`);
+  const forbidden = ["fetch(", "XMLHttpRequest", "sendBeacon("];
+  // remote URL literals are banned in logic modules, but settings hosts intentional outbound <a href> links
+  if (file !== "src/settings/SettingsOverlay.tsx") forbidden.push("https://", "http://");
+  for (const primitive of forbidden) {
+    assert(!source.includes(primitive), `${file} must not include network primitive ${primitive}`);
   }
 }
 

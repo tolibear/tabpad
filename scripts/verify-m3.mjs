@@ -27,7 +27,7 @@ assert(!daySection.includes("<textarea"), "day sections must not use textarea su
 assert(!rightPanel.includes("<textarea"), "fixed panels must not use textarea surfaces after M3");
 
 const factory = readFileSync("src/editor/createEditor.ts", "utf8");
-for (const required of ["markdownLanguage", "TaskList", "Strikethrough", "history()", "drawSelection()", "placeholder", "livePreview", "inputRules", "markdownKeymap", "daybookEditorTheme"]) {
+for (const required of ["markdownLanguage", "TaskList", "Strikethrough", "history()", "drawSelection()", "placeholder", "livePreview", "inputRules", "markdownKeymap", "tabPadEditorTheme"]) {
   assert(factory.includes(required), `createEditor must include ${required}`);
 }
 
