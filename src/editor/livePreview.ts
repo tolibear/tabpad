@@ -87,7 +87,7 @@ function addLineDecorations(
   isActive: boolean,
 ) {
   const heading = /^(#{1,4})\s+/.exec(text);
-  const task = /^(\s*)- \[([ xX])\]\s/.exec(text);
+  const task = /^(\s*)- \[([ xX/])\]\s/.exec(text);
 
   if (heading) {
     builder.add(lineFrom, lineFrom, Decoration.line({ class: `cm-md-heading cm-md-h${heading[1].length}` }));
@@ -99,14 +99,16 @@ function addLineDecorations(
   if (task) {
     const markerFrom = lineFrom + task[1].length + 2;
     const markerTo = lineFrom + task[0].length;
+    const marker = task[2].toLowerCase();
+    const stateClass = marker === "x" ? " cm-md-task-checked" : marker === "/" ? " cm-md-task-progress" : "";
     // the line class carries a hanging indent so wrapped text aligns under
     // the first line's text instead of under the checkbox
     builder.add(
       lineFrom,
       lineFrom,
-      Decoration.line({ class: `cm-md-task-line${task[2].toLowerCase() === "x" ? " cm-md-task-checked" : ""}` }),
+      Decoration.line({ class: `cm-md-task-line${stateClass}` }),
     );
-    builder.add(lineFrom + task[1].length, markerTo, Decoration.replace({ widget: new CheckboxWidget(task[2].toLowerCase() === "x", markerFrom) }));
+    builder.add(lineFrom + task[1].length, markerTo, Decoration.replace({ widget: new CheckboxWidget(`[${task[2]}]`, markerFrom) }));
     // the task text still gets bold/links/etc — all inline matches start at or
     // after the marker, so builder order stays sorted
     if (!isActive) addInlineMarks(builder, lineFrom, text);

@@ -351,6 +351,12 @@
   white-space: nowrap;
 }
 
+/* in-progress rollup rows echo the editor's accent/medium-weight treatment */
+.noted-row.task-progress .noted-excerpt {
+  color: var(--accent);
+  font-weight: 550;
+}
+
 .rail-bottom {
   display: grid;
   gap: 10px;
@@ -1282,6 +1288,24 @@ body.link-modifier .cm-md-link * {
   height: 14px;
   margin: 0;
   accent-color: var(--accent);
+}
+
+/* in-progress task text: medium-weight accent, no strikethrough (it's not done) */
+.cm-md-task-progress {
+  color: var(--accent);
+  font-weight: 550;
+}
+
+/* in-progress checkbox: an accent-bordered box with a small filled square
+   inside — drawn purely on the styled input so it's crisp at 14px */
+.cm-task-widget input.cm-task-progress {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1.5px solid var(--accent);
+  border-radius: 3px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) center / 6px 6px no-repeat,
+    var(--bg);
 }
 
 .cm-bullet-widget {

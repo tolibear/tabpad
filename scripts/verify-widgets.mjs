@@ -60,4 +60,12 @@ assert(mirrorSource.includes("widgets/<slug>.json"), "tabpad.json manifest must 
 assert(mirrorSource.includes("widgets/<slug>.md"), "AGENTS.md guide must document the scratchpad widget json/md pairing");
 assert(!mirrorSource.includes("noted days with excerpts"), "day-list copy must use 'days with notes', not 'noted days'");
 
+// F7: tri-state to-dos — the editor cycles markers and classes in-progress
+const checkboxSource = readFileSync("src/editor/checkbox.ts", "utf8");
+assert(checkboxSource.includes("nextTaskMarker"), "the checkbox cycles markers via nextTaskMarker");
+const livePreviewSource = readFileSync("src/editor/livePreview.ts", "utf8");
+assert(livePreviewSource.includes("cm-md-task-progress"), "livePreview classes in-progress task lines");
+const appCss = readFileSync("src/styles/app.css", "utf8");
+assert(appCss.includes("cm-md-task-progress") && appCss.includes("input.cm-task-progress"), "app.css styles in-progress task text and checkbox");
+
 console.log("widgets verification passed");

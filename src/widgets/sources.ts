@@ -81,24 +81,36 @@ export function streakCount(input: WidgetDataInput): number {
   return count;
 }
 
-const OPEN_TASK = /^\s*- \[ \]\s+(.+)$/;
+// an open to-do is either `- [ ]` (not started) or `- [/]` (in progress) —
+// both still count as open; only `- [x]` is done
+const OPEN_TASK = /^\s*- \[([ /])\]\s+(.+)$/;
 
-// open `- [ ]` lines, newest day first. days=0 means no window; future days
-// always pass the window (planned to-dos should surface)
+// the click cycle for a task marker: open → in progress → done → open.
+// takes the 3-char marker ("[ ]" | "[/]" | "[x]"), returns the next one.
+export function nextTaskMarker(current: string): string {
+  const state = current[1]?.toLowerCase();
+  if (state === " ") return "[/]";
+  if (state === "/") return "[x]";
+  return "[ ]";
+}
+
+// open `- [ ]`/`- [/]` lines, newest day first. days=0 means no window; future
+// days always pass the window (planned to-dos should surface). in-progress
+// rows carry inProgress:true so the UI can mark them.
 export function openTasks(
   input: WidgetDataInput,
   days = 0,
   limit = Number.POSITIVE_INFINITY,
-): Array<{ date: string; text: string }> {
+): Array<{ date: string; text: string; inProgress: boolean }> {
   const floor = days > 0 ? dateKey(addDays(input.today, -(days - 1))) : "";
-  const tasks: Array<{ date: string; text: string }> = [];
+  const tasks: Array<{ date: string; text: string; inProgress: boolean }> = [];
   const entries = Array.from(collectDays(input).entries()).sort((a, b) => b[0].localeCompare(a[0]));
   for (const [date, { main, margin }] of entries) {
     if (date < floor) continue;
     for (const line of `${main}\n${margin}`.split(/\r?\n/)) {
       if (tasks.length >= limit) return tasks;
       const match = OPEN_TASK.exec(line);
-      if (match) tasks.push({ date, text: match[1].trim() });
+      if (match) tasks.push({ date, text: match[2].trim(), inProgress: match[1] === "/" });
     }
   }
   return tasks.slice(0, limit);

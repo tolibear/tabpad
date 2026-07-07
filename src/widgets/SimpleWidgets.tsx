@@ -23,7 +23,7 @@ export function TaskRollupWidget({ row, context }: { row: WidgetRow; context: Wi
         const date = dateFromKey(task.date);
         return (
           <button
-            className="noted-row"
+            className={`noted-row${task.inProgress ? " task-progress" : ""}`}
             key={`${task.date}-${index}`}
             type="button"
             onClick={() => {

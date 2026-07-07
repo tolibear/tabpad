@@ -111,6 +111,7 @@ import {
   computeSource,
   contentDateKeys,
   isSourceId,
+  nextTaskMarker,
   notedDayRows,
   openTasks,
   sourceOptions,
@@ -158,6 +159,27 @@ assert(computeSource("streak", input) === 3, "streak source matches streakCount"
 assert(computeSource("words-today", input) > 0 && computeSource("words-total", input) > computeSource("words-today", input), "word counts are positive and total exceeds today");
 assert(isSourceId("streak") && !isSourceId("nope"), "isSourceId guards the union");
 assert(sourceOptions.length === 5, "five sources are exposed to the settings form");
+
+// F7: tri-state to-dos — `- [/]` is in-progress, still counted as open, and
+// carries an inProgress flag; `- [x]` stays excluded
+const triInput: WidgetDataInput = {
+  today: new Date(2026, 6, 6),
+  todayKey: "2026-07-06",
+  todayText: "- [ ] plain open\n- [/] in the middle\n- [x] finished",
+  contentDays: [],
+};
+const triTasks = openTasks(triInput);
+assert(triTasks.length === 2, "in-progress and open both count as open tasks; done is excluded");
+assert(triTasks.find((t) => t.text === "plain open")?.inProgress === false, "a [ ] task carries inProgress false");
+assert(triTasks.find((t) => t.text === "in the middle")?.inProgress === true, "a [/] task carries inProgress true");
+assert(!triTasks.some((t) => t.text === "finished"), "a [x] task is excluded from open tasks");
+assert(computeSource("open-tasks", triInput) === 2, "the open-tasks counter counts both open kinds");
+
+// the click cycle: open → in progress → done → open
+assert(nextTaskMarker("[ ]") === "[/]", "one click moves an open task to in progress");
+assert(nextTaskMarker("[/]") === "[x]", "a second click moves an in-progress task to done");
+assert(nextTaskMarker("[x]") === "[ ]", "a third click reopens a done task");
+assert(nextTaskMarker("[X]") === "[ ]", "the cycle is case-insensitive on the done marker");
 
 // noted-days excerpt: prefer the first markdown heading among the first 5
 // non-empty lines; otherwise the first non-empty line, markdown stripped
