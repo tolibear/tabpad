@@ -1312,6 +1312,10 @@ body.link-modifier .cm-md-link * {
   display: inline-block;
   width: 18px;
   color: var(--muted);
+  /* the bullet line's hanging indent (text-indent: -18px) is inherited into
+     this inline-block and would shove the • out into the left margin; reset it
+     so the dot sits in the marker column, tight against its text */
+  text-indent: 0;
 }
 
 .cm-quote-widget {
