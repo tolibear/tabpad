@@ -1,8 +1,9 @@
 import { Bot, Check, Copy, Download, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
-import type { Settings } from "../db/db";
+import type { Settings, WidgetRow } from "../db/db";
 import { accentColors, type AccentColor, type ThemePreference } from "../lib/theme";
 import type { MirrorStatus } from "../mirror/mirror";
+import { WidgetSettings } from "./WidgetSettings";
 
 const themeOptions: ThemePreference[] = ["system", "light", "dark"];
 const editorSizes: Settings["editorSize"][] = ["sm", "md", "lg"];
@@ -32,6 +33,12 @@ interface SettingsOverlayProps {
   mirrorStatus: MirrorStatus;
   mirrorName: string;
   dataMessage: string;
+  privacyMode: boolean;
+  widgets: WidgetRow[];
+  onWidgetToggle: (id: string, enabled: boolean) => void;
+  onWidgetMove: (id: string, direction: -1 | 1) => void;
+  onWidgetDelete: (id: string) => void;
+  onWidgetSave: (row: WidgetRow) => void;
   onClose: () => void;
   onThemeChange: (theme: ThemePreference) => void;
   onAccentChange: (accent: AccentColor) => void;
@@ -59,6 +66,12 @@ export function SettingsOverlay({
   mirrorStatus,
   mirrorName,
   dataMessage,
+  privacyMode,
+  widgets,
+  onWidgetToggle,
+  onWidgetMove,
+  onWidgetDelete,
+  onWidgetSave,
   onClose,
   onThemeChange,
   onAccentChange,
@@ -169,6 +182,21 @@ export function SettingsOverlay({
             })}
           </div>
         </section>
+
+        {privacyMode ? (
+          <section className="settings-section" aria-label="sidebar">
+            <h3>sidebar</h3>
+            <p className="data-message">unlock privacy mode to edit the sidebar.</p>
+          </section>
+        ) : (
+          <WidgetSettings
+            widgets={widgets}
+            onToggle={onWidgetToggle}
+            onMove={onWidgetMove}
+            onDelete={onWidgetDelete}
+            onSave={onWidgetSave}
+          />
+        )}
 
         <section className="settings-section" aria-label="calendar">
           <h3>calendar</h3>

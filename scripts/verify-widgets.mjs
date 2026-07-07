@@ -27,4 +27,10 @@ assert(appSource.includes("ensureDefaultWidgets"), "app must seed core widgets o
 assert(!appSource.includes("db.widgets."), "app.tsx must go through the widget store, never db.widgets directly");
 assert(!rail.includes("db.widgets."), "Rail must go through the widget store, never db.widgets directly");
 
+const broadcastSource = readFileSync("src/db/broadcast.ts", "utf8");
+assert(broadcastSource.includes('type: "widgets"'), "broadcast union must carry widget changes");
+
+const overlay = readFileSync("src/settings/SettingsOverlay.tsx", "utf8");
+assert(overlay.includes("WidgetSettings"), "settings must render the widget manager");
+
 console.log("widgets verification passed");

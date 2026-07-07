@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
 import { migrateLegacyDb, type DayRow, type PanelRow, type Settings, type WidgetRow } from "./db/db";
 import { eraseAllNotes, getDay, hasDayContent, listAllDays, listContentDays, saveDayFields } from "./db/days";
-import { ensureDefaultWidgets, listWidgets } from "./db/widgets";
+import { deleteWidget, ensureDefaultWidgets, listWidgets, saveWidget } from "./db/widgets";
+import { sanitizeWidgetConfig } from "./widgets/registry";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { seedOnboardingIfFirstRun } from "./db/onboarding";
 import { getPanel, savePanel } from "./db/panels";
@@ -201,6 +202,64 @@ export function App() {
     setWidgets(await listWidgets());
   }, []);
 
+  // every widget change: persist, refresh this tab, tell other tabs.
+  // (task 7 adds mirror-file queueing here.)
+  const applyWidgetChange = useCallback(
+    async (change: () => Promise<void>) => {
+      await change();
+      await refreshWidgets();
+      channelRef.current?.post({ type: "widgets", key: "all", updatedAt: Date.now() });
+    },
+    [refreshWidgets],
+  );
+
+  const handleWidgetSave = useCallback(
+    (row: WidgetRow) => {
+      void applyWidgetChange(() =>
+        saveWidget({ ...row, config: sanitizeWidgetConfig(row.type, row.config), updatedAt: Date.now() }),
+      );
+    },
+    [applyWidgetChange],
+  );
+
+  const handleWidgetToggle = useCallback(
+    (id: string, enabled: boolean) => {
+      void applyWidgetChange(async () => {
+        const row = (await listWidgets()).find((w) => w.id === id);
+        if (row) await saveWidget({ ...row, enabled, updatedAt: Date.now() });
+      });
+    },
+    [applyWidgetChange],
+  );
+
+  const handleWidgetMove = useCallback(
+    (id: string, direction: -1 | 1) => {
+      void applyWidgetChange(async () => {
+        const rows = await listWidgets();
+        const index = rows.findIndex((w) => w.id === id);
+        const target = index + direction;
+        if (index < 0 || target < 0 || target >= rows.length) return;
+        const reordered = [...rows];
+        [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+        const now = Date.now();
+        // rewrite order as clean indexes so duplicates (imports, file sync) heal
+        for (const [position, row] of reordered.entries()) {
+          if (row.order !== position) await saveWidget({ ...row, order: position, updatedAt: now });
+        }
+      });
+    },
+    [applyWidgetChange],
+  );
+
+  const handleWidgetDelete = useCallback(
+    (id: string) => {
+      void applyWidgetChange(async () => {
+        await deleteWidget(id);
+      });
+    },
+    [applyWidgetChange],
+  );
+
   const loadDocuments = useCallback(async () => {
     await migrateLegacyDb();
     // after migration so legacy users are never treated as fresh installs.
@@ -304,6 +363,9 @@ export function App() {
           void refreshMirrorState();
         });
       }
+      if (message.type === "widgets") {
+        void refreshWidgets();
+      }
       if (message.type === "erase") {
         // another tab is erasing: drop anything this tab could write back —
         // pending mirror timers, local texts, and the refs that feed queued
@@ -342,7 +404,7 @@ export function App() {
       channel.close();
       channelRef.current = null;
     };
-  }, [applySettingsState, loadDocuments, refreshContentDays, refreshMirrorState, todayKey]);
+  }, [applySettingsState, loadDocuments, refreshContentDays, refreshMirrorState, refreshWidgets, todayKey]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1054,6 +1116,12 @@ export function App() {
         mirrorStatus={mirrorStatus}
         mirrorName={mirrorName}
         dataMessage={dataMessage}
+        privacyMode={privacyMode}
+        widgets={widgets}
+        onWidgetToggle={handleWidgetToggle}
+        onWidgetMove={handleWidgetMove}
+        onWidgetDelete={handleWidgetDelete}
+        onWidgetSave={handleWidgetSave}
         onClose={() => setSettingsOpen(false)}
         onThemeChange={(theme) => changeSettings({ theme })}
         onAccentChange={(accent) => changeSettings({ accent })}

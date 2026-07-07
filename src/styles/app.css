@@ -661,6 +661,60 @@ body.link-modifier .cm-md-link * {
   color: var(--accent);
 }
 
+.widget-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.widget-row-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.widget-row-actions .icon-button {
+  width: 24px;
+  height: 24px;
+}
+
+.widget-row-actions .icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.widget-form,
+.widget-type-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.widget-field {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.widget-field-input {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.widget-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .shortcut-list {
   display: grid;
   gap: 7px;

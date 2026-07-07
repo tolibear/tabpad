@@ -2,6 +2,7 @@ export type TabPadChange =
   | { type: "day"; key: string; updatedAt: number }
   | { type: "panel"; key: "scratchpad" | "masterList"; updatedAt: number }
   | { type: "settings"; key: "settings"; updatedAt: number }
+  | { type: "widgets"; key: "all"; updatedAt: number }
   | { type: "import"; key: "all"; updatedAt: number }
   // sent BEFORE an erase starts so other tabs cancel pending writes that
   // would resurrect the erased notes
