@@ -1181,11 +1181,6 @@ body.link-modifier .cm-md-link * {
   color: color-mix(in srgb, var(--ink) 85%, var(--muted));
 }
 
-.right-panel {
-  --editor-font-size: 13.5px;
-  font-size: 13.5px;
-}
-
 .side-editor .cm-content {
   min-height: calc(100vh - 56px);
 }
@@ -1372,35 +1367,11 @@ body.link-modifier .cm-md-link * {
   margin: 0;
 }
 
-.right-panel {
-  position: sticky;
-  top: 0;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  height: 100vh;
-  border-left: 1px solid var(--line);
-  color: var(--muted);
-}
-
-.right-panel header {
-  padding: 20px 18px 10px;
-  color: var(--faint);
-  font-size: 11px;
-  font-weight: 650;
-  text-transform: uppercase;
-}
-
-.right-panel .editor-host {
-  min-height: 0;
-  padding: 0 18px 18px;
-}
-
 @media (max-width: 960px) {
   .app-shell {
     grid-template-columns: 196px minmax(0, 1fr);
   }
 
-  .right-panel,
   .rail-right {
     display: none;
   }
@@ -1496,8 +1467,7 @@ body.link-modifier .cm-md-link * {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.app-shell.focus-mode .rail,
-.app-shell.focus-mode .right-panel {
+.app-shell.focus-mode .rail {
   display: none;
 }
 

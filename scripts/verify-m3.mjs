@@ -18,13 +18,15 @@ await build({
 await import(`${pathToFileURL("/tmp/daybook-verify-m3-runtime.mjs").href}?t=${Date.now()}`);
 
 const daySection = readFileSync("src/timeline/DaySection.tsx", "utf8");
-const rightPanel = readFileSync("src/panel/RightPanel.tsx", "utf8");
+// the fixed right panel became the scratchpad widget; the shared-editor
+// requirement rides with it into src/widgets/ScratchpadWidget.tsx
+const scratchpadWidget = readFileSync("src/widgets/ScratchpadWidget.tsx", "utf8");
 const app = readFileSync("src/app.tsx", "utf8");
 assert(daySection.includes("EditorSurface"), "day sections must use the shared editor surface");
-assert(rightPanel.includes("EditorSurface"), "fixed panels must use the shared editor surface");
+assert(scratchpadWidget.includes("EditorSurface"), "scratchpad widget must use the shared editor surface");
 assert(!app.includes("<textarea"), "app must not use textarea surfaces after M3");
 assert(!daySection.includes("<textarea"), "day sections must not use textarea surfaces after M3");
-assert(!rightPanel.includes("<textarea"), "fixed panels must not use textarea surfaces after M3");
+assert(!scratchpadWidget.includes("<textarea"), "scratchpad widget must not use textarea surfaces after M3");
 
 const factory = readFileSync("src/editor/createEditor.ts", "utf8");
 for (const required of ["markdownLanguage", "TaskList", "Strikethrough", "history()", "drawSelection()", "placeholder", "livePreview", "inputRules", "markdownKeymap", "tabPadEditorTheme"]) {

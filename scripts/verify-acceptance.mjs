@@ -138,7 +138,8 @@ async function main() {
       await wait(120);
     }
 
-    // panel modes became independent layout toggles ("scratchpad", "per-day margins")
+    // clicks a switch row in settings by its label — used for both the sidebar
+    // widget toggles ("scratchpad") and the layout toggles ("per-day margins")
     async function toggleLayoutOption(label) {
       await clickExpression(`document.querySelector(".rail-settings")`);
       await waitFor(`!!document.querySelector(".settings-sheet")`, "settings sheet");
@@ -600,13 +601,17 @@ async function main() {
       yesterday: !!document.querySelector('[data-date="2026-07-02"]')
     }`);
 
-    // the master-list panel was removed; scratchpad is now a toggle (default on)
-    await insertIntoContentEditable(".right-panel .cm-content", "scratch");
+    // the master-list panel and the fixed right panel are gone; the scratchpad
+    // is now a widget in the right rail, backed by the same panels("scratchpad")
+    // row, so typing into it still saves to that panel
+    await insertIntoContentEditable(".rail-right .scratchpad-widget .cm-content", "scratch");
     const scratchPanel = await waitForPanelContent("scratchpad", (content) => content.includes("scratch"), "A9: scratchpad content must save");
+    // disabling the scratchpad widget (the sole right-rail widget) empties and
+    // removes the right rail entirely
     await toggleLayoutOption("scratchpad");
-    assert(await evaluate(`!document.querySelector(".right-panel")`), "A9: toggling scratchpad off must remove the fixed right panel.");
+    assert(await evaluate(`!document.querySelector(".rail-right")`), "A9: disabling the scratchpad widget must remove the right rail.");
     await toggleLayoutOption("scratchpad");
-    await waitFor(`(document.querySelector(".right-panel .cm-content")?.textContent ?? "").includes("scratch")`, "A9: scratchpad content must survive a hide/show cycle");
+    await waitFor(`(document.querySelector(".rail-right .scratchpad-widget .cm-content")?.textContent ?? "").includes("scratch")`, "A9: scratchpad content must survive a disable/enable cycle");
     evidence.checks.a9Modes = { scratchpad: scratchPanel };
 
     await toggleLayoutOption("per-day margin");

@@ -39,10 +39,11 @@ for (const required of ["day-content-grid", "day-margin", "margin-editor", "onMa
   assert(daySection.includes(required), `day section must include ${required}`);
 }
 
-// master-list panel and hidden/margin panel modes removed; the right panel is now a scratchpad-only surface
-const rightPanel = readFileSync("src/panel/RightPanel.tsx", "utf8");
+// master-list panel and hidden/margin panel modes removed; the scratchpad
+// surface is now the scratchpad widget in the right rail
+const scratchpadWidget = readFileSync("src/widgets/ScratchpadWidget.tsx", "utf8");
 for (const required of ["scratchpad"]) {
-  assert(rightPanel.includes(required), `right panel must include ${required}`);
+  assert(scratchpadWidget.includes(required), `scratchpad widget must include ${required}`);
 }
 
 const settings = readFileSync("src/settings/SettingsOverlay.tsx", "utf8");

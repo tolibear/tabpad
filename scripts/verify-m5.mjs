@@ -17,9 +17,12 @@ await build({
 
 await import(`${pathToFileURL("/tmp/daybook-verify-m5-runtime.mjs").href}?t=${Date.now()}`);
 
-const rail = readFileSync("src/rail/Rail.tsx", "utf8");
+// the calendar/date props (week start, active date, jump handler) are no
+// longer passed straight into Rail — app.tsx builds one widgetContext and
+// hands it to both rails, so the shared context is where that wiring lives now
+const appContext = readFileSync("src/app.tsx", "utf8");
 for (const required of ["weekStartsOn", "currentTopKey", "onJumpToDate"]) {
-  assert(rail.includes(required), `rail must include ${required}`);
+  assert(appContext.includes(required), `app widget context must include ${required}`);
 }
 
 // the calendar rendering moved out of Rail into its own widget — the same
