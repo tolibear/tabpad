@@ -157,6 +157,19 @@ export function panelMirrorPath(id: string): string[] | null {
 export async function writePanelMirror(handle: FileSystemDirectoryHandleLike, panel: PanelRow): Promise<void> {
   const path = panelMirrorPath(panel.id);
   if (!path) return;
+  // a deleted scratchpad widget must never have its content file recreated by a
+  // debounced flush that fired after the delete (in-tab: the timer cleared its
+  // own map entry before firing; cross-tab: a 'panel' broadcast armed a flush in
+  // another tab the deleting tab can't cancel). if the owning widget id is
+  // tombstoned, remove any leftover file and write nothing — the same signal the
+  // sync pass uses to clean stale files, applied at the write choke point so a
+  // fresh mtime can never beat the tombstone. covers the core scratchpad
+  // ("scratchpad" panel) and every widget:<id> scratchpad.
+  const widgetId = panel.id === "scratchpad" ? "scratchpad" : widgetIdFromPanelId(panel.id);
+  if (widgetId && widgetId in (await readWidgetTombstones())) {
+    await trashAndRemoveFile(handle, path);
+    return;
+  }
   // resolve the directory the file lives in so the freshness read can find it;
   // a missing subdirectory just means no disk file yet
   let dir: FileSystemDirectoryHandleLike | null = handle;

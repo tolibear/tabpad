@@ -270,6 +270,7 @@ import {
   serializeWidgetFile,
   syncWithDisk,
   writeFullMirror,
+  writePanelMirror,
   writeWidgetsMirror,
   type FileSystemDirectoryHandleLike,
   type WidgetFileIssue,
@@ -613,6 +614,34 @@ guardWidgets!.files.set("scratchpad.md", { text: "malicious overwrite", lastModi
 await syncWithDisk(guardDir.handle, undefined, undefined, () => {});
 assert((await getPanel("scratchpad")).content === "core content stays", "a widgets/scratchpad.md never overwrites the core scratchpad panel");
 assert(guardWidgets!.files.get("scratchpad.md")?.text === "malicious overwrite", "the stray widgets/scratchpad.md is left untouched, not consumed");
+
+// C: a debounced panel flush that fires AFTER a widget delete must not recreate
+// the widget's content file. writePanelMirror is tombstone-aware: for a
+// tombstoned widget it removes any leftover file and writes nothing, closing the
+// in-tab flush race and the cross-tab flush regression at the source.
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+await saveWidget({ id: "pad-race", type: "scratchpad", title: "pad", config: {}, order: 8, enabled: true, column: "right", updatedAt: Date.now() });
+await savePanel(scratchpadPanelId("pad-race"), "content that must not survive delete");
+const raceDir = makeFakeDir();
+await writeFullMirror(raceDir.handle);
+const raceWidgets = raceDir.dirs.get("widgets");
+assert(raceWidgets?.files.get("pad-race.md")?.text === "content that must not survive delete", "the widget content file exists before delete");
+// a debounce timer captured the panel snapshot BEFORE the delete; the delete
+// tombstones the id, then the stale flush fires
+const staleSnapshot = await getPanel(scratchpadPanelId("pad-race"));
+await deleteWidget("pad-race");
+await writePanelMirror(raceDir.handle, staleSnapshot);
+assert(!raceWidgets!.files.has("pad-race.md"), "a flush for a tombstoned widget removes the file instead of recreating it");
+// and a flush for a tombstoned widget with NO existing file creates nothing
+await writePanelMirror(raceDir.handle, staleSnapshot);
+assert(!raceWidgets!.files.has("pad-race.md"), "a flush for a tombstoned widget never creates a file");
+// a live widget's panel still flushes normally (guard is tombstone-scoped)
+await saveWidget({ id: "pad-live", type: "scratchpad", title: "pad", config: {}, order: 9, enabled: true, column: "right", updatedAt: Date.now() });
+await savePanel(scratchpadPanelId("pad-live"), "live content");
+await writePanelMirror(raceDir.handle, await getPanel(scratchpadPanelId("pad-live")));
+assert(raceWidgets!.files.get("pad-live.md")?.text === "live content", "a live widget's panel still mirrors normally");
 
 // PanelRow string ids round-trip export/import
 await db.panels.clear();
