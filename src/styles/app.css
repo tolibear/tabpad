@@ -16,8 +16,55 @@
   --app-font: var(--font-mono);
 }
 
-.app-shell.has-scratchpad {
+.app-shell.has-right-rail {
   grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--panel-width);
+}
+
+/* the right rail reuses the left rail's shell but hangs its border on the
+   inner edge; it carries no chrome, so its widget stack starts at the top */
+.rail-right {
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+.rail-right .rail-widgets {
+  padding-top: 2px;
+}
+
+/* the scratchpad fills its widget: "full" grows to take the rail's height and
+   scrolls internally; "fixed" caps at its maxHeight (set inline) and scrolls */
+.widget-scratchpad {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scratchpad-widget {
+  --editor-font-size: 13.5px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-size: 13.5px;
+}
+
+.scratchpad-widget[data-height="full"] {
+  flex: 1;
+}
+
+.scratchpad-widget[data-height="full"] .side-editor {
+  overflow-y: auto;
+}
+
+.scratchpad-widget[data-height="fixed"] {
+  overflow-y: auto;
+}
+
+.rail-right .widget-scratchpad {
+  flex: 1;
+}
+
+.rail-right .side-editor .cm-content {
+  min-height: 0;
 }
 
 .mode-row {
@@ -1279,7 +1326,8 @@ body.link-modifier .cm-md-link * {
     grid-template-columns: 196px minmax(0, 1fr);
   }
 
-  .right-panel {
+  .right-panel,
+  .rail-right {
     display: none;
   }
 

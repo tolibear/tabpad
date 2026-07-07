@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createTabPadChannel, type TabPadChannel } from "./db/broadcast";
 import { migrateLegacyDb, type DayRow, type PanelRow, type Settings, type WidgetRow } from "./db/db";
 import { eraseAllNotes, getDay, hasDayContent, listAllDays, listContentDays, saveDayFields } from "./db/days";
-import { deleteWidget, ensureDefaultWidgets, listWidgets, saveWidget } from "./db/widgets";
+import { deleteWidget, ensureDefaultWidgets, listWidgets, sanitizeColumn, saveWidget } from "./db/widgets";
 import { sanitizeWidgetConfig } from "./widgets/registry";
+import type { WidgetContext } from "./widgets/WidgetShell";
 import { createExportPayload, importPayload, serializeExport } from "./db/export";
 import { seedOnboardingIfFirstRun } from "./db/onboarding";
 import { getPanel, savePanel } from "./db/panels";
@@ -23,8 +24,7 @@ import {
   writeThemePreference,
 } from "./lib/theme";
 import { CommandK } from "./palette/CommandK";
-import { RightPanel } from "./panel/RightPanel";
-import { Rail } from "./rail/Rail";
+import { Rail, RightRail } from "./rail/Rail";
 import { SettingsOverlay } from "./settings/SettingsOverlay";
 import { Timeline, type JumpTarget } from "./timeline/Timeline";
 import { useToday } from "./timeline/useToday";
@@ -101,7 +101,6 @@ export function App() {
   const [accent, setAccent] = useState<AccentColor>(() => readAccentPreference());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => currentSystemTheme());
   const [weekStartsOn, setWeekStartsOn] = useState<0 | 1>(0);
-  const [showScratchpad, setShowScratchpad] = useState(true);
   const [showDayMargins, setShowDayMargins] = useState(false);
   const [editorSize, setEditorSize] = useState<Settings["editorSize"]>("md");
   const [font, setFont] = useState<Settings["font"]>("sans");
@@ -159,7 +158,6 @@ export function App() {
     setThemePreference(settings.theme);
     setAccent(settings.accent);
     setWeekStartsOn(settings.weekStartsOn);
-    setShowScratchpad(settings.scratchpad);
     setShowDayMargins(settings.margins);
     setEditorSize(settings.editorSize);
     setFont(settings.font);
@@ -595,10 +593,13 @@ export function App() {
     if (!loaded || mirrorStatus !== "connected") return;
     const handle = mirrorHandleRef.current;
     if (!handle) return;
-    void writeAgentFiles(handle, { margins: showDayMargins, scratchpad: showScratchpad }, todayKey).catch((error) =>
+    // the scratchpad is now a widget — the manifest reflects whether its
+    // widget is enabled, not the retired settings.scratchpad toggle
+    const scratchpadOn = widgets.some((w) => w.id === "scratchpad" && w.enabled);
+    void writeAgentFiles(handle, { margins: showDayMargins, scratchpad: scratchpadOn }, todayKey).catch((error) =>
       console.warn("Tab Pad agent manifest write failed", error),
     );
-  }, [loaded, mirrorStatus, showDayMargins, showScratchpad, todayKey]);
+  }, [loaded, mirrorStatus, showDayMargins, widgets, todayKey]);
 
   const saveSettingsAndBroadcast = useCallback(async (patch: Partial<Settings>) => {
     const settings = await saveSettings(patch);
@@ -610,7 +611,9 @@ export function App() {
 
   const changeSettings = useCallback(
     (patch: Partial<Settings>) => {
-      applySettingsState({ theme: themePreference, accent, scratchpad: showScratchpad, margins: showDayMargins, weekStartsOn, editorSize, font, ...patch });
+      // scratchpad is retained in the Settings type for backward compat but is
+      // no longer a live UI toggle — its value is left untouched here
+      applySettingsState({ theme: themePreference, accent, scratchpad: true, margins: showDayMargins, weekStartsOn, editorSize, font, ...patch });
       if (!loaded) return;
 
       void saveSettingsAndBroadcast(patch);
@@ -622,7 +625,6 @@ export function App() {
       font,
       loaded,
       showDayMargins,
-      showScratchpad,
       saveSettingsAndBroadcast,
       themePreference,
       weekStartsOn,
@@ -1121,9 +1123,34 @@ export function App() {
   }, [refreshContentDays]);
 
   const fixedPanelId: PanelRow["id"] = "scratchpad";
+  // the right rail is present whenever any enabled widget lives in it
+  const hasRightRail = widgets.some((w) => w.enabled && sanitizeColumn(w.column) === "right");
+
+  const widgetContext: WidgetContext = useMemo(
+    () => ({
+      data: { today, todayKey: dateKey(today), todayText, contentDays },
+      weekStartsOn,
+      currentTopKey,
+      privacyMode,
+      onJumpToDate: jumpToDate,
+      scratchpad: {
+        value: panelTexts[fixedPanelId],
+        onChange: (value) => changePanelText(fixedPanelId, value),
+        onBlur: () => {
+          void persistPanel(fixedPanelId, true);
+          nudgeSync();
+        },
+        onFocusChange: (focused) => {
+          focusedPanelRef.current = focused ? fixedPanelId : null;
+        },
+      },
+    }),
+    [today, todayText, contentDays, weekStartsOn, currentTopKey, privacyMode, jumpToDate, panelTexts, changePanelText, persistPanel, nudgeSync],
+  );
+
   const shellClassName = [
     "app-shell",
-    showScratchpad ? "has-scratchpad" : "",
+    hasRightRail ? "has-right-rail" : "",
     showDayMargins ? "has-margins" : "",
     focusDayKey ? "focus-mode" : "",
     privacyMode ? "privacy-mode" : "",
@@ -1134,17 +1161,11 @@ export function App() {
   return (
     <main className={shellClassName} data-theme={resolvedTheme}>
       <Rail
-        today={today}
-        todayText={todayText}
-        contentDays={contentDays}
         widgets={widgets}
         widgetFileIssues={widgetFileIssues}
-        weekStartsOn={weekStartsOn}
-        currentTopKey={currentTopKey}
+        context={widgetContext}
         mirrorStatus={mirrorStatus}
-        mirrorName={mirrorName}
         privacyMode={privacyMode}
-        onJumpToDate={jumpToDate}
         onOpenSettings={() => setSettingsOpen(true)}
         onReconnectMirror={() => void reconnectMirror()}
         onTogglePrivacy={togglePrivacy}
@@ -1160,7 +1181,7 @@ export function App() {
         contentDays={contentDays}
         jumpTarget={jumpTarget}
         showMargins={showDayMargins}
-        layoutMode={`${showScratchpad}-${showDayMargins}`}
+        layoutMode={`${hasRightRail}-${showDayMargins}`}
         focusDayKey={focusDayKey}
         privacyMode={privacyMode}
         onToggleFocusDay={toggleFocusDay}
@@ -1180,7 +1201,6 @@ export function App() {
         open={settingsOpen}
         theme={themePreference}
         accent={accent}
-        scratchpad={showScratchpad}
         margins={showDayMargins}
         weekStartsOn={weekStartsOn}
         editorSize={editorSize}
@@ -1197,7 +1217,6 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         onThemeChange={(theme) => changeSettings({ theme })}
         onAccentChange={(accent) => changeSettings({ accent })}
-        onScratchpadChange={(scratchpad) => changeSettings({ scratchpad })}
         onMarginsChange={(margins) => changeSettings({ margins })}
         onWeekStartsOnChange={(weekStartsOn) => changeSettings({ weekStartsOn })}
         onEditorSizeChange={(editorSize) => changeSettings({ editorSize })}
@@ -1218,18 +1237,7 @@ export function App() {
           notes folder disconnected — click to reconnect
         </button>
       ) : null}
-      {loaded ? (
-      <RightPanel
-        show={showScratchpad}
-        privacyMode={privacyMode}
-        value={panelTexts[fixedPanelId]}
-        onValueChange={(value) => changePanelText(fixedPanelId, value)}
-        onBlur={() => { void persistPanel(fixedPanelId, true); nudgeSync(); }}
-        onFocusChange={(focused) => {
-          focusedPanelRef.current = focused ? fixedPanelId : null;
-        }}
-      />
-      ) : null}
+      {loaded ? <RightRail widgets={widgets} context={widgetContext} /> : null}
     </main>
   );
 }

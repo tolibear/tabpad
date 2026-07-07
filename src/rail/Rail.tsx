@@ -1,55 +1,35 @@
 import { Link2Off, Lock, LockOpen, Settings } from "lucide-react";
-import { useMemo } from "react";
-import type { DayRow, WidgetRow } from "../db/db";
-import { dateKey } from "../lib/dates";
+import type { WidgetRow } from "../db/db";
+import { sanitizeColumn } from "../db/widgets";
 import type { MirrorStatus, WidgetFileIssue } from "../mirror/mirror";
 import { WidgetShell, type WidgetContext } from "../widgets/WidgetShell";
 
 interface RailProps {
-  today: Date;
-  todayText: string;
-  contentDays: DayRow[];
   widgets: WidgetRow[];
   widgetFileIssues: WidgetFileIssue[];
-  weekStartsOn: 0 | 1;
-  currentTopKey: string;
+  context: WidgetContext;
   mirrorStatus: MirrorStatus;
-  mirrorName: string;
   privacyMode: boolean;
-  onJumpToDate: (date: Date) => void;
   onOpenSettings: () => void;
   onReconnectMirror: () => void;
   onTogglePrivacy: () => void;
 }
 
+// the left rail carries the app chrome (brand, privacy, settings) plus every
+// widget assigned to the left column
 export function Rail({
-  today,
-  todayText,
-  contentDays,
   widgets,
   widgetFileIssues,
-  weekStartsOn,
-  currentTopKey,
+  context,
   mirrorStatus,
-  mirrorName,
   privacyMode,
-  onJumpToDate,
   onOpenSettings,
   onReconnectMirror,
   onTogglePrivacy,
 }: RailProps) {
   const needsReconnect = mirrorStatus === "reconnect" || mirrorStatus === "error";
   const needsSetup = mirrorStatus === "off";
-  const context: WidgetContext = useMemo(
-    () => ({
-      data: { today, todayKey: dateKey(today), todayText, contentDays },
-      weekStartsOn,
-      currentTopKey,
-      privacyMode,
-      onJumpToDate,
-    }),
-    [contentDays, currentTopKey, onJumpToDate, privacyMode, today, todayText, weekStartsOn],
-  );
+  const leftWidgets = widgets.filter((row) => row.enabled && sanitizeColumn(row.column) === "left");
 
   return (
     <aside className="rail" aria-label="Tab Pad navigation">
@@ -88,11 +68,9 @@ export function Rail({
         </button>
       </div>
       <div className="rail-widgets">
-        {widgets
-          .filter((row) => row.enabled)
-          .map((row) => (
-            <WidgetShell key={row.id} row={row} context={context} />
-          ))}
+        {leftWidgets.map((row) => (
+          <WidgetShell key={row.id} row={row} context={context} />
+        ))}
         {widgetFileIssues.map((issue) => (
           <section className="rail-widget" key={issue.file}>
             <p className="widget-error">{`${issue.file}: ${issue.error}`}</p>
@@ -110,6 +88,24 @@ export function Rail({
             choose your notes folder
           </button>
         ) : null}
+      </div>
+    </aside>
+  );
+}
+
+// the right rail mirrors the left rail's widget shell but carries no chrome;
+// when no widget is assigned there (or all are disabled) it renders nothing so
+// the layout collapses back to two columns with no empty gutter
+export function RightRail({ widgets, context }: { widgets: WidgetRow[]; context: WidgetContext }) {
+  const rightWidgets = widgets.filter((row) => row.enabled && sanitizeColumn(row.column) === "right");
+  if (!rightWidgets.length) return null;
+
+  return (
+    <aside className="rail rail-right" aria-label="Tab Pad sidebar">
+      <div className="rail-widgets">
+        {rightWidgets.map((row) => (
+          <WidgetShell key={row.id} row={row} context={context} />
+        ))}
       </div>
     </aside>
   );

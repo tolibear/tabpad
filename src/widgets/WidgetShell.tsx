@@ -3,7 +3,17 @@ import { widgetProblem, widgetRegistry } from "./registry";
 import type { WidgetDataInput } from "./sources";
 import { CalendarWidget } from "./CalendarWidget";
 import { DayListWidget } from "./DayListWidget";
+import { ScratchpadWidget } from "./ScratchpadWidget";
 import { CounterWidget, TaskRollupWidget, TextWidget } from "./SimpleWidgets";
+
+// the live scratchpad editor plumbing — one instance shared by whichever rail
+// hosts the scratchpad widget, so its content stays the single panels() row
+export interface ScratchpadContext {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  onFocusChange: (focused: boolean) => void;
+}
 
 // everything a widget may see or do — read-only data plus jump-to-date
 export interface WidgetContext {
@@ -12,6 +22,7 @@ export interface WidgetContext {
   currentTopKey: string;
   privacyMode: boolean;
   onJumpToDate: (date: Date) => void;
+  scratchpad: ScratchpadContext;
 }
 
 interface WidgetProps {
@@ -43,6 +54,8 @@ function WidgetBody({ row, context }: WidgetProps) {
       return <TaskRollupWidget row={row} context={context} />;
     case "text":
       return <TextWidget row={row} context={context} />;
+    case "scratchpad":
+      return <ScratchpadWidget row={row} context={context} />;
     default:
       return null;
   }
