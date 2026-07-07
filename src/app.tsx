@@ -1169,6 +1169,7 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onReconnectMirror={() => void reconnectMirror()}
         onTogglePrivacy={togglePrivacy}
+        onEnableMirror={() => void enableMirror()}
       />
       {/* mount editors only after stored notes are loaded — the today editor
           autofocuses on mount, and a focused editor refuses external content,

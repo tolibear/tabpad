@@ -432,6 +432,62 @@
   color: var(--ink);
 }
 
+.folder-callout {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.folder-callout-copy {
+  margin: 0;
+  padding-right: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.folder-callout-action {
+  justify-self: start;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.folder-callout-action:hover {
+  opacity: 0.9;
+}
+
+.folder-callout-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 0;
+}
+
+.folder-callout-dismiss:hover {
+  background: var(--bg);
+  color: var(--muted);
+}
+
 .theme-control {
   display: grid;
   align-items: center;

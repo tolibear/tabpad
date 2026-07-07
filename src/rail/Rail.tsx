@@ -1,4 +1,5 @@
-import { Link2Off, Lock, LockOpen, Settings } from "lucide-react";
+import { Link2Off, Lock, LockOpen, Settings, X } from "lucide-react";
+import { useState } from "react";
 import type { WidgetRow } from "../db/db";
 import { sanitizeColumn } from "../db/widgets";
 import type { MirrorStatus, WidgetFileIssue } from "../mirror/mirror";
@@ -13,6 +14,20 @@ interface RailProps {
   onOpenSettings: () => void;
   onReconnectMirror: () => void;
   onTogglePrivacy: () => void;
+  onEnableMirror: () => void;
+}
+
+// once dismissed, the connect-folder callout stays gone across tabs and
+// sessions — like privacy mode, this preference lives in localStorage, not the
+// notes db
+const FOLDER_CALLOUT_DISMISSED_KEY = "tabpad:folder-callout-dismissed:v1";
+
+function readCalloutDismissed(): boolean {
+  try {
+    return localStorage.getItem(FOLDER_CALLOUT_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 // the left rail carries the app chrome (brand, privacy, settings) plus every
@@ -26,10 +41,23 @@ export function Rail({
   onOpenSettings,
   onReconnectMirror,
   onTogglePrivacy,
+  onEnableMirror,
 }: RailProps) {
   const needsReconnect = mirrorStatus === "reconnect" || mirrorStatus === "error";
   const needsSetup = mirrorStatus === "off";
   const leftWidgets = widgets.filter((row) => row.enabled && sanitizeColumn(row.column) === "left");
+  const [calloutDismissed, setCalloutDismissed] = useState(readCalloutDismissed);
+  // the onboarding callout only nags before a folder is connected, and only
+  // until the user dismisses it once
+  const showFolderCallout = needsSetup && !calloutDismissed;
+  const dismissFolderCallout = () => {
+    try {
+      localStorage.setItem(FOLDER_CALLOUT_DISMISSED_KEY, "1");
+    } catch {
+      // dismissal is a convenience; the callout simply reappears next load
+    }
+    setCalloutDismissed(true);
+  };
 
   return (
     <aside className="rail" aria-label="Tab Pad navigation">
@@ -67,6 +95,25 @@ export function Rail({
           <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
         </button>
       </div>
+      {showFolderCallout ? (
+        <div className="folder-callout" role="note">
+          <button
+            className="folder-callout-dismiss"
+            type="button"
+            aria-label="dismiss"
+            title="dismiss"
+            onClick={dismissFolderCallout}
+          >
+            <X aria-hidden="true" size={13} strokeWidth={2} />
+          </button>
+          <p className="folder-callout-copy">
+            connect a notes folder — keeps your notes as plain files your backups and ai agents can read
+          </p>
+          <button className="folder-callout-action" type="button" onClick={onEnableMirror}>
+            choose folder
+          </button>
+        </div>
+      ) : null}
       <div className="rail-widgets">
         {leftWidgets.map((row) => (
           <WidgetShell key={row.id} row={row} context={context} />

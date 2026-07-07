@@ -16,11 +16,11 @@ every new tab is your notepad — one page per day. click anywhere and type.
 
 - [x] install tab pad
 - [ ] write your first note (seriously, just click and type)
+- [ ] connect a notes folder in settings, so backups (and your AI agent) can read your days
 - [ ] you're in focus mode — click the target by the date above to see your timeline
 - [ ] try privacy mode — the little lock in the top left scrambles everything
 - [ ] pick your color — the ⚙ settings, top left
 - [ ] press ⌘K and type "next friday"
-- [ ] connect a notes folder in settings, so backups (and your AI agent) can read your days
 `;
 
 const REVIEW_NOTE = `- [ ] enjoying tab pad? leave a review → [chrome web store](https://chromewebstore.google.com/detail/ffbbcmokfaloblceadooccdcmocdfdeo/reviews)
