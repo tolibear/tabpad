@@ -24,6 +24,7 @@ assert(windowEntries[0].key === "2026-07-06", "timeline must place farthest futu
 assert(windowEntries[2].key === "2026-07-04", "timeline must place tomorrow immediately above today");
 assert(windowEntries[3].key === "2026-07-03" && windowEntries[3].kind === "today", "today must sit after future dates");
 assert(requiredFutureCount(today, addDays(today, 9)) === 9, "future jump sizing must match day distance");
-assert(toggleTaskLine("- [ ] call", 0) === "- [x] call", "static task toggle must check unchecked tasks");
-assert(toggleTaskLine("- [x] call", 0) === "- [ ] call", "static task toggle must uncheck checked tasks");
+assert(toggleTaskLine("- [ ] call", 0) === "- [/] call", "static task toggle cycles open → in-progress");
+assert(toggleTaskLine("- [/] call", 0) === "- [x] call", "static task toggle cycles in-progress → done");
+assert(toggleTaskLine("- [x] call", 0) === "- [ ] call", "static task toggle cycles done → open");
 assert(dateKey(today) === "2026-07-03", "test sanity: date keys must remain local date strings");

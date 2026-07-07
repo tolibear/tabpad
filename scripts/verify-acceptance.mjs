@@ -469,16 +469,22 @@ async function main() {
     await wait(600);
     let taskSource = (await getDay(initial.todayKey))?.main ?? "";
     assert(taskSource.includes("- [ ] call max"), "A3: [] shortcut must create a markdown task.");
+    // tri-state cycle: one checkbox click marks the task in progress, a second marks it done.
     // scope to today: seeded onboarding notes on other days have checkboxes too
     await clickCenter(`document.querySelector(".day-section.today .cm-task-widget input")`);
     await wait(650);
     taskSource = (await getDay(initial.todayKey))?.main ?? "";
-    assert(taskSource.includes("- [x] call max"), "A3: clicking checkbox must update source to checked.");
-    assert(await evaluate(`!!document.querySelector(".cm-md-task-checked")`), "A3: checked task must use checked styling.");
+    assert(taskSource.includes("- [/] call max"), "A3: one checkbox click must move the task to in-progress.");
+    assert(await evaluate(`!!document.querySelector(".cm-md-task-progress")`), "A3: in-progress task must use progress styling.");
+    await clickCenter(`document.querySelector(".day-section.today .cm-task-widget input")`);
+    await wait(650);
+    taskSource = (await getDay(initial.todayKey))?.main ?? "";
+    assert(taskSource.includes("- [x] call max"), "A3: a second checkbox click must mark the task done.");
+    assert(await evaluate(`!!document.querySelector(".cm-md-task-checked")`), "A3: done task must use checked styling.");
     await modKey("z", "KeyZ");
     await wait(650);
     taskSource = (await getDay(initial.todayKey))?.main ?? "";
-    assert(taskSource.includes("- [ ] call max"), "A3: Cmd+Z must uncheck the task.");
+    assert(taskSource.includes("- [/] call max"), "A3: Cmd+Z must revert the last toggle back to in-progress.");
     evidence.checks.a3Task = { taskSource };
 
     await selectAllAndClear();
