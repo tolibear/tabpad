@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import { nextTaskMarker } from "../widgets/sources";
 
 const markdown = new MarkdownIt({ html: false, linkify: false, breaks: false });
 
@@ -26,12 +27,20 @@ interface StaticLineProps {
 }
 
 function StaticLine({ line, lineIndex, onToggle }: StaticLineProps) {
-  const task = /^(\s*)- \[([ xX])\]\s(.*)$/.exec(line);
+  const task = /^(\s*)- \[([ xX/])\]\s(.*)$/.exec(line);
   if (task) {
-    const checked = task[2].toLowerCase() === "x";
+    const state = task[2].toLowerCase();
+    const checked = state === "x";
+    const inProgress = state === "/";
+    const className = inProgress ? "static-task in-progress" : checked ? "static-task checked" : "static-task";
     return (
-      <div className={checked ? "static-task checked" : "static-task"} style={indentStyle(task[1])}>
-        <input type="checkbox" checked={checked} onChange={() => onToggle(lineIndex)} />
+      <div className={className} style={indentStyle(task[1])}>
+        <input
+          type="checkbox"
+          className={inProgress ? "static-task-progress" : undefined}
+          checked={checked}
+          onChange={() => onToggle(lineIndex)}
+        />
         <span dangerouslySetInnerHTML={{ __html: markdown.renderInline(task[3]) }} />
       </div>
     );
@@ -84,6 +93,6 @@ export function toggleTaskLine(source: string, lineIndex: number): string {
   const line = lines[lineIndex];
   if (!line) return source;
 
-  lines[lineIndex] = /^(\s*)- \[ \]/.test(line) ? line.replace(/^(\s*)- \[ \]/, "$1- [x]") : line.replace(/^(\s*)- \[[xX]\]/, "$1- [ ]");
+  lines[lineIndex] = line.replace(/^(\s*)- (\[[ xX/]\])/, (_full, indent: string, marker: string) => `${indent}- ${nextTaskMarker(marker.toLowerCase())}`);
   return lines.join("\n");
 }

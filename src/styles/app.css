@@ -1402,6 +1402,23 @@ body.link-modifier .cm-md-link * {
   text-decoration: line-through;
 }
 
+/* in-progress task text: medium-weight accent, no strikethrough (matches the editor) */
+.static-task.in-progress {
+  color: var(--accent);
+  font-weight: 550;
+}
+
+/* in-progress checkbox: accent-bordered box with a small filled square inside */
+.static-task input.static-task-progress {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1.5px solid var(--accent);
+  border-radius: 3px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) center / 6px 6px no-repeat,
+    var(--bg);
+}
+
 .static-day-shell {
   cursor: text;
 }

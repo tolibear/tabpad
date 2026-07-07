@@ -67,5 +67,7 @@ const livePreviewSource = readFileSync("src/editor/livePreview.ts", "utf8");
 assert(livePreviewSource.includes("cm-md-task-progress"), "livePreview classes in-progress task lines");
 const appCss = readFileSync("src/styles/app.css", "utf8");
 assert(appCss.includes("cm-md-task-progress") && appCss.includes("input.cm-task-progress"), "app.css styles in-progress task text and checkbox");
+const staticDaySource = readFileSync("src/timeline/StaticDay.tsx", "utf8");
+assert(staticDaySource.includes("nextTaskMarker"), "StaticDay must cycle task markers via nextTaskMarker");
 
 console.log("widgets verification passed");
