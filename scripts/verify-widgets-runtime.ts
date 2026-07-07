@@ -712,7 +712,8 @@ const erWidgets = erDir.dirs.get("widgets");
 assert(erWidgets?.files.get("erase-pad.md")?.text === "erase this secret", "widget content is mirrored to widgets/<id>.md");
 assert(erWidgets?.files.has("erase-pad.json"), "widget config is mirrored to widgets/<id>.json");
 await eraseAllNotes(); // clears db.panels (the widget:<id> content row)
-await eraseMirrorFiles(erDir.handle);
+const erFailures = await eraseMirrorFiles(erDir.handle);
+assert(erFailures === 0, "a clean erase reports zero failed removals");
 assert(!erWidgets!.files.has("erase-pad.md"), "erase removes the widget content .md");
 assert(erWidgets!.files.has("erase-pad.json"), "erase keeps the widget config .json");
 assert([...(erDir.dirs.get(".tabpad-trash")?.files.keys() ?? [])].some((n) => n.includes("erase-pad.md")), "erased widget content is trash-copied first");
@@ -730,9 +731,10 @@ lockedDir.handle.removeEntry = async (name: string) => {
   if (name === "2026-01-01.md") throw new Error("EBUSY: file is locked");
   await realRemove(name);
 };
-await eraseMirrorFiles(lockedDir.handle);
+const lockedFailures = await eraseMirrorFiles(lockedDir.handle);
 assert(lockedDir.files.has("2026-01-01.md"), "the locked file could not be removed (still present)");
 assert(!lockedDir.files.has("2026-01-02.md"), "erase still removed the other file despite the locked one");
+assert(lockedFailures === 1, "eraseMirrorFiles reports the one file it could not remove so the app warns instead of claiming a clean erase");
 
 await db.delete();
 console.log("runtime asserts passed");

@@ -1030,7 +1030,10 @@ export function App() {
       const handle = mirrorHandleRef.current;
       if (handle) {
         try {
-          await eraseMirrorFiles(handle);
+          // a non-zero count means some note files survived (locked/read-only);
+          // surface it so the user is warned they may come back, not told the
+          // erase was clean
+          if ((await eraseMirrorFiles(handle)) > 0) folderEraseFailed = true;
         } catch (error) {
           console.warn("Tab Pad folder erase failed", error);
           folderEraseFailed = true;

@@ -632,8 +632,14 @@ export async function syncWithDisk(
 // files can't resurrect the notes on the next sync. each file is copied to
 // .tabpad-trash/ first: the folder may hold external edits the app (and the
 // pre-erase JSON backup) never saw
-export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): Promise<void> {
-  if (!handle.values) return;
+// returns the number of files that could not be removed. erase stays
+// best-effort per file (one locked file must not abort the loop), but a
+// non-zero count is signalled back so the caller can warn the user "some files
+// may come back" instead of reporting a clean erase — a surviving note file
+// would silently resurrect on the next sync.
+export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): Promise<number> {
+  if (!handle.values) return 0;
+  let removeFailures = 0;
   const trashThenRemove = async (dir: FileSystemDirectoryHandleLike, name: string, segments: string[]) => {
     try {
       const disk = await readDiskFile(dir, name);
@@ -642,11 +648,13 @@ export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): P
       console.warn("Tab Pad pre-erase trash copy failed", error);
     }
     // erase is best-effort per file: one locked/undeletable file must not abort
-    // the loop and leave the rest of the user's notes on disk
+    // the loop and leave the rest of the user's notes on disk — but the failure
+    // is counted so the caller can surface it instead of claiming success
     try {
       await dir.removeEntry?.(name);
     } catch (error) {
       console.warn("Tab Pad erase remove failed", error);
+      removeFailures += 1;
     }
   };
 
@@ -691,6 +699,7 @@ export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): P
   } catch {
     // no widgets dir — nothing to erase
   }
+  return removeFailures;
 }
 
 // tabpad.json + AGENTS.md make the mirror folder self-describing for agents:
