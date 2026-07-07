@@ -2,13 +2,8 @@ import { Link2Off, Lock, LockOpen, Settings } from "lucide-react";
 import { useMemo } from "react";
 import type { DayRow, WidgetRow } from "../db/db";
 import { dateKey } from "../lib/dates";
-import type { MirrorStatus } from "../mirror/mirror";
+import type { MirrorStatus, WidgetFileIssue } from "../mirror/mirror";
 import { WidgetShell, type WidgetContext } from "../widgets/WidgetShell";
-
-export interface WidgetFileIssue {
-  file: string;
-  error: string;
-}
 
 interface RailProps {
   today: Date;

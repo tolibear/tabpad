@@ -344,6 +344,7 @@ Notes folder: \`<NOTES_FOLDER_PATH>\` (contains tabpad.json — verify it exists
 - \`YYYY-MM-DD.md\` — one file per day; create the file to write to any date, past or future
 - \`scratchpad.md\` — persistent notes and running lists
 - \`margins/YYYY-MM-DD.md\` — per-day side notes
+- \`widgets/<slug>.json\` — sidebar widgets (counters, to-do rollups, text notes — see AGENTS.md for the format)
 - \`tabpad.json\` — which surfaces are enabled (its \`today\` can be stale — compute today from the system clock)
 - \`AGENTS.md\` — the full contract, read it if unsure
 
