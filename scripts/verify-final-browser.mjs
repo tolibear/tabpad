@@ -233,10 +233,18 @@ async function stopChrome(session) {
 }
 
 async function firstDaybookPage() {
-  const targets = await fetchTargets();
-  const page = targets.find((target) => target.type === "page" && target.title === "Tab Pad")
-    ?? targets.find((target) => target.type === "page");
-  return connectPage(page);
+  // the DevTools endpoint comes up a beat before the extension's new-tab page
+  // registers as a target (more pronounced under new headless), so poll for a
+  // page target instead of grabbing the first fetch — otherwise we assert-fail
+  // on the empty window between endpoint-ready and page-created
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const targets = await fetchTargets();
+    const page = targets.find((target) => target.type === "page" && target.title === "Tab Pad")
+      ?? targets.find((target) => target.type === "page");
+    if (page?.webSocketDebuggerUrl) return connectPage(page);
+    await wait(250);
+  }
+  return connectPage(undefined); // exhausted: let connectPage throw the clear error
 }
 
 async function main() {
