@@ -596,6 +596,24 @@ export async function eraseMirrorFiles(handle: FileSystemDirectoryHandleLike): P
   } catch {
     // no margins dir — nothing to erase
   }
+  // each scratchpad widget's CONTENT lives in widgets/<id>.md — clear those too
+  // (a surviving .md would re-import erased private text on the next sync). the
+  // widgets/<id>.json config files are kept, per the "erase keeps the widget
+  // layout" decision — only the note content is erased.
+  try {
+    const widgetsDir = await handle.getDirectoryHandle(WIDGETS_DIR);
+    if (widgetsDir.values) {
+      const widgetMdNames: string[] = [];
+      for await (const entry of widgetsDir.values()) {
+        if (entry.kind === "file" && WIDGET_MD_FILE.test(entry.name)) widgetMdNames.push(entry.name);
+      }
+      for (const name of widgetMdNames) {
+        await trashThenRemove(widgetsDir, name, [WIDGETS_DIR, name]);
+      }
+    }
+  } catch {
+    // no widgets dir — nothing to erase
+  }
 }
 
 // tabpad.json + AGENTS.md make the mirror folder self-describing for agents:

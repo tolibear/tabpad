@@ -246,6 +246,7 @@ assert(widgetProblem({ type: "text", config: { content: "  " } })?.includes("no 
 
 // ---- widget mirror + sync ----
 import {
+  eraseMirrorFiles,
   parseWidgetFile,
   removeWidgetMirrorFile,
   serializeWidgetFile,
@@ -256,6 +257,7 @@ import {
   type WidgetFileIssue,
 } from "../src/mirror/mirror";
 import { getPanel, savePanel, scratchpadPanelId } from "../src/db/panels";
+import { eraseAllNotes, firstLineExcerpt } from "../src/db/days";
 
 // minimal in-memory FileSystemDirectoryHandleLike for sync tests
 interface FakeDir {
@@ -480,6 +482,27 @@ await ensureDefaultWidgets();
 const customTitle = await db.widgets.get("noted-days");
 assert(customTitle?.title === "my days" && customTitle.updatedAt === 7, "a custom noted-days title survives the rename migration untouched");
 
+// ---- #2/#5: widget teardown removes the paired widget:<id> panel ----
+// deleting a scratchpad widget must also drop its widget:<id> content row, or a
+// reused id / backup export resurrects the old private text (and it rides in
+// every export forever). the core scratchpad's plain "scratchpad" panel is
+// spared because its id is never "widget:scratchpad".
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+await savePanel("scratchpad", "core stays");
+await saveWidget({ id: "pad-del", type: "scratchpad", title: "pad", config: {}, order: 5, enabled: true, column: "right", updatedAt: Date.now() });
+await savePanel("widget:pad-del", "private content");
+assert((await getPanel("widget:pad-del")).content === "private content", "the widget's content is stored under widget:<id>");
+await deleteWidget("pad-del");
+assert((await getPanel("widget:pad-del")).content === "", "deleteWidget removes the paired widget:<id> panel row");
+await deleteWidget("scratchpad");
+assert((await getPanel("scratchpad")).content === "core stays", "deleting the core scratchpad widget spares its plain 'scratchpad' panel");
+// a non-scratchpad widget has no paired panel — deleting it is a harmless no-op
+await saveWidget({ id: "count-del", type: "counter", title: "c", config: {}, order: 6, enabled: true, column: "left", updatedAt: Date.now() });
+await deleteWidget("count-del");
+assert(!(await listWidgets()).some((w) => w.id === "count-del"), "a non-scratchpad widget still deletes cleanly");
+
 // ---- F4: multiple independent scratchpads ----
 await db.delete();
 await db.open();
@@ -544,6 +567,28 @@ const panelImport = await importPayload({
 assert(panelImport.panelsImported === 2, "both panel rows import");
 assert((await getPanel("widget:pad-x")).content === "widget text", "a widget:<id> panel round-trips through export/import");
 assert((await getPanel("scratchpad")).content === "core text", "the classic scratchpad panel still round-trips");
+
+// ---- #1: erase clears widgets/*.md content (keeps widgets/*.json config) ----
+// a surviving content file would re-import erased private text on the next sync,
+// so "erase all notes" must descend into widgets/ and clear the .md files too.
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+await saveWidget({ id: "erase-pad", type: "scratchpad", title: "pad", config: {}, order: 7, enabled: true, column: "right", updatedAt: Date.now() });
+await savePanel("widget:erase-pad", "erase this secret");
+const erDir = makeFakeDir();
+await writeFullMirror(erDir.handle);
+const erWidgets = erDir.dirs.get("widgets");
+assert(erWidgets?.files.get("erase-pad.md")?.text === "erase this secret", "widget content is mirrored to widgets/<id>.md");
+assert(erWidgets?.files.has("erase-pad.json"), "widget config is mirrored to widgets/<id>.json");
+await eraseAllNotes(); // clears db.panels (the widget:<id> content row)
+await eraseMirrorFiles(erDir.handle);
+assert(!erWidgets!.files.has("erase-pad.md"), "erase removes the widget content .md");
+assert(erWidgets!.files.has("erase-pad.json"), "erase keeps the widget config .json");
+assert([...(erDir.dirs.get(".tabpad-trash")?.files.keys() ?? [])].some((n) => n.includes("erase-pad.md")), "erased widget content is trash-copied first");
+// after erase + a reload sync, the erased content must NOT resurrect
+await syncWithDisk(erDir.handle, undefined, undefined, () => {});
+assert((await getPanel("widget:erase-pad")).content === "", "a custom scratchpad widget's content stays erased after reload");
 
 await db.delete();
 console.log("runtime asserts passed");

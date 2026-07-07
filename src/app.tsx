@@ -91,10 +91,14 @@ export function App() {
   const mirrorPanelTimers = useRef(new Map<PanelRow["id"], { timer: number; panel: PanelRow }>());
   const eraseGuardTimer = useRef(0);
   const queueMirrorDayRef = useRef<(row: DayRow | null) => void>(() => {});
+  const queueMirrorPanelRef = useRef<(panel: PanelRow) => void>(() => {});
   const queueMirrorWidgetsRef = useRef<() => void>(() => {});
   const syncMtimes = useRef(new Map<string, number>());
   const syncFailures = useRef(0);
   const syncChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  // serialize widget mutations so rapid move/toggle/delete/save can't interleave
+  // their read-modify-write steps and drop a change (same idiom as settings.ts)
+  const widgetSaveChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const erasingRef = useRef(false);
 
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => readThemePreference());
@@ -252,12 +256,19 @@ export function App() {
   }, [queueMirrorWidgets]);
 
   // every widget change: persist, refresh this tab, tell other tabs, mirror.
+  // serialized on a chain so two rapid changes (move then delete, toggle then
+  // save) can't interleave their persist steps and lose one another's write.
   const applyWidgetChange = useCallback(
-    async (change: () => Promise<void>) => {
-      await change();
-      await refreshWidgets();
-      channelRef.current?.post({ type: "widgets", key: "all", updatedAt: Date.now() });
-      queueMirrorWidgets();
+    (change: () => Promise<void>) => {
+      const run = async () => {
+        await change();
+        await refreshWidgets();
+        channelRef.current?.post({ type: "widgets", key: "all", updatedAt: Date.now() });
+        queueMirrorWidgets();
+      };
+      const result = widgetSaveChainRef.current.then(run, run);
+      widgetSaveChainRef.current = result.catch(() => undefined);
+      return result;
     },
     [queueMirrorWidgets, refreshWidgets],
   );
@@ -311,6 +322,15 @@ export function App() {
   const handleWidgetDelete = useCallback(
     (id: string) => {
       void applyWidgetChange(async () => {
+        // cancel any pending debounced flush of this widget's scratchpad panel
+        // before deleting — an in-flight flush would recreate an orphan
+        // widgets/<id>.md that the tombstone can no longer clean up
+        const panelId = scratchpadPanelId(id);
+        const pendingPanel = mirrorPanelTimers.current.get(panelId);
+        if (pendingPanel) {
+          window.clearTimeout(pendingPanel.timer);
+          mirrorPanelTimers.current.delete(panelId);
+        }
         const handle = mirrorHandleRef.current;
         if (handle && mirrorStatus === "connected") {
           await removeWidgetMirrorFile(handle, id).catch((error) =>
@@ -443,6 +463,10 @@ export function App() {
           setPanelTexts((current) =>
             focusedPanelRef.current === key ? current : { ...current, [key]: panel.content },
           );
+          // if this tab holds the folder connection, mirror the other tab's
+          // edit — otherwise a scratchpad edit made in another tab never
+          // reaches the folder (the day branch does the same)
+          queueMirrorPanelRef.current(panel);
         });
       }
       if (message.type === "settings") {
@@ -806,6 +830,10 @@ export function App() {
   useEffect(() => {
     queueMirrorDayRef.current = queueMirrorDay;
   }, [queueMirrorDay]);
+
+  useEffect(() => {
+    queueMirrorPanelRef.current = queueMirrorPanel;
+  }, [queueMirrorPanel]);
 
   const handleDayBlur = useCallback((key: string) => {
     void persistDay(key, true);

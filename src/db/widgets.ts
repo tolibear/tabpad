@@ -99,8 +99,15 @@ export async function clearWidgetTombstone(id: string): Promise<void> {
 }
 
 export async function deleteWidget(id: string): Promise<void> {
-  await db.transaction("rw", db.widgets, db.meta, async () => {
+  await db.transaction("rw", db.widgets, db.panels, db.meta, async () => {
     await db.widgets.delete(id);
+    // a non-core scratchpad widget's content lives in a `widget:<id>` panel row.
+    // remove it in the same transaction so a reused id (uniqueWidgetId only
+    // checks live widgets) or a backup export/import can't resurrect the old
+    // private text. the core scratchpad's panel is plain "scratchpad", never
+    // "widget:scratchpad", so this naturally spares it; non-scratchpad widgets
+    // simply have no such row and the delete is a harmless no-op.
+    await db.panels.delete(`widget:${id}`);
     const row = await db.meta.get(TOMBSTONES_ID);
     const tombstones = (row?.value ?? {}) as Record<string, number>;
     tombstones[id] = Date.now();
