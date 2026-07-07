@@ -626,6 +626,31 @@ await syncWithDisk(guardDir.handle, undefined, undefined, () => {});
 assert((await getPanel("scratchpad")).content === "core content stays", "a widgets/scratchpad.md never overwrites the core scratchpad panel");
 assert(guardWidgets!.files.get("scratchpad.md")?.text === "malicious overwrite", "the stray widgets/scratchpad.md is left untouched, not consumed");
 
+// B: a stale root scratchpad.md left after the CORE scratchpad widget was
+// deleted (deleted while the folder was disconnected, or a failed
+// removeScratchpadMirrorFile) must NOT re-import the erased content on the next
+// session's sync. the root scratchpad.md reconcile is tombstone-guarded like the
+// widget:<id> path: the stale file is removed and nothing is written back into
+// the core "scratchpad" panel.
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+await deleteWidget("scratchpad"); // tombstones "scratchpad", empties its panel
+const coreDelDir = makeFakeDir();
+// the file survived the delete (older than the tombstone → a stale leftover)
+coreDelDir.files.set("scratchpad.md", { text: "core secret that must stay erased", lastModified: Date.now() - 5_000 });
+await syncWithDisk(coreDelDir.handle, undefined, undefined, () => {});
+assert(!coreDelDir.files.has("scratchpad.md"), "a stale core scratchpad.md for a tombstoned scratchpad is removed, not imported");
+assert((await getPanel("scratchpad")).content === "", "a tombstoned core scratchpad is not resurrected from a stale scratchpad.md");
+// a future-dated (clock-skew) stale file must not beat the tombstone either
+await savePanel("scratchpad", "core content back"); // re-add clears the tombstone
+await saveWidget(CORE_WIDGETS.find((c) => c.id === "scratchpad")!);
+await deleteWidget("scratchpad");
+coreDelDir.files.set("scratchpad.md", { text: "core secret that must stay erased", lastModified: Date.now() + 10 * 365 * 24 * 60 * 60 * 1000 });
+await syncWithDisk(coreDelDir.handle, undefined, undefined, () => {});
+assert(!coreDelDir.files.has("scratchpad.md"), "a future-dated stale core scratchpad.md is still cleaned up, not imported");
+assert((await getPanel("scratchpad")).content === "", "a future-dated stale scratchpad.md does not resurrect the tombstoned core scratchpad");
+
 // C: a debounced panel flush that fires AFTER a widget delete must not recreate
 // the widget's content file. writePanelMirror is tombstone-aware: for a
 // tombstoned widget it removes any leftover file and writes nothing, closing the

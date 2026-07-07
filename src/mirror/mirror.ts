@@ -451,6 +451,19 @@ export async function syncWithDisk(
         if (skip().scratchpad) continue;
         const disk = await readIfChanged(handle, entry.name, entry.name);
         if (disk) {
+          // the core scratchpad's content mirrors here, but deleting the core
+          // scratchpad widget tombstones id "scratchpad" and empties its panel.
+          // a scratchpad.md left behind (deleted while the folder was
+          // disconnected, or a failed removeScratchpadMirrorFile) must NOT
+          // re-import the erased content via the updatedAt===0 branch below —
+          // remove the stale file and write nothing, mirroring the widget:<id>
+          // path. an untrusted FUTURE mtime is never proof of a post-delete
+          // re-create, so it's treated as stale too.
+          const deletedAt = (await readWidgetTombstones()).scratchpad;
+          if (deletedAt !== undefined && (disk.lastModified > Date.now() + 2000 || disk.lastModified <= deletedAt)) {
+            await removeScratchpadMirrorFile(handle);
+            continue;
+          }
           const panel = await getPanel("scratchpad");
           if (disk.text !== panel.content) {
             const now = Date.now();
