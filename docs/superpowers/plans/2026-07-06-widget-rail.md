@@ -21,6 +21,16 @@
 - Match existing code style: 2-space indent, double quotes, explanatory comments only where behavior is subtle, components + helpers colocated per file.
 - Every task ends with `npm run typecheck` and `npm run verify:widgets` green before commit.
 
+### Sync forward-compatibility (binding — see `docs/sync-architecture.md`)
+
+Tab Pad Sync (Phase 2 below) will replicate widgets as `space/default/widget/<id>/config` items. To keep this build sync-ready without building sync yet:
+
+- `WidgetRow.updatedAt` is the future sync stamp. Every mutation path MUST set it (the plan's code already does — preserve this in any deviation). Never remove or repurpose the field.
+- ALL widget deletion must funnel through `deleteWidget()` in `src/db/widgets.ts` — it is the single seam where Phase 2 adds tombstone recording. No other code path may call `db.widgets.delete` directly.
+- `order` lives inside each row (not a separate manifest). Accepted divergence from the sync review's manifest suggestion: concurrent reorders on two devices may interleave, but Task 6's clean-index rewrite heals them. Do not introduce a separate layout store.
+- Widget `config` must stay JSON-serializable data (already a constraint) — it becomes one encrypted envelope body verbatim.
+- Widgets currently derive all display data from notes (pure sources) — there is no `widget/<id>/state`. If a future widget type needs its own stored data, it gets a NEW row/table, never a mutation of `config` semantics.
+
 ---
 
 ### Task 1: DB schema, widget store, verify harness
@@ -2331,6 +2341,32 @@ Change the spec's `**Status:**` line to `implemented`. Commit:
 git add -A
 git commit -m "Widget rail: final verification pass"
 ```
+
+---
+
+## Phase 2 — Tab Pad Sync (outline; elaborate before executing)
+
+> Source of truth: `docs/sync-architecture.md` (the dumb-encrypted-mailbox plan + the accepted Codex GPT-5.5 xhigh review patches). These tasks are OUTLINE fidelity — before execution, each must be elaborated to the same failing-test-first, exact-code fidelity as Tasks 1–9, using the architecture doc's schema/envelope verbatim. The spec-freeze step (Task 10) exists precisely so the schema cannot drift once user data exists.
+>
+> Scope for this phase: **extension + web account page + Stripe only.** iOS/Android clients consume the same API later (StoreKit billing on iOS per the review — out of scope here).
+
+### Task 10: Spec freeze (docs only, blocks everything after it)
+Write `docs/sync-protocol.md` pinning, exactly: HLC stamp encoding (`physical_ms:logical:device_id`, comparison rules, clamp-to-now on receive), the canonical key namespace (`space/default/day/<date>/main`, `.../widget/<id>/config`, `.../settings/portable`, tombstone semantics), the ciphertext envelope JSON (fields from the architecture doc), the crypto design (random `data_key` + `index_key` wrapped by an Argon2id/PBKDF2 passphrase bundle; AES-GCM with AAD over `account_id, key_id, stamp, deleted, schema_major`; nonce policy; `crypto_key_id` rotation story), and the five endpoints with pagination (`/pair`, `/push` batch with per-item results, `/pull?since=&limit=&bucket=` incl. tombstones + `has_more`, `/head`, `/stripe-webhook`). Gate: the doc answers every "Where It Breaks" item in the Codex review.
+
+### Task 11: Worker + D1 skeleton (new `sync/` workspace)
+Cloudflare Worker + D1 migrations for `users`, `devices`, `subscriptions`, `sync_items` (columns per the architecture doc, incl. `deleted`, `server_seq`, `crypto_key_id`). Endpoints from Task 10 with the one server rule (newer HLC stamp wins), pagination, hashed device tokens. Verify: a `scripts/verify-sync-server.mjs` driving a local `wrangler dev` (or miniflare) through push/pull/tombstone/pagination cases.
+
+### Task 12: Client crypto + sync engine in the extension
+`src/sync/crypto.ts` (key bundle, wrap/unwrap, encrypt/decrypt envelope — WebCrypto only) and `src/sync/engine.ts`: outbound queue fed by the same seams that feed the folder mirror (day saves, panel saves, `applyWidgetChange`, `deleteWidget` tombstones), pull-before-push on reconnect, HLC stamping alongside (not replacing) the existing wall-clock fields, `.tabpad-trash`-equivalent local loser-versions. Poll cadence mirrors folder sync. Verify: fake-server round-trip tests in the verify harness — two simulated devices, offline queue replay, tombstone non-resurrection (the erase-races class of bug, cloud edition).
+
+### Task 13: Pairing + account UI
+Settings "sync" section (experimental tag, like "your agent"): pairing-code flow against tabpad.app (magic-link login page on the site), passphrase setup with the exact loss-consequences copy, device list + revoke, sync status line. Site: minimal account page (email, devices, plan).
+
+### Task 14: Stripe
+Checkout link ($4/mo, $40/yr), webhook → `subscription_active`, Customer Portal link from the account page. Lapse = sync pauses, nothing deleted.
+
+### Task 15: Sync final gate
+Two real browser profiles + one folder-connected instance: three-way merge soak (DB + folder + cloud), erase-all propagates as tombstones everywhere, subscription lapse/renew, all existing verify suites still green, and a fresh review round (the round-1-style adversarial pass) over `src/sync/` and the Worker before any real user data.
 
 ---
 
