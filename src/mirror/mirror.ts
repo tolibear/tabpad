@@ -565,7 +565,7 @@ and which surfaces are currently visible in the app.
 
 ## Sidebar widgets
 
-\`widgets/<slug>.json\` — each file is one widget in the app's left sidebar
+\`widgets/<slug>.json\` — each file is one widget in the app sidebar
 (slug: lowercase letters, digits, hyphens). Create or edit these files to add
 or change widgets; changes appear live like notes.
 
@@ -575,9 +575,14 @@ or change widgets; changes appear live like notes.
   "title": "writing streak",
   "enabled": true,
   "order": 2,
+  "column": "left",
   "config": { "source": "streak", "format": "{n} day streak" }
 }
 \`\`\`
+
+\`column\` places the widget in the left or right rail: \`"left"\` (default) or
+\`"right"\`; missing or invalid values fall back to \`"left"\`. \`order\` is the
+position within that column.
 
 Types and their config:
 - \`calendar\` — mini month calendar. config: {}
@@ -585,14 +590,14 @@ Types and their config:
 - \`counter\` — one number. config: { "source": "noted-days"|"streak"|"open-tasks"|"words-today"|"words-total", "format": "text with {n}" }
 - \`task-rollup\` — open \`- [ ]\` lines from recent days. config: { "days": 1-90, "limit": 1-100 }
 - \`text\` — fixed text. config: { "content": "..." }
+- \`scratchpad\` — the persistent scratchpad editor (backed by \`scratchpad.md\`). config: { "height": "full"|"fixed", "maxHeight": 160-1200 (px, used when fixed) }
 
 Unknown fields are preserved as-is (never strip them — older and newer app
-versions share these files). \`column\` is reserved for a future two-rail
-layout: omit it, or set \`"left"\` (default) or \`"right"\`.
+versions share these files).
 
 Rules:
-- \`calendar\` and \`noted-days\` are built-in: retitle, reorder, or disable
-  them, but keep their type.
+- \`calendar\`, \`noted-days\`, and \`scratchpad\` are built-in: retitle,
+  reorder, recolumn, or disable them, but keep their type.
 - To hide a widget set \`"enabled": false\` — deleting the file does NOT
   remove it (the app recreates the file).
 - Lower \`order\` = higher in the sidebar. Widgets are data only — no code.
