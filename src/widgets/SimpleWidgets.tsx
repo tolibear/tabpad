@@ -27,7 +27,7 @@ export function TaskRollupWidget({ row, context }: { row: WidgetRow; context: Wi
             key={`${task.date}-${index}`}
             type="button"
             onClick={() => {
-              if (date) context.onJumpToDate(date);
+              if (date) context.onJumpToDate(date, { taskText: task.text });
             }}
           >
             <span className="noted-date">{date ? shortDate(date) : task.date}</span>

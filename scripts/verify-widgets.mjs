@@ -47,6 +47,13 @@ assert(broadcastSource.includes('type: "widgets"'), "broadcast union must carry 
 const overlay = readFileSync("src/settings/SettingsOverlay.tsx", "utf8");
 assert(overlay.includes("WidgetSettings"), "settings must render the widget manager");
 
+const widgetSettings = readFileSync("src/settings/WidgetSettings.tsx", "utf8");
+assert(widgetSettings.includes("left sidebar"), "WidgetSettings must show a 'left sidebar' section");
+assert(widgetSettings.includes("right sidebar"), "WidgetSettings must show a 'right sidebar' section");
+
+const timelineSource = readFileSync("src/timeline/Timeline.tsx", "utf8");
+assert(timelineSource.includes("task-line-highlight"), "Timeline must highlight the jumped-to task line");
+
 const mirrorSource = readFileSync("src/mirror/mirror.ts", "utf8");
 assert(mirrorSource.includes("Sidebar widgets"), "AGENTS.md guide must document widgets");
 assert(mirrorSource.includes("widgets/<slug>.json"), "tabpad.json manifest must name the widget files");

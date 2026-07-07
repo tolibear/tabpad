@@ -22,7 +22,9 @@ export interface WidgetContext {
   weekStartsOn: 0 | 1;
   currentTopKey: string;
   privacyMode: boolean;
-  onJumpToDate: (date: Date) => void;
+  // task-rollup passes the clicked to-do's text so the timeline can highlight
+  // the matching line once the jump lands
+  onJumpToDate: (date: Date, options?: { taskText?: string }) => void;
   scratchpadFor: (widgetId: string) => ScratchpadContext;
 }
 

@@ -730,6 +730,24 @@ body.link-modifier .cm-md-link * {
   gap: 6px;
 }
 
+.widget-column-group {
+  display: grid;
+  gap: 6px;
+}
+
+.widget-column-heading {
+  margin: 0;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.widget-column-empty {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12px;
+}
+
 .mode-choice {
   display: grid;
   gap: 2px;
@@ -1000,6 +1018,16 @@ body.link-modifier .cm-md-link * {
 
 .day-section.jump-highlight {
   background: var(--accent-soft);
+}
+
+/* the specific to-do line a task-rollup click landed on — a brief line-level
+   flash inside the already-highlighted day (works for live .cm-line and the
+   static-day line elements alike) */
+.task-line-highlight {
+  border-radius: 4px;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  transition: background-color 180ms ease, box-shadow 180ms ease;
 }
 
 .day-header {

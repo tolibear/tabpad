@@ -45,63 +45,81 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
     setDraft(null);
   };
 
+  const leftWidgets = widgets.filter((row) => sanitizeColumn(row.column) === "left");
+  const rightWidgets = widgets.filter((row) => sanitizeColumn(row.column) === "right");
+
+  const renderRow = (row: WidgetRow, index: number, list: WidgetRow[]) => (
+    <div className="widget-row" key={row.id}>
+      <button
+        className={row.enabled ? "mode-choice selected widget-choice" : "mode-choice widget-choice"}
+        type="button"
+        role="switch"
+        aria-checked={row.enabled}
+        onClick={() => onToggle(row.id, !row.enabled)}
+      >
+        <span className="mode-row">
+          {row.title || widgetRegistry[row.type]?.label || row.type}
+          <span className={row.enabled ? "mode-switch on" : "mode-switch"} aria-hidden="true" />
+        </span>
+        <small>{widgetRegistry[row.type]?.label ?? row.type}</small>
+      </button>
+      <div className="widget-row-actions">
+        <button
+          className="icon-button ghost"
+          type="button"
+          aria-label={`move ${row.id} up`}
+          disabled={index === 0}
+          onClick={() => onMove(row.id, -1)}
+        >
+          <ChevronUp aria-hidden="true" size={14} strokeWidth={1.8} />
+        </button>
+        <button
+          className="icon-button ghost"
+          type="button"
+          aria-label={`move ${row.id} down`}
+          disabled={index === list.length - 1}
+          onClick={() => onMove(row.id, 1)}
+        >
+          <ChevronDown aria-hidden="true" size={14} strokeWidth={1.8} />
+        </button>
+        <button
+          className="icon-button ghost"
+          type="button"
+          aria-label={`edit ${row.id}`}
+          onClick={() => setDraft({ id: row.id, type: row.type, title: row.title, column: sanitizeColumn(row.column), config: { ...row.config } })}
+        >
+          <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
+        </button>
+        <button
+          className="icon-button ghost"
+          type="button"
+          aria-label={`delete ${row.id}`}
+          onClick={() => onDelete(row.id)}
+        >
+          <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <section className="settings-section" aria-label="sidebar">
       <h3>sidebar</h3>
-      <div className="mode-list">
-        {widgets.map((row, index) => (
-          <div className="widget-row" key={row.id}>
-            <button
-              className={row.enabled ? "mode-choice selected widget-choice" : "mode-choice widget-choice"}
-              type="button"
-              role="switch"
-              aria-checked={row.enabled}
-              onClick={() => onToggle(row.id, !row.enabled)}
-            >
-              <span className="mode-row">
-                {row.title || widgetRegistry[row.type]?.label || row.type}
-                <span className={row.enabled ? "mode-switch on" : "mode-switch"} aria-hidden="true" />
-              </span>
-              <small>{widgetRegistry[row.type]?.label ?? row.type}</small>
-            </button>
-            <div className="widget-row-actions">
-              <button
-                className="icon-button ghost"
-                type="button"
-                aria-label={`move ${row.id} up`}
-                disabled={index === 0}
-                onClick={() => onMove(row.id, -1)}
-              >
-                <ChevronUp aria-hidden="true" size={14} strokeWidth={1.8} />
-              </button>
-              <button
-                className="icon-button ghost"
-                type="button"
-                aria-label={`move ${row.id} down`}
-                disabled={index === widgets.length - 1}
-                onClick={() => onMove(row.id, 1)}
-              >
-                <ChevronDown aria-hidden="true" size={14} strokeWidth={1.8} />
-              </button>
-              <button
-                className="icon-button ghost"
-                type="button"
-                aria-label={`edit ${row.id}`}
-                onClick={() => setDraft({ id: row.id, type: row.type, title: row.title, column: sanitizeColumn(row.column), config: { ...row.config } })}
-              >
-                <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
-              </button>
-              <button
-                className="icon-button ghost"
-                type="button"
-                aria-label={`delete ${row.id}`}
-                onClick={() => onDelete(row.id)}
-              >
-                <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="widget-column-group">
+        <h4 className="widget-column-heading">left sidebar</h4>
+        {leftWidgets.length ? (
+          <div className="mode-list">{leftWidgets.map((row, index) => renderRow(row, index, leftWidgets))}</div>
+        ) : (
+          <p className="widget-column-empty">no widgets in this column</p>
+        )}
+      </div>
+      <div className="widget-column-group">
+        <h4 className="widget-column-heading">right sidebar</h4>
+        {rightWidgets.length ? (
+          <div className="mode-list">{rightWidgets.map((row, index) => renderRow(row, index, rightWidgets))}</div>
+        ) : (
+          <p className="widget-column-empty">no widgets in this column</p>
+        )}
       </div>
 
       {draft ? (

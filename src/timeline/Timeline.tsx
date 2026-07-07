@@ -10,6 +10,9 @@ import { buildTimelineWindow, requiredFutureCount, requiredPastCount, type Timel
 export interface JumpTarget {
   date: Date;
   id: number;
+  // when the jump came from a task-rollup row, the clicked to-do's text — the
+  // matching line in the landed day gets a brief highlight
+  taskText?: string;
 }
 
 const INITIAL_FUTURE = 7;
@@ -70,6 +73,9 @@ export const Timeline = memo(function Timeline({
   const jumpScrollActive = useRef(false);
   const highlightedNode = useRef<HTMLElement | null>(null);
   const highlightTimer = useRef(0);
+  const pendingJumpText = useRef<string | null>(null);
+  const highlightedLine = useRef<HTMLElement | null>(null);
+  const lineHighlightTimer = useRef(0);
   const lastTopKey = useRef<string | null>(null);
 
   // keep entry object identity stable across window extensions so memoized
@@ -260,6 +266,7 @@ export const Timeline = memo(function Timeline({
     setFutureCount((count) => Math.max(count, neededFuture + 7));
     setPastCount((count) => Math.max(count, neededPast + 7));
     pendingJumpKey.current = key;
+    pendingJumpText.current = jumpTarget.taskText ?? null;
     setJumpTick((tick) => tick + 1);
   }, [jumpTarget, today]);
 
@@ -287,6 +294,29 @@ export const Timeline = memo(function Timeline({
       if (highlightedNode.current === node) highlightedNode.current = null;
     }, 900);
     pendingJumpKey.current = null;
+
+    // task-rollup jumps also highlight the specific to-do: find the first line
+    // in this day (live .cm-line, or a static-rendering line for a far day)
+    // whose text contains the clicked to-do and flash it with the same timing
+    const taskText = pendingJumpText.current;
+    pendingJumpText.current = null;
+    if (highlightedLine.current) {
+      highlightedLine.current.classList.remove("task-line-highlight");
+      highlightedLine.current = null;
+    }
+    window.clearTimeout(lineHighlightTimer.current);
+    if (taskText) {
+      const lines = node.querySelectorAll<HTMLElement>(".cm-line, .static-task, .static-line, .static-bullet");
+      const line = Array.from(lines).find((el) => (el.textContent ?? "").includes(taskText));
+      if (line) {
+        line.classList.add("task-line-highlight");
+        highlightedLine.current = line;
+        lineHighlightTimer.current = window.setTimeout(() => {
+          line.classList.remove("task-line-highlight");
+          if (highlightedLine.current === line) highlightedLine.current = null;
+        }, 900);
+      }
+    }
 
     // release the extend-future guard once the smooth scroll settles
     let settleTimer = 0;

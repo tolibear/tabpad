@@ -286,8 +286,16 @@ export function App() {
       void applyWidgetChange(async () => {
         const rows = await listWidgets();
         const index = rows.findIndex((w) => w.id === id);
-        const target = index + direction;
-        if (index < 0 || target < 0 || target >= rows.length) return;
+        if (index < 0) return;
+        // settings shows one list per column, so up/down swaps with the nearest
+        // neighbor in the SAME column — skip past widgets in the other column so
+        // the click never dead-ends on a cross-column adjacency
+        const column = sanitizeColumn(rows[index].column);
+        let target = index + direction;
+        while (target >= 0 && target < rows.length && sanitizeColumn(rows[target].column) !== column) {
+          target += direction;
+        }
+        if (target < 0 || target >= rows.length) return;
         const reordered = [...rows];
         [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
         const now = Date.now();
@@ -1099,7 +1107,7 @@ export function App() {
     }
   };
 
-  const jumpToDate = useCallback((date: Date) => {
+  const jumpToDate = useCallback((date: Date, options?: { taskText?: string }) => {
     if (!Number.isFinite(date.getTime())) return;
     // cap jumps at ±10 years — an extreme date would mount one DOM section per
     // day between here and there and hang the tab
@@ -1107,7 +1115,7 @@ export function App() {
     const clamped = Math.abs(distance) > 3650 ? addDays(today, Math.sign(distance) * 3650) : date;
     // any jump leaves focus mode — the target would otherwise be hidden
     setFocusDayKey(null);
-    setJumpTarget({ date: clamped, id: Date.now() });
+    setJumpTarget({ date: clamped, id: Date.now(), taskText: options?.taskText });
   }, [today]);
 
   // the Timeline restores the scroll position to this day itself on exit
