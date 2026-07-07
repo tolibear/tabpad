@@ -103,7 +103,9 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
                 >
                   <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
                 </button>
-              ) : null}
+              ) : (
+                <span className="widget-builtin-tag">built-in</span>
+              )}
             </div>
           </div>
         ))}

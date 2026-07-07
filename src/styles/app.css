@@ -319,7 +319,9 @@
 }
 
 .noted-row {
-  display: grid;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
   border-radius: 7px;
   padding: 8px;
@@ -332,12 +334,16 @@
 }
 
 .noted-date {
+  flex: none;
   color: var(--muted);
   font-size: 12px;
   font-weight: 620;
+  white-space: nowrap;
 }
 
 .noted-excerpt {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   color: var(--faint);
   font-size: 12px;
@@ -760,6 +766,18 @@ body.link-modifier .cm-md-link * {
 .widget-form-actions {
   display: flex;
   gap: 8px;
+}
+
+.widget-form-actions .data-button {
+  padding: 0 12px;
+}
+
+.widget-builtin-tag {
+  align-self: center;
+  padding: 0 6px;
+  color: var(--faint);
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .shortcut-list {

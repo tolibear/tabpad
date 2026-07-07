@@ -153,6 +153,25 @@ assert(computeSource("words-today", input) > 0 && computeSource("words-total", i
 assert(isSourceId("streak") && !isSourceId("nope"), "isSourceId guards the union");
 assert(sourceOptions.length === 5, "five sources are exposed to the settings form");
 
+// noted-days excerpt: prefer the first markdown heading among the first 5
+// non-empty lines; otherwise the first non-empty line, markdown stripped
+const headingInput: WidgetDataInput = {
+  today: new Date(2026, 6, 6),
+  todayKey: "2026-07-06",
+  todayText: "",
+  contentDays: [
+    day("2026-06-01", "intro line\n## the real title\nmore below"),
+    day("2026-06-02", "l1\nl2\nl3\nl4\nl5\n# too late"),
+    day("2026-06-03", "just a plain first line\nsecond line"),
+    day("2026-06-04", "", "margin only here"),
+  ],
+};
+const headingRows = notedDayRows(headingInput);
+assert(headingRows.find((r) => r.date === "2026-06-01")?.excerpt === "the real title", "a heading within the first 5 non-empty lines wins the excerpt");
+assert(headingRows.find((r) => r.date === "2026-06-02")?.excerpt === "l1", "a heading after the 5th non-empty line does not win — the first line stands");
+assert(headingRows.find((r) => r.date === "2026-06-03")?.excerpt === "just a plain first line", "no heading falls back to the first non-empty line");
+assert(headingRows.find((r) => r.date === "2026-06-04")?.excerpt === "margin only here", "a margin-only day keeps its margin excerpt");
+
 // ---- registry + sanitizers ----
 import {
   isWidgetType,

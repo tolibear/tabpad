@@ -42,6 +42,19 @@ export function contentDateKeys(input: WidgetDataInput): Set<string> {
   return new Set(collectDays(input).keys());
 }
 
+// prefer the first markdown heading among the first 5 non-empty lines —
+// notes often lead with a stray word before their real title — else the
+// plain first-line excerpt. markdown is stripped either way.
+function headingFirstExcerpt(text: string): string {
+  const nonEmpty: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (line.trim()) nonEmpty.push(line);
+    if (nonEmpty.length >= 5) break;
+  }
+  const heading = nonEmpty.find((line) => /^#{1,6}\s+/.test(line.trim()));
+  return firstLineExcerpt(heading ?? text);
+}
+
 export function notedDayRows(
   input: WidgetDataInput,
   limit = 50,
@@ -49,7 +62,7 @@ export function notedDayRows(
 ): Array<{ date: string; excerpt: string }> {
   const rows = Array.from(collectDays(input).entries()).map(([date, { main, margin }]) => ({
     date,
-    excerpt: firstLineExcerpt(main || margin) || (date === input.todayKey ? "today" : "margin note"),
+    excerpt: headingFirstExcerpt(main || margin) || (date === input.todayKey ? "today" : "margin note"),
   }));
   rows.sort((a, b) => (order === "newest" ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)));
   return rows.slice(0, limit);
