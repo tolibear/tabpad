@@ -29,7 +29,7 @@ assert(widgets.find((w) => w.id === "noted-days")?.type === "day-list", "noted-d
 assert(widgets.find((w) => w.id === "scratchpad")?.type === "scratchpad", "scratchpad seeds as the sixth type");
 assert(widgets.every((w) => w.enabled), "core widgets must seed enabled");
 assert(widgets.every((w) => w.updatedAt === 0), "seeds must stamp updatedAt 0 so any disk copy wins the first merge");
-assert(widgets.find((w) => w.id === "noted-days")?.title === "noted days", "noted-days must keep its heading");
+assert(widgets.find((w) => w.id === "noted-days")?.title === "days with notes", "noted-days seeds with its renamed heading");
 assert(widgets.find((w) => w.id === "calendar")?.column === "left", "calendar seeds into the left column");
 assert(widgets.find((w) => w.id === "noted-days")?.column === "left", "noted-days seeds into the left column");
 assert(widgets.find((w) => w.id === "scratchpad")?.column === "right", "scratchpad seeds into the right column");
@@ -83,13 +83,19 @@ widgets = await listWidgets();
 assert(widgets.length === 4 && widgets[widgets.length - 1].id === "streak", "listWidgets must sort ascending by order");
 
 assert(isCoreWidget("calendar") && isCoreWidget("noted-days") && !isCoreWidget("streak"), "core ids are fixed");
-let coreDeleteThrew = false;
-try {
-  await deleteWidget("calendar");
-} catch {
-  coreDeleteThrew = true;
-}
-assert(coreDeleteThrew, "deleting a core widget must throw");
+
+// F2: core widgets are now deletable — a core delete tombstones like any row
+await deleteWidget("calendar");
+assert(!(await listWidgets()).some((w) => w.id === "calendar"), "a core widget can now be deleted");
+assert((await readWidgetTombstones()).calendar > 0, "deleting a core widget leaves a tombstone");
+// reseed must respect the tombstone: a deleted core stays deleted on reload
+await ensureDefaultWidgets();
+assert(!(await listWidgets()).some((w) => w.id === "calendar"), "ensureDefaultWidgets must not resurrect a tombstoned core widget");
+// re-saving (or re-adding) clears the tombstone; restore calendar for the
+// mirror tests further down, which expect the core files to exist
+await saveWidget(CORE_WIDGETS.find((c) => c.id === "calendar")!);
+assert(!("calendar" in (await readWidgetTombstones())), "re-saving a core id clears its tombstone");
+
 await deleteWidget("streak");
 assert((await listWidgets()).length === 3, "deleteWidget must remove custom rows");
 assert((await readWidgetTombstones()).streak > 0, "deleteWidget must leave a tombstone");
@@ -431,6 +437,24 @@ const legacyImport = await importPayload({
 });
 assert(legacyImport.widgetsImported === 1, "a legacy row without column still imports");
 assert((await listWidgets()).find((w) => w.id === "legacy-col")?.column === "left", "an imported legacy row lands in the left column");
+
+// ---- F6 rename migration ----
+// a noted-days row still on the OLD default title migrates to the new one;
+// a user-customized title is left untouched
+await db.delete();
+await db.open();
+await db.widgets.put({ id: "noted-days", type: "day-list", title: "noted days", config: {}, order: 1, enabled: true, column: "left", updatedAt: 7 } as never);
+await ensureDefaultWidgets();
+const migrated = await db.widgets.get("noted-days");
+assert(migrated?.title === "days with notes", "the old default 'noted days' title migrates to 'days with notes'");
+assert(migrated!.updatedAt > 7, "the rename migration stamps a fresh updatedAt");
+
+await db.delete();
+await db.open();
+await db.widgets.put({ id: "noted-days", type: "day-list", title: "my days", config: {}, order: 1, enabled: true, column: "left", updatedAt: 7 } as never);
+await ensureDefaultWidgets();
+const customTitle = await db.widgets.get("noted-days");
+assert(customTitle?.title === "my days" && customTitle.updatedAt === 7, "a custom noted-days title survives the rename migration untouched");
 
 await db.delete();
 console.log("runtime asserts passed");

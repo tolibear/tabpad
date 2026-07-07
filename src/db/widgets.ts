@@ -8,7 +8,7 @@ import { getSettings } from "./settings";
 // replacing the old fixed right panel.
 export const CORE_WIDGETS: WidgetRow[] = [
   { id: "calendar", type: "calendar", title: "", config: {}, order: 0, enabled: true, column: "left", updatedAt: 0 },
-  { id: "noted-days", type: "day-list", title: "noted days", config: {}, order: 1, enabled: true, column: "left", updatedAt: 0 },
+  { id: "noted-days", type: "day-list", title: "days with notes", config: {}, order: 1, enabled: true, column: "left", updatedAt: 0 },
   { id: "scratchpad", type: "scratchpad", title: "scratchpad", config: {}, order: 0, enabled: true, column: "right", updatedAt: 0 },
 ];
 
@@ -26,7 +26,9 @@ export function isCoreWidget(id: string): boolean {
 }
 
 // seed core widgets that have NO row at all — first run, or a core widget
-// added by an app update. never touches rows the user has edited or disabled
+// added by an app update. never touches rows the user has edited or disabled,
+// and never resurrects a core widget the user deleted (a live tombstone blocks
+// reseeding, the same signal that stops a stale mirror file from restoring it)
 export async function ensureDefaultWidgets(): Promise<void> {
   // one-time carry-over: the scratchpad used to be a settings toggle. when its
   // widget row is first seeded, inherit the user's legacy settings.scratchpad
@@ -35,13 +37,24 @@ export async function ensureDefaultWidgets(): Promise<void> {
   // rw block below doesn't scope) and only when the row is actually missing.
   const scratchpadMissing = !(await db.widgets.get("scratchpad"));
   const legacyScratchpadEnabled = scratchpadMissing ? (await getSettings()).scratchpad : true;
+  // read tombstones outside the transaction too — readWidgetTombstones touches
+  // db.meta, which the widgets-only rw block below doesn't scope
+  const tombstones = await readWidgetTombstones();
   await db.transaction("rw", db.widgets, async () => {
     for (const core of CORE_WIDGETS) {
       const existing = await db.widgets.get(core.id);
       if (!existing) {
+        if (core.id in tombstones) continue; // deleted cores stay deleted
         const enabled = core.id === "scratchpad" ? legacyScratchpadEnabled : core.enabled;
         await db.widgets.put({ ...core, enabled });
       }
+    }
+    // one-time rename: the day list's heading was "noted days". an install that
+    // never customized it moves to "days with notes" with a normal edit stamp;
+    // a user-chosen title is left untouched
+    const notedDays = await db.widgets.get("noted-days");
+    if (notedDays && notedDays.title === "noted days") {
+      await db.widgets.put({ ...notedDays, title: "days with notes", updatedAt: Date.now() });
     }
     // one-time field backfill: rows written before `column` existed gain
     // "left" without touching updatedAt — this is a format fill, not a user
@@ -86,7 +99,6 @@ export async function clearWidgetTombstone(id: string): Promise<void> {
 }
 
 export async function deleteWidget(id: string): Promise<void> {
-  if (isCoreWidget(id)) throw new Error(`core widget "${id}" cannot be deleted`);
   await db.transaction("rw", db.widgets, db.meta, async () => {
     await db.widgets.delete(id);
     const row = await db.meta.get(TOMBSTONES_ID);

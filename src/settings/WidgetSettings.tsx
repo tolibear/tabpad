@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { WidgetRow, WidgetType } from "../db/db";
-import { isCoreWidget, sanitizeColumn, WIDGET_ID_PATTERN } from "../db/widgets";
+import { sanitizeColumn, WIDGET_ID_PATTERN } from "../db/widgets";
 import { columnField, widgetRegistry, widgetTypes, type WidgetField } from "../widgets/registry";
 
 interface WidgetSettingsProps {
@@ -62,10 +62,7 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
                 {row.title || widgetRegistry[row.type]?.label || row.type}
                 <span className={row.enabled ? "mode-switch on" : "mode-switch"} aria-hidden="true" />
               </span>
-              <small>
-                {widgetRegistry[row.type]?.label ?? row.type}
-                {isCoreWidget(row.id) ? " · built-in" : ""}
-              </small>
+              <small>{widgetRegistry[row.type]?.label ?? row.type}</small>
             </button>
             <div className="widget-row-actions">
               <button
@@ -94,18 +91,14 @@ export function WidgetSettings({ widgets, onToggle, onMove, onDelete, onSave }: 
               >
                 <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
               </button>
-              {!isCoreWidget(row.id) ? (
-                <button
-                  className="icon-button ghost"
-                  type="button"
-                  aria-label={`delete ${row.id}`}
-                  onClick={() => onDelete(row.id)}
-                >
-                  <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
-                </button>
-              ) : (
-                <span className="widget-builtin-tag">built-in</span>
-              )}
+              <button
+                className="icon-button ghost"
+                type="button"
+                aria-label={`delete ${row.id}`}
+                onClick={() => onDelete(row.id)}
+              >
+                <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
+              </button>
             </div>
           </div>
         ))}

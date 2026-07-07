@@ -828,14 +828,6 @@ body.link-modifier .cm-md-link * {
   padding: 0 12px;
 }
 
-.widget-builtin-tag {
-  align-self: center;
-  padding: 0 6px;
-  color: var(--faint);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
 .shortcut-list {
   display: grid;
   gap: 7px;

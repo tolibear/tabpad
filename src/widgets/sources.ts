@@ -15,7 +15,7 @@ export type SourceId = "noted-days" | "streak" | "open-tasks" | "words-today" | 
 
 export const sourceOptions: Array<{ value: SourceId; label: string }> = [
   { value: "noted-days", label: "days with notes" },
-  { value: "streak", label: "consecutive noted days" },
+  { value: "streak", label: "consecutive days with notes" },
   { value: "open-tasks", label: "open to-dos" },
   { value: "words-today", label: "words today" },
   { value: "words-total", label: "words all time" },

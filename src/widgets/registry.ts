@@ -43,7 +43,7 @@ export const widgetRegistry: Record<WidgetType, WidgetDefinition> = {
   calendar: {
     type: "calendar",
     label: "calendar",
-    description: "mini month calendar — noted days marked, click to jump",
+    description: "mini month calendar — days with notes marked, click to jump",
     defaultConfig: {},
     fields: [],
   },
