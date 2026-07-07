@@ -117,5 +117,41 @@ assert(computeSource("words-today", input) > 0 && computeSource("words-total", i
 assert(isSourceId("streak") && !isSourceId("nope"), "isSourceId guards the union");
 assert(sourceOptions.length === 5, "five sources are exposed to the settings form");
 
+// ---- registry + sanitizers ----
+import {
+  isWidgetType,
+  sanitizeCounterConfig,
+  sanitizeDayListConfig,
+  sanitizeTaskRollupConfig,
+  sanitizeTextConfig,
+  sanitizeWidgetConfig,
+  widgetProblem,
+  widgetRegistry,
+  widgetTypes,
+} from "../src/widgets/registry";
+
+assert(widgetTypes.length === 5 && isWidgetType("task-rollup") && !isWidgetType("iframe"), "exactly five declarative types");
+assert(Object.keys(widgetRegistry).length === 5, "registry covers every type");
+for (const type of widgetTypes) {
+  assert(widgetRegistry[type].label.length > 0 && widgetRegistry[type].description.length > 0, `registry entry for ${type} must be presentable`);
+}
+
+assert(sanitizeDayListConfig({}).limit === 50 && sanitizeDayListConfig({}).order === "newest", "day-list defaults");
+assert(sanitizeDayListConfig({ limit: 9999, order: "oldest" }).limit === 200, "day-list limit clamps to 200");
+assert(sanitizeDayListConfig({ limit: "abc" }).limit === 50, "non-numeric limit falls back");
+
+assert(sanitizeCounterConfig({}).source === "streak" && sanitizeCounterConfig({}).format === "{n}", "counter defaults");
+assert(sanitizeCounterConfig({ source: "bogus", format: "" }).source === "streak", "unknown source falls back");
+
+assert(sanitizeTaskRollupConfig({ days: 0 }).days === 1 && sanitizeTaskRollupConfig({ days: 500 }).days === 90, "task-rollup days clamp 1–90");
+assert(sanitizeTextConfig({ content: 42 }).content === "", "non-string text content falls back to empty");
+
+assert(sanitizeWidgetConfig("calendar", { junk: 1 }).junk === undefined, "calendar config is always empty");
+assert((sanitizeWidgetConfig("counter", { source: "open-tasks" }) as { source: string }).source === "open-tasks", "sanitizeWidgetConfig dispatches per type");
+
+assert(widgetProblem({ type: "counter", config: {} }) === null, "counter with defaults renders");
+assert(widgetProblem({ type: "iframe" as never, config: {} })?.includes("unknown widget type"), "unknown type is a named problem");
+assert(widgetProblem({ type: "text", config: { content: "  " } })?.includes("no content"), "empty text widget is a named problem");
+
 await db.delete();
 console.log("runtime asserts passed");
