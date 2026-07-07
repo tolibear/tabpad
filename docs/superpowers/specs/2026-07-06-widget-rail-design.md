@@ -1,7 +1,7 @@
 # Widget Rail — design spec
 
 **Date:** 2026-07-06
-**Status:** approved direction, pending plan review
+**Status:** implemented
 
 ## Summary
 
