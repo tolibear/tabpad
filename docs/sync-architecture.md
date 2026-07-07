@@ -51,6 +51,14 @@ Be direct, structured, and concrete. Do NOT rewrite the whole plan — critique 
 
 ---
 
+# Amendments (2026-07-06, final combined review)
+
+- **`widgets/manifest` is dropped for v1.** Widget order syncs inside each `space/default/widget/<id>/config` envelope (order-in-row, matching the shipped widget-rail data model). Concurrent reorders on two devices may interleave; the client's clean-index rewrite heals them. A manifest key can be introduced later if layout grows beyond a flat order.
+- **KDF v1 is PBKDF2-SHA256 via WebCrypto** (params + salt stored in the key-bundle metadata); Argon2id is a documented future upgrade, not a v1 dependency.
+- **Tombstones are kept forever** — no device-ack protocol; rows are tiny.
+- **Added to the frozen API surface:** `/devices` (list + revoke), and a client-side `sync_state` table holding per-key base revisions (`lastServerSeq`, `lastStamp`) for offline merge.
+- **MV3/network disclosure:** enabling sync introduces the extension's first network traffic (still zero manifest permissions; CORS handled server-side). Store listing, privacy policy, and in-app copy change from "zero network requests" to "zero network requests unless you enable sync" in the same release.
+
 # Codex review (accepted)
 
 **Verdict**

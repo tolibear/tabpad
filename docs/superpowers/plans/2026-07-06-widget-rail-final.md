@@ -1,6 +1,6 @@
-# Widget Rail Implementation Plan
+# Widget Rail + Sync Groundwork — FINAL Implementation Plan
 
-> **SUPERSEDED** — execute `2026-07-06-widget-rail-final.md` instead. That file is this plan plus all accepted fixes from the final Codex (GPT-5.5 xhigh) + Claude review round. This file is kept for provenance only.
+> **This is the authoritative version.** It supersedes `2026-07-06-widget-rail.md`. It is that plan plus the accepted fixes from two adversarial reviews: Codex (GPT-5.5, xhigh) reviewed the sync architecture, then the entire combined plan against the live source tree; Claude then verified each finding against the repo and applied the accepted patches inline. The review log is summarized in "Final review round" at the bottom — including the two review suggestions that were REJECTED and why.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -32,6 +32,23 @@ Tab Pad Sync (Phase 2 below) will replicate widgets as `space/default/widget/<id
 - `order` lives inside each row (not a separate manifest). Accepted divergence from the sync review's manifest suggestion: concurrent reorders on two devices may interleave, but Task 6's clean-index rewrite heals them. Do not introduce a separate layout store.
 - Widget `config` must stay JSON-serializable data (already a constraint) — it becomes one encrypted envelope body verbatim.
 - Widgets currently derive all display data from notes (pure sources) — there is no `widget/<id>/state`. If a future widget type needs its own stored data, it gets a NEW row/table, never a mutation of `config` semantics.
+- **Single write path:** only `src/db/widgets.ts` (and `importPayload` internals in `src/db/export.ts`, and the mirror's sync-import transaction) may touch `db.widgets` directly. Everything else goes through `saveWidget`/`deleteWidget`. A static assert enforces this (Task 5).
+- **Erase-all keeps widgets.** `eraseAllNotes` clears days+panels only; `eraseMirrorFiles` leaves `widgets/*.json` untouched. Widgets are layout, like settings ("settings are kept"). This is a decision, not an omission.
+- **Widget deletion is tombstoned.** `deleteWidget` records `{id: deletedAtMs}` in the meta table (`id: "widgetTombstones"`); the mirror sync consults it so a stale `widgets/<id>.json` cannot resurrect a deleted widget, and a file rewritten AFTER the tombstone re-creates the widget intentionally. Tombstones prune after 30 days. (This is also the Phase 2 tombstone seam.)
+
+---
+
+### Task 0: Repair the stale verify suites (blocks Task 9's gate)
+
+**Why:** `verify:m2`–`verify:m7` currently FAIL on a clean checkout — they assert daybook-era names that the tabpad rename removed (confirmed: `scripts/verify-m2.mjs:21` requires `createDaybookChannel`, the app exports `createTabPadChannel`; `scripts/verify-m3.mjs:30` requires `daybookEditorTheme`, now `tabPadEditorTheme`; `verify-m6` asserts removed `rightPanel`/panel-mode strings; runtime suites may have further behavior drift, e.g. m2's "settings must merge defaults"). Task 9's final gate runs all of them, so they must be honest first.
+
+**Files:** `scripts/verify-m2.mjs` … `scripts/verify-m7.mjs`, matching `verify-mN-runtime.ts` files, possibly `package.json`.
+
+- [ ] **Step 1:** Run each of `npm run verify:m2` … `verify:m7`; record each failure.
+- [ ] **Step 2:** For each failing assert, decide: (a) stale NAME → update to the current name (`createTabPadChannel`, `tabPadEditorTheme`, etc.); (b) tests REMOVED behavior (e.g. panel modes, master list) → delete that assert; (c) tests behavior that drifted for a real reason → update the expectation to current behavior, with a one-line comment saying what changed. Never weaken an assert that catches a genuine regression.
+- [ ] **Step 3:** If an entire suite only tests removed features, delete the suite + its npm script and say so in the commit message.
+- [ ] **Step 4:** Gate: `npm run verify:m1` through `verify:m7` (those that remain) ALL pass, plus `npm run typecheck && npm run build`.
+- [ ] **Step 5:** Commit: `git commit -m "Repair daybook-era verify suites: rename-stale asserts updated, removed-feature asserts dropped"`
 
 ---
 
@@ -48,7 +65,7 @@ Tab Pad Sync (Phase 2 below) will replicate widgets as `space/default/widget/<id
 - Consumes: existing `db` Dexie instance.
 - Produces (later tasks rely on these exact names):
   - `db.ts`: `type WidgetType = "calendar" | "day-list" | "counter" | "task-rollup" | "text"`; `interface WidgetRow { id: string; type: WidgetType; title: string; config: Record<string, unknown>; order: number; enabled: boolean; updatedAt: number }`; `db.widgets: Table<WidgetRow, string>`
-  - `widgets.ts`: `CORE_WIDGETS: WidgetRow[]`, `WIDGET_ID_PATTERN: RegExp`, `isCoreWidget(id: string): boolean`, `ensureDefaultWidgets(): Promise<void>`, `listWidgets(): Promise<WidgetRow[]>`, `saveWidget(row: WidgetRow): Promise<void>`, `deleteWidget(id: string): Promise<void>`
+  - `widgets.ts`: `CORE_WIDGETS: WidgetRow[]`, `WIDGET_ID_PATTERN: RegExp`, `isCoreWidget(id: string): boolean`, `ensureDefaultWidgets(): Promise<void>`, `listWidgets(): Promise<WidgetRow[]>`, `saveWidget(row: WidgetRow): Promise<void>`, `deleteWidget(id: string): Promise<void>` (tombstoning), `readWidgetTombstones(): Promise<Record<string, number>>`, `clearWidgetTombstone(id: string): Promise<void>`
 
 - [ ] **Step 1: Create the verify harness**
 
@@ -96,6 +113,7 @@ import {
   ensureDefaultWidgets,
   isCoreWidget,
   listWidgets,
+  readWidgetTombstones,
   saveWidget,
   WIDGET_ID_PATTERN,
 } from "../src/db/widgets";
@@ -145,6 +163,10 @@ try {
 assert(coreDeleteThrew, "deleting a core widget must throw");
 await deleteWidget("streak");
 assert((await listWidgets()).length === 2, "deleteWidget must remove custom rows");
+assert((await readWidgetTombstones()).streak > 0, "deleteWidget must leave a tombstone");
+await saveWidget({ id: "streak", type: "counter", title: "streak", config: {}, order: 2, enabled: true, updatedAt: Date.now() });
+assert(!("streak" in (await readWidgetTombstones())), "re-saving an id must clear its tombstone");
+await deleteWidget("streak");
 
 assert(WIDGET_ID_PATTERN.test("my-widget-2"), "slug ids must pass the pattern");
 assert(!WIDGET_ID_PATTERN.test("My Widget") && !WIDGET_ID_PATTERN.test("-x") && !WIDGET_ID_PATTERN.test(""), "non-slugs must fail the pattern");
@@ -228,11 +250,41 @@ export async function listWidgets(): Promise<WidgetRow[]> {
 
 export async function saveWidget(row: WidgetRow): Promise<void> {
   await db.widgets.put(row);
+  // an id that comes back to life must not be blocked by an old tombstone
+  await clearWidgetTombstone(row.id);
+}
+
+const TOMBSTONES_ID = "widgetTombstones";
+const TOMBSTONE_TTL = 30 * 24 * 60 * 60 * 1000;
+
+// deletion leaves a tombstone so the mirror sync can tell "stale file to
+// remove" from "file the user/agent re-created on purpose" — and so Phase 2
+// sync has its delete seam. pruned after 30 days.
+export async function readWidgetTombstones(): Promise<Record<string, number>> {
+  const row = await db.meta.get(TOMBSTONES_ID);
+  const value = (row?.value ?? {}) as Record<string, number>;
+  const now = Date.now();
+  const live = Object.fromEntries(Object.entries(value).filter(([, at]) => now - at < TOMBSTONE_TTL));
+  return live;
+}
+
+export async function clearWidgetTombstone(id: string): Promise<void> {
+  const tombstones = await readWidgetTombstones();
+  if (id in tombstones) {
+    delete tombstones[id];
+    await db.meta.put({ id: TOMBSTONES_ID, value: tombstones });
+  }
 }
 
 export async function deleteWidget(id: string): Promise<void> {
   if (isCoreWidget(id)) throw new Error(`core widget "${id}" cannot be deleted`);
-  await db.widgets.delete(id);
+  await db.transaction("rw", db.widgets, db.meta, async () => {
+    await db.widgets.delete(id);
+    const row = await db.meta.get(TOMBSTONES_ID);
+    const tombstones = (row?.value ?? {}) as Record<string, number>;
+    tombstones[id] = Date.now();
+    await db.meta.put({ id: TOMBSTONES_ID, value: tombstones });
+  });
 }
 ```
 
@@ -999,6 +1051,8 @@ assert(rail.includes("WidgetShell"), "Rail must render widgets through WidgetShe
 
 const appSource = readFileSync("src/app.tsx", "utf8");
 assert(appSource.includes("ensureDefaultWidgets"), "app must seed core widgets on load");
+assert(!appSource.includes("db.widgets."), "app.tsx must go through the widget store, never db.widgets directly");
+assert(!rail.includes("db.widgets."), "Rail must go through the widget store, never db.widgets directly");
 ```
 
 Run: `npm run verify:widgets` — expected FAIL ("Rail must not hardcode MiniCalendar").
@@ -1114,9 +1168,12 @@ const refreshWidgets = useCallback(async () => {
 }, []);
 ```
 
-In `loadDocuments`, right after `seedOnboardingIfFirstRun`, add:
+In `loadDocuments`, AFTER the onboarding block and OUTSIDE its `if` (onboarding's first-run check counts only days+panels, and widgets must seed on every load, not just first run):
 
 ```ts
+if (await seedOnboardingIfFirstRun(today)) {
+  setFocusDayKey(todayKey);
+}
 await ensureDefaultWidgets();
 ```
 
@@ -1500,17 +1557,26 @@ onWidgetDelete: (id: string) => void;
 onWidgetSave: (row: WidgetRow) => void;
 ```
 
-(import `WidgetRow` from `../db/db` and `WidgetSettings` from `./WidgetSettings`.) Insert after the "layout" section:
+(import `WidgetRow` from `../db/db` and `WidgetSettings` from `./WidgetSettings`.) Also add `privacyMode: boolean;` to the props — privacy mode scrambles the rail, so the settings form must not leak widget titles/text content while it's on. Insert after the "layout" section:
 
 ```tsx
-<WidgetSettings
-  widgets={widgets}
-  onToggle={onWidgetToggle}
-  onMove={onWidgetMove}
-  onDelete={onWidgetDelete}
-  onSave={onWidgetSave}
-/>
+{privacyMode ? (
+  <section className="settings-section" aria-label="sidebar">
+    <h3>sidebar</h3>
+    <p className="data-message">unlock privacy mode to edit the sidebar.</p>
+  </section>
+) : (
+  <WidgetSettings
+    widgets={widgets}
+    onToggle={onWidgetToggle}
+    onMove={onWidgetMove}
+    onDelete={onWidgetDelete}
+    onSave={onWidgetSave}
+  />
+)}
 ```
+
+(app.tsx passes `privacyMode={privacyMode}` to `<SettingsOverlay …>`.)
 
 - [ ] **Step 5: app.tsx handlers**
 
@@ -1809,6 +1875,34 @@ assert(widgetsDir!.files.get("moon.json")!.text.includes("moon phase"), "app-new
 await removeWidgetMirrorFile(root.handle, "moon");
 assert(!widgetsDir!.files.has("moon.json"), "removeWidgetMirrorFile deletes the file");
 assert([...root.dirs.get(".tabpad-trash")?.files.keys() ?? []].some((n) => n.includes("moon")), "deleted widget file lands in trash");
+
+// tombstone: an in-app delete + a STALE leftover file must not resurrect —
+// the sync pass removes the file instead
+widgetsDir!.files.set("ghost.json", {
+  text: JSON.stringify({ type: "text", title: "ghost", enabled: true, order: 8, config: { content: "boo" } }),
+  lastModified: Date.now() - 5_000,
+});
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert((await listWidgets()).some((w) => w.id === "ghost"), "ghost imports first");
+await deleteWidget("ghost");
+// note: NO removeWidgetMirrorFile — simulates the delete happening in a tab
+// without the folder connection; the stale file is still on disk
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert(!(await listWidgets()).some((w) => w.id === "ghost"), "tombstoned widget must not resurrect from a stale file");
+assert(!widgetsDir!.files.has("ghost.json"), "the stale file is cleaned up by the sync pass");
+
+// …but a file RE-CREATED after the deletion is intentional and imports
+widgetsDir!.files.set("ghost.json", {
+  text: JSON.stringify({ type: "text", title: "ghost2", enabled: true, order: 8, config: { content: "back" } }),
+  lastModified: Date.now() + 1_000, // newer than the tombstone
+});
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert((await listWidgets()).find((w) => w.id === "ghost")?.title === "ghost2", "a post-delete re-created file revives the widget");
+
+// missing-file reconcile: a DB row whose file vanished gets its file back
+widgetsDir!.files.delete("noted-days.json");
+await syncWithDisk(root.handle, undefined, undefined, () => {});
+assert(widgetsDir!.files.has("noted-days.json"), "deleting a widget file does not delete the widget — the file is recreated");
 ```
 
 Also append these static asserts to `verify-widgets.mjs`:
@@ -1899,6 +1993,9 @@ export async function writeWidgetsMirror(handle: FileSystemDirectoryHandleLike, 
     const name = `${row.id}.json`;
     const content = serializeWidgetFile(row);
     const disk = dir ? await readDiskFile(dir, name) : null;
+    // an UNPARSEABLE existing file is never overwritten regardless of mtime —
+    // its author may be mid-edit; the sync pass reports it as an issue instead
+    if (disk && disk.text !== content && "error" in parseWidgetFile(row.id, disk.text)) continue;
     // same freshness guard as notes: never clobber a newer external edit —
     // sync imports it instead. unlike notes, absent files are always created
     // (even for untouched defaults) so the folder documents the format
@@ -1949,6 +2046,7 @@ Declare `const widgetIssues: WidgetFileIssue[] = [];` next to `let imported = 0;
 
 ```ts
 } else if (entry.kind === "directory" && entry.name === WIDGETS_DIR) {
+  const tombstones = await readWidgetTombstones();
   const widgetsDir = await handle.getDirectoryHandle(WIDGETS_DIR);
   if (!widgetsDir.values) continue;
   for await (const widgetEntry of widgetsDir.values()) {
@@ -1958,6 +2056,14 @@ Declare `const widgetIssues: WidgetFileIssue[] = [];` next to `let imported = 0;
     const cacheKey = `widgets/${widgetEntry.name}`;
     const disk = await readIfChanged(widgetsDir, widgetEntry.name, cacheKey);
     if (!disk) continue;
+    // tombstone: a file no newer than the in-app deletion is the STALE
+    // leftover — remove it instead of resurrecting the widget. a file
+    // written after the deletion is an intentional re-create and imports.
+    const deletedAt = tombstones[match[1]];
+    if (deletedAt !== undefined && Math.min(disk.lastModified, Date.now()) <= deletedAt) {
+      await removeWidgetMirrorFile(handle, match[1]);
+      continue;
+    }
     const parsed = parseWidgetFile(match[1], disk.text);
     if ("error" in parsed) {
       // report but never import or overwrite — the author may be mid-edit.
@@ -1966,7 +2072,8 @@ Declare `const widgetIssues: WidgetFileIssue[] = [];` next to `let imported = 0;
       continue;
     }
     let push: WidgetRow | null = null;
-    await db.transaction("rw", db.widgets, async () => {
+    let importedThis = false;
+    await db.transaction("rw", db.widgets, db.meta, async () => {
       const row = await db.widgets.get(match[1]);
       if (row && serializeWidgetFile(row) === disk.text) return;
       const now = Date.now();
@@ -1975,15 +2082,46 @@ Declare `const widgetIssues: WidgetFileIssue[] = [];` next to `let imported = 0;
       if (!row || (trusted && diskStamp > Math.min(row.updatedAt, now))) {
         await db.widgets.put({ ...parsed.row, updatedAt: diskStamp });
         imported += 1;
+        importedThis = true;
       } else {
         push = row;
       }
     });
+    if (importedThis) await clearWidgetTombstone(match[1]);
     if (push) await writeTextFile(handle, [WIDGETS_DIR, `${match[1]}.json`], serializeWidgetFile(push));
     mtimes?.set(cacheKey, disk.lastModified);
   }
 }
 ```
+
+And AFTER the whole `for await (const entry of handle.values())` loop (not inside the widgets branch — the `widgets/` directory may not exist at all on first connect or after an upgrade), add a reconcile that recreates missing files, honoring the spec's "deleting a file does not delete the widget":
+
+```ts
+// rows without files get their files (re)created — covers upgrades of
+// already-connected folders and manually-deleted files. tombstoned ids are
+// deletions in flight, not missing files.
+try {
+  const rows = await db.widgets.toArray();
+  const tombstones = await readWidgetTombstones();
+  const missing: WidgetRow[] = [];
+  let dir: FileSystemDirectoryHandleLike | null = null;
+  try {
+    dir = await handle.getDirectoryHandle(WIDGETS_DIR);
+  } catch {
+    dir = null;
+  }
+  for (const row of rows) {
+    if (row.id in tombstones) continue;
+    const disk = dir ? await readDiskFile(dir, `${row.id}.json`) : null;
+    if (!disk) missing.push(row);
+  }
+  if (missing.length) await writeWidgetsMirror(handle, missing);
+} catch (error) {
+  console.warn("Tab Pad widget file reconcile failed", error);
+}
+```
+
+(Imports for the branch: extend the existing widgets-store import in mirror.ts with `readWidgetTombstones, clearWidgetTombstone`.)
 
 Extend `writeAgentFiles` manifest — inside the `manifest` object add to `surfaces`:
 
@@ -2122,24 +2260,50 @@ useEffect(() => {
 }, [queueMirrorWidgets]);
 ```
 
-Replace `handleWidgetDelete`'s body to also remove the file:
+Replace `handleWidgetDelete`'s body to also remove the file — **file first, then the row** (if file removal fails the tombstone still protects against resurrection, but removing first shrinks the window to nothing in the common case):
 
 ```ts
 const handleWidgetDelete = useCallback(
   (id: string) => {
     void applyWidgetChange(async () => {
-      await deleteWidget(id);
       const handle = mirrorHandleRef.current;
       if (handle && mirrorStatus === "connected") {
         await removeWidgetMirrorFile(handle, id).catch((error) =>
           console.warn("Tab Pad widget file removal failed", error),
         );
       }
+      // deleteWidget tombstones the id, so even a failed/racing file removal
+      // (or a delete from a tab without the folder connection) cannot
+      // resurrect the widget on the next sync pass
+      await deleteWidget(id);
     });
   },
   [applyWidgetChange, mirrorStatus],
 );
 ```
+
+- [ ] **Step 3b: Lifecycle integration — hide-flush and erase (required, reviews flagged both)**
+
+In the existing `flushOnHide` handler (`src/app.tsx`, the `visibilitychange` effect), after the panel-timer loop, flush a pending widget mirror write too:
+
+```ts
+if (mirrorWidgetsTimer.current) {
+  window.clearTimeout(mirrorWidgetsTimer.current);
+  mirrorWidgetsTimer.current = 0;
+  void flushMirrorWidgets();
+}
+```
+
+(add `flushMirrorWidgets` to that effect's deps.)
+
+In `eraseEverything`, alongside the existing synchronous day/panel timer cancels (BEFORE any await), and again in the post-`allSettled` re-cancel block, add:
+
+```ts
+window.clearTimeout(mirrorWidgetsTimer.current);
+mirrorWidgetsTimer.current = 0;
+```
+
+Same line in the broadcast listener's `"erase"` branch where other tabs cancel their timers. Erase does NOT delete widget rows or `widgets/*.json` files (see Global Constraints) — these cancels only stop a pending write from racing the erase of note files.
 
 - [ ] **Step 4: One line in `buildAgentPrompt`** (`src/settings/SettingsOverlay.tsx`)
 
@@ -2273,6 +2437,7 @@ function isWidgetRow(value: unknown): value is WidgetRow {
     !isWidgetType(value.type) ||
     typeof value.title !== "string" ||
     !isObject(value.config) ||
+    Array.isArray(value.config) || // isObject() alone lets arrays through
     !Number.isFinite(value.order) ||
     typeof value.enabled !== "boolean" ||
     !Number.isFinite(value.updatedAt)
@@ -2287,14 +2452,11 @@ function isWidgetRow(value: unknown): value is WidgetRow {
 
 - [ ] **Step 3: Surface the count in app.tsx**
 
-In `importJson`, extend the success message and refresh widgets:
+In `importJson`, change ONLY the success message (`importJson` already calls `loadDocuments`, which reloads widgets — do not add a `refreshWidgets` call):
 
 ```ts
-await refreshWidgets();
 setDataMessage(`imported ${result.daysImported} days, ${result.panelsImported} panels, ${result.widgetsImported} widgets`);
 ```
-
-(`loadDocuments` already reloads widgets, but `importJson` calls it — the explicit `refreshWidgets` is unnecessary; skip it and only change the message.)
 
 - [ ] **Step 4: Verify and commit**
 
@@ -2320,6 +2482,7 @@ Run each; all must pass:
 ```bash
 npm run typecheck
 npm run verify:widgets
+# every verify:mN suite that survived Task 0 (all repaired suites must pass)
 npm run verify:m1 && npm run verify:m2 && npm run verify:m3 && npm run verify:m4 && npm run verify:m5 && npm run verify:m6 && npm run verify:m7
 npm run build
 ```
@@ -2353,7 +2516,7 @@ git commit -m "Widget rail: final verification pass"
 > Scope for this phase: **extension + web account page + Stripe only.** iOS/Android clients consume the same API later (StoreKit billing on iOS per the review — out of scope here).
 
 ### Task 10: Spec freeze (docs only, blocks everything after it)
-Write `docs/sync-protocol.md` pinning, exactly: HLC stamp encoding (`physical_ms:logical:device_id`, comparison rules, clamp-to-now on receive), the canonical key namespace (`space/default/day/<date>/main`, `.../widget/<id>/config`, `.../settings/portable`, tombstone semantics), the ciphertext envelope JSON (fields from the architecture doc), the crypto design (random `data_key` + `index_key` wrapped by an Argon2id/PBKDF2 passphrase bundle; AES-GCM with AAD over `account_id, key_id, stamp, deleted, schema_major`; nonce policy; `crypto_key_id` rotation story), and the five endpoints with pagination (`/pair`, `/push` batch with per-item results, `/pull?since=&limit=&bucket=` incl. tombstones + `has_more`, `/head`, `/stripe-webhook`). Gate: the doc answers every "Where It Breaks" item in the Codex review.
+Write `docs/sync-protocol.md` pinning, exactly: HLC stamp encoding (`physical_ms:logical:device_id`, comparison rules, clamp-to-now on receive), the canonical key namespace (`space/default/day/<date>/main`, `.../widget/<id>/config` — **widget order rides inside config; there is no `widgets/manifest` key** (accepted amendment to the architecture doc), `.../settings/portable`, tombstone semantics), the ciphertext envelope JSON (fields from the architecture doc), the crypto design (random `data_key` + `index_key` wrapped by a passphrase-derived bundle; **KDF is PBKDF2-SHA256 via WebCrypto with stored params/salt — Argon2id is a documented future upgrade, not a v1 dependency**; AES-GCM with AAD over `account_id, key_id, stamp, deleted, schema_major`; nonce policy; `crypto_key_id` rotation story), the endpoints with pagination (`/pair`, `/push` batch with per-item results, `/pull?since=&limit=&bucket=` incl. tombstones + `has_more`, `/head`, **`/devices` list + revoke**, `/stripe-webhook`), **tombstone retention: kept forever** (rows are bytes; no ack protocol needed), **client base-revision storage** (a `sync_state` Dexie table holding per-key `{lastServerSeq, lastStamp}` — offline edits merge against this base before push), and **the MV3/network reality**: sync makes the extension's first network calls (to `api.tabpad.app`, CORS-allowed server-side; still zero manifest permissions) — the privacy copy, store listing, and privacy policy must change from "zero network requests" to "zero network requests unless you enable sync" in the same release. Gate: the doc answers every "Where It Breaks" item in the Codex review of the architecture, plus every Phase 2 item in the final combined review.
 
 ### Task 11: Worker + D1 skeleton (new `sync/` workspace)
 Cloudflare Worker + D1 migrations for `users`, `devices`, `subscriptions`, `sync_items` (columns per the architecture doc, incl. `deleted`, `server_seq`, `crypto_key_id`). Endpoints from Task 10 with the one server rule (newer HLC stamp wins), pagination, hashed device tokens. Verify: a `scripts/verify-sync-server.mjs` driving a local `wrangler dev` (or miniflare) through push/pull/tombstone/pagination cases.
@@ -2371,6 +2534,25 @@ Checkout link ($4/mo, $40/yr), webhook → `subscription_active`, Customer Porta
 Two real browser profiles + one folder-connected instance: three-way merge soak (DB + folder + cloud), erase-all propagates as tombstones everywhere, subscription lapse/renew, all existing verify suites still green, and a fresh review round (the round-1-style adversarial pass) over `src/sync/` and the Worker before any real user data.
 
 ---
+
+## Final review round (2026-07-06)
+
+Two adversarial passes before this file was frozen: Codex (GPT-5.5, xhigh) reviewed the sync architecture, then the full combined plan against the live source; Claude verified findings against the repo and applied them. Accepted and folded in above:
+
+- **Task 0 added** — `verify:m2`–`m7` are broken on a clean checkout (daybook-era names like `createDaybookChannel`, `daybookEditorTheme`; confirmed by running them). Task 9's gate was impossible without repairing them first.
+- **Delete resurrection closed** — widget deletion tombstones the id (meta table, 30-day TTL); sync removes stale files instead of importing them; file removal happens before the row delete; files re-created after a deletion revive intentionally. Runtime tests added for all three behaviors.
+- **Missing-file reconcile added** — deleting `widgets/<id>.json` no longer orphans the spec promise "deleting a file does not delete the widget"; a post-scan pass recreates files for live rows (also covers upgrades of already-connected folders).
+- **Invalid files never overwritten** — `writeWidgetsMirror` parses the existing file first and skips unparseable ones regardless of mtime (author may be mid-edit).
+- **Privacy mode gates the sidebar settings** — titles/config text no longer leak into settings while everything else is scrambled.
+- **Hide-flush + erase integration** — the widget mirror timer flushes on `visibilitychange` and is cancelled in both erase paths (same discipline as day/panel timers). Erase explicitly keeps widgets.
+- **Single-write-path constraint + static asserts** (`db.widgets.` forbidden outside the store/import/mirror internals); `isWidgetRow` rejects array configs; Task 8's contradictory refresh instruction resolved; `ensureDefaultWidgets` placement shown as exact code outside the onboarding `if`.
+- **Phase 2 spec-freeze scope widened** — `/devices`+revoke, PBKDF2-first KDF, tombstones-kept-forever, client base-revision table, and the MV3/"zero network" copy change are now explicit Task 10 outputs. The `widgets/manifest` key is dropped in favor of order-in-config (amendment recorded in `docs/sync-architecture.md`).
+
+Rejected from the review, with reasons:
+
+- **"Cut in-app add/edit, keep file-authored widgets only"** — rejected: the settings UI *is* the product goal (a widget store people can play with); the privacy-gating fix addresses the risk the cut was solving.
+- **"Cut custom deletion until tombstones exist"** — rejected by making tombstones exist now (they're ~30 lines and double as the Phase 2 delete seam).
+- **"Do not execute Phase 2 in this run"** — partially accepted: Tasks 10–15 stay in the plan but are gated on elaboration to Tasks-1–9 fidelity first, and Task 10 (spec freeze) is docs-only. The run may stop after Task 9 and still be a complete, shippable milestone.
 
 ## Self-review notes (already applied)
 
