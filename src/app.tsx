@@ -41,6 +41,7 @@ import {
   type FileSystemDirectoryHandleLike,
   type MirrorStatus,
   type WidgetFileIssue,
+  removeScratchpadMirrorFile,
   removeWidgetMirrorFile,
   writeAgentFiles,
   writeDayMirror,
@@ -336,6 +337,13 @@ export function App() {
           await removeWidgetMirrorFile(handle, id).catch((error) =>
             console.warn("Tab Pad widget file removal failed", error),
           );
+          // the core scratchpad's content lives in root scratchpad.md, not
+          // widgets/ — an explicit delete erases it too (trash-copied first)
+          if (id === "scratchpad") {
+            await removeScratchpadMirrorFile(handle).catch((error) =>
+              console.warn("Tab Pad scratchpad file removal failed", error),
+            );
+          }
         }
         // deleteWidget tombstones the id, so even a failed/racing file removal
         // (or a delete from a tab without the folder connection) cannot

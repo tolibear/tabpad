@@ -274,6 +274,40 @@ export async function removeWidgetMirrorFile(handle: FileSystemDirectoryHandleLi
   }
 }
 
+// the CORE scratchpad's content lives in root scratchpad.md (not widgets/). an
+// explicit widget DELETE erases content, so removing the core scratchpad widget
+// must clear that file too — trash-copied first, so it stays recoverable.
+export async function removeScratchpadMirrorFile(handle: FileSystemDirectoryHandleLike): Promise<void> {
+  await trashAndRemoveFile(handle, ["scratchpad.md"]);
+}
+
+// trash-copy (when non-empty) then best-effort remove a single file addressed by
+// path segments from the root handle. used wherever the app deletes a file it may
+// not have written itself, so an external edit is always recoverable. every step
+// is guarded: a missing directory or a locked file must never throw here.
+async function trashAndRemoveFile(root: FileSystemDirectoryHandleLike, path: string[]): Promise<void> {
+  let dir: FileSystemDirectoryHandleLike | null = root;
+  for (const segment of path.slice(0, -1)) {
+    try {
+      dir = await dir.getDirectoryHandle(segment);
+    } catch {
+      return; // no such directory — nothing to remove
+    }
+  }
+  const name = path[path.length - 1];
+  try {
+    const disk = await readDiskFile(dir, name);
+    if (disk && disk.text.trim() !== "") await writeTrashCopy(root, path, disk.text);
+  } catch (error) {
+    console.warn("Tab Pad pre-remove trash copy failed", error);
+  }
+  try {
+    await dir.removeEntry?.(name);
+  } catch (error) {
+    console.warn("Tab Pad file remove failed", error);
+  }
+}
+
 export interface AgentSurfaces {
   margins: boolean;
   scratchpad: boolean;
@@ -445,6 +479,11 @@ export async function syncWithDisk(
         // panel, two-way last-write-wins like the root scratchpad
         const mdMatch = WIDGET_MD_FILE.exec(widgetEntry.name);
         if (mdMatch) {
+          // the CORE scratchpad is reserved: its content syncs ONLY via root
+          // scratchpad.md. scratchpadPanelId("scratchpad") is the plain core
+          // "scratchpad" panel, so importing a widgets/scratchpad.md here would
+          // silently overwrite the core content — never touch it.
+          if (mdMatch[1] === "scratchpad") continue;
           const disk = await readIfChanged(widgetsDir, widgetEntry.name, cacheKey);
           if (!disk) continue;
           const id = mdMatch[1];

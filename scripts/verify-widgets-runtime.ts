@@ -524,22 +524,27 @@ await ensureDefaultWidgets();
 const customTitle = await db.widgets.get("noted-days");
 assert(customTitle?.title === "my days" && customTitle.updatedAt === 7, "a custom noted-days title survives the rename migration untouched");
 
-// ---- #2/#5: widget teardown removes the paired widget:<id> panel ----
-// deleting a scratchpad widget must also drop its widget:<id> content row, or a
-// reused id / backup export resurrects the old private text (and it rides in
-// every export forever). the core scratchpad's plain "scratchpad" panel is
-// spared because its id is never "widget:scratchpad".
+// ---- #2/#5: widget teardown erases the scratchpad's content panel ----
+// deleting a scratchpad widget must drop its content row, or a reused id / backup
+// export resurrects the old private text (and it rides in every export forever).
+// an explicit DELETE erases content for the CORE scratchpad too: its content
+// lives in the plain "scratchpad" panel, which deleteWidget clears via
+// scratchpadPanelId. (toggling a widget OFF preserves content — the app never
+// calls deleteWidget for a toggle.)
 await db.delete();
 await db.open();
 await ensureDefaultWidgets();
-await savePanel("scratchpad", "core stays");
+await savePanel("scratchpad", "core content");
 await saveWidget({ id: "pad-del", type: "scratchpad", title: "pad", config: {}, order: 5, enabled: true, column: "right", updatedAt: Date.now() });
 await savePanel("widget:pad-del", "private content");
 assert((await getPanel("widget:pad-del")).content === "private content", "the widget's content is stored under widget:<id>");
 await deleteWidget("pad-del");
 assert((await getPanel("widget:pad-del")).content === "", "deleteWidget removes the paired widget:<id> panel row");
 await deleteWidget("scratchpad");
-assert((await getPanel("scratchpad")).content === "core stays", "deleting the core scratchpad widget spares its plain 'scratchpad' panel");
+assert((await getPanel("scratchpad")).content === "", "deleting the core scratchpad widget erases its 'scratchpad' panel content");
+// re-adding a scratchpad starts empty — the deleted content does not resurface
+await saveWidget(CORE_WIDGETS.find((c) => c.id === "scratchpad")!);
+assert((await getPanel("scratchpad")).content === "", "a re-added scratchpad starts empty (deleted content is gone)");
 // a non-scratchpad widget has no paired panel — deleting it is a harmless no-op
 await saveWidget({ id: "count-del", type: "counter", title: "c", config: {}, order: 6, enabled: true, column: "left", updatedAt: Date.now() });
 await deleteWidget("count-del");
@@ -590,6 +595,24 @@ await deleteWidget("notes-2");
 spWidgets!.files.set("notes-2.md", { text: "stale ghost text", lastModified: Date.now() - 5_000 });
 await syncWithDisk(sp.handle, undefined, undefined, () => {});
 assert(!spWidgets!.files.has("notes-2.md"), "a stale .md for a tombstoned scratchpad is cleaned up, not imported");
+
+// A: the CORE scratchpad is reserved — its content syncs only via root
+// scratchpad.md. a widgets/scratchpad.md must NEVER be written for the core, and
+// a stray one on disk must never overwrite the core "scratchpad" panel
+// (scratchpadPanelId("scratchpad") === "scratchpad").
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+await savePanel("scratchpad", "core content stays");
+const guardDir = makeFakeDir();
+await writeFullMirror(guardDir.handle);
+const guardWidgets = guardDir.dirs.get("widgets");
+assert(guardWidgets?.files.has("scratchpad.json"), "the core scratchpad config is mirrored as widgets/scratchpad.json");
+assert(!guardWidgets?.files.has("scratchpad.md"), "the core scratchpad content is never mirrored as widgets/scratchpad.md");
+guardWidgets!.files.set("scratchpad.md", { text: "malicious overwrite", lastModified: Date.now() + 1_000 });
+await syncWithDisk(guardDir.handle, undefined, undefined, () => {});
+assert((await getPanel("scratchpad")).content === "core content stays", "a widgets/scratchpad.md never overwrites the core scratchpad panel");
+assert(guardWidgets!.files.get("scratchpad.md")?.text === "malicious overwrite", "the stray widgets/scratchpad.md is left untouched, not consumed");
 
 // PanelRow string ids round-trip export/import
 await db.panels.clear();

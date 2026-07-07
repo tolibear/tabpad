@@ -1,4 +1,5 @@
 import { db, type WidgetRow } from "./db";
+import { scratchpadPanelId } from "./panels";
 import { getSettings } from "./settings";
 
 // the widgets every install starts with — the rail's historical layout.
@@ -106,13 +107,15 @@ export async function clearWidgetTombstone(id: string): Promise<void> {
 export async function deleteWidget(id: string): Promise<void> {
   await db.transaction("rw", db.widgets, db.panels, db.meta, async () => {
     await db.widgets.delete(id);
-    // a non-core scratchpad widget's content lives in a `widget:<id>` panel row.
-    // remove it in the same transaction so a reused id (uniqueWidgetId only
-    // checks live widgets) or a backup export/import can't resurrect the old
-    // private text. the core scratchpad's panel is plain "scratchpad", never
-    // "widget:scratchpad", so this naturally spares it; non-scratchpad widgets
-    // simply have no such row and the delete is a harmless no-op.
-    await db.panels.delete(`widget:${id}`);
+    // a scratchpad widget's content lives in its panel row — remove it in the
+    // same transaction so a reused id (uniqueWidgetId only checks live widgets)
+    // or a backup export/import can't resurrect the old private text. an explicit
+    // DELETE erases content: scratchpadPanelId maps the core scratchpad to its
+    // plain "scratchpad" panel and every other scratchpad to "widget:<id>", so
+    // both are cleared; a non-scratchpad widget has no such row and this is a
+    // harmless no-op. (toggling a widget OFF preserves content — that path never
+    // calls deleteWidget.)
+    await db.panels.delete(scratchpadPanelId(id));
     const row = await db.meta.get(TOMBSTONES_ID);
     const tombstones = (row?.value ?? {}) as Record<string, number>;
     tombstones[id] = Date.now();
