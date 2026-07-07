@@ -1,6 +1,9 @@
 export type TabPadChange =
   | { type: "day"; key: string; updatedAt: number }
-  | { type: "panel"; key: "scratchpad" | "masterList"; updatedAt: number }
+  // panel key is a PanelRow id: "scratchpad"/"masterList" are the classic
+  // panels; `widget:<id>` carries a non-core scratchpad widget's content
+  // between tabs. typed as string so it matches PanelRow["id"] without a cast.
+  | { type: "panel"; key: string; updatedAt: number }
   | { type: "settings"; key: "settings"; updatedAt: number }
   | { type: "widgets"; key: "all"; updatedAt: number }
   | { type: "import"; key: "all"; updatedAt: number }

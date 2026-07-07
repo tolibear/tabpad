@@ -153,10 +153,18 @@ function isDayRow(value: unknown): value is DayRow {
 function isPanelRow(value: unknown): value is PanelRow {
   return (
     isObject(value) &&
-    (value.id === "scratchpad" || value.id === "masterList") &&
+    typeof value.id === "string" &&
+    isPanelId(value.id) &&
     typeof value.content === "string" &&
     Number.isFinite(value.updatedAt)
   );
+}
+
+// the classic fixed panels, or a `widget:<slug>` row holding a scratchpad
+// widget's content — the slug after the prefix must be a valid widget id
+function isPanelId(id: string): boolean {
+  if (id === "scratchpad" || id === "masterList") return true;
+  return id.startsWith("widget:") && WIDGET_ID_PATTERN.test(id.slice("widget:".length));
 }
 
 function isWidgetRow(value: unknown): value is WidgetRow {

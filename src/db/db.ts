@@ -12,8 +12,13 @@ export interface DayRow {
   marginUpdatedAt?: number;
 }
 
+// panel ids are strings: the two classic fixed panels ("scratchpad",
+// "masterList") plus `widget:<widgetId>` rows that hold the content of
+// non-core scratchpad widgets. widened from the old literal union so a
+// per-widget scratchpad can own its own row; code that special-cases the
+// classic ids still compares against those literals.
 export interface PanelRow {
-  id: "scratchpad" | "masterList";
+  id: string;
   content: string;
   updatedAt: number;
 }
