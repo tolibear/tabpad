@@ -18,7 +18,7 @@ export interface PanelRow {
   updatedAt: number;
 }
 
-export type WidgetType = "calendar" | "day-list" | "counter" | "task-rollup" | "text";
+export type WidgetType = "calendar" | "day-list" | "counter" | "task-rollup" | "text" | "scratchpad";
 
 export interface WidgetRow {
   id: string;
@@ -27,10 +27,10 @@ export interface WidgetRow {
   config: Record<string, unknown>;
   order: number;
   enabled: boolean;
-  // which rail the widget sits in; optional on the type so rows written before
-  // the field existed (and drafts from the not-yet-wired settings picker) still
-  // compile — every read path sanitizes it to a concrete "left"/"right"
-  column?: "left" | "right";
+  // which rail the widget sits in — every seed, settings draft, file, and
+  // import now carries it, so it is a required field; read paths that touch
+  // untyped data still sanitize unknown values to a concrete "left"/"right"
+  column: "left" | "right";
   updatedAt: number;
 }
 

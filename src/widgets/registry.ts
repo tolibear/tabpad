@@ -20,7 +20,7 @@ export interface WidgetDefinition {
   fields: WidgetField[];
 }
 
-export const widgetTypes: WidgetType[] = ["calendar", "day-list", "counter", "task-rollup", "text"];
+export const widgetTypes: WidgetType[] = ["calendar", "day-list", "counter", "task-rollup", "text", "scratchpad"];
 
 // every widget — whatever its type — also chooses a rail column. this is a
 // row-level field (not per-type config), so it lives here as one shared
@@ -92,6 +92,24 @@ export const widgetRegistry: Record<WidgetType, WidgetDefinition> = {
     defaultConfig: { content: "" },
     fields: [{ key: "content", label: "text", kind: "text", placeholder: "shown as written" }],
   },
+  scratchpad: {
+    type: "scratchpad",
+    label: "scratchpad",
+    description: "one persistent note that scrolls in the sidebar",
+    defaultConfig: { height: "full" },
+    fields: [
+      {
+        key: "height",
+        label: "height",
+        kind: "select",
+        options: [
+          { value: "full", label: "full" },
+          { value: "fixed", label: "fixed" },
+        ],
+      },
+      { key: "maxHeight", label: "max height (px)", kind: "number", min: 160, max: 1200 },
+    ],
+  },
 };
 
 export interface DayListConfig {
@@ -111,6 +129,11 @@ export interface TaskRollupConfig {
 
 export interface TextConfig {
   content: string;
+}
+
+export interface ScratchpadConfig {
+  height: "full" | "fixed";
+  maxHeight: number;
 }
 
 // out-of-range values fall back silently, matching how settings sanitize
@@ -146,6 +169,13 @@ export function sanitizeTextConfig(raw: Record<string, unknown>): TextConfig {
   return { content: typeof raw.content === "string" ? raw.content : "" };
 }
 
+export function sanitizeScratchpadConfig(raw: Record<string, unknown>): ScratchpadConfig {
+  return {
+    height: raw.height === "fixed" ? "fixed" : "full",
+    maxHeight: clampNumber(raw.maxHeight, 160, 1200, 480),
+  };
+}
+
 export function sanitizeWidgetConfig(type: WidgetType, raw: Record<string, unknown>): Record<string, unknown> {
   switch (type) {
     case "calendar":
@@ -158,6 +188,8 @@ export function sanitizeWidgetConfig(type: WidgetType, raw: Record<string, unkno
       return { ...sanitizeTaskRollupConfig(raw) };
     case "text":
       return { ...sanitizeTextConfig(raw) };
+    case "scratchpad":
+      return { ...sanitizeScratchpadConfig(raw) };
   }
 }
 

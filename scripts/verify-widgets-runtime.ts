@@ -23,12 +23,16 @@ await db.open();
 
 await ensureDefaultWidgets();
 let widgets = await listWidgets();
-assert(widgets.map((w) => w.id).join(",") === "calendar,noted-days", "core widgets must seed in rail order");
-assert(widgets[0].type === "calendar" && widgets[1].type === "day-list", "core widgets must have their fixed types");
+assert(widgets.map((w) => w.id).sort().join(",") === "calendar,noted-days,scratchpad", "three core widgets seed");
+assert(widgets.find((w) => w.id === "calendar")?.type === "calendar", "calendar seeds with its fixed type");
+assert(widgets.find((w) => w.id === "noted-days")?.type === "day-list", "noted-days seeds with its fixed type");
+assert(widgets.find((w) => w.id === "scratchpad")?.type === "scratchpad", "scratchpad seeds as the sixth type");
 assert(widgets.every((w) => w.enabled), "core widgets must seed enabled");
 assert(widgets.every((w) => w.updatedAt === 0), "seeds must stamp updatedAt 0 so any disk copy wins the first merge");
-assert(widgets[1].title === "noted days", "noted-days must keep its heading");
-assert(widgets.every((w) => w.column === "left"), "core widgets seed into the left column");
+assert(widgets.find((w) => w.id === "noted-days")?.title === "noted days", "noted-days must keep its heading");
+assert(widgets.find((w) => w.id === "calendar")?.column === "left", "calendar seeds into the left column");
+assert(widgets.find((w) => w.id === "noted-days")?.column === "left", "noted-days seeds into the left column");
+assert(widgets.find((w) => w.id === "scratchpad")?.column === "right", "scratchpad seeds into the right column");
 
 // sanitizeColumn: only the two known values pass; everything else defaults left
 assert(sanitizeColumn("right") === "right" && sanitizeColumn("left") === "left", "sanitizeColumn keeps known columns");
@@ -42,11 +46,29 @@ const backfilled = await db.widgets.get("calendar");
 assert(backfilled?.column === "left", "ensureDefaultWidgets backfills column onto legacy rows");
 assert(backfilled?.updatedAt === 42, "column backfill preserves updatedAt (not a user edit)");
 
-await saveWidget({ ...widgets[1], enabled: false, updatedAt: 123 });
+await saveWidget({ ...widgets.find((w) => w.id === "noted-days")!, enabled: false, updatedAt: 123 });
 await ensureDefaultWidgets();
 widgets = await listWidgets();
 assert(widgets.find((w) => w.id === "noted-days")?.enabled === false, "re-seeding must never overwrite user edits");
-assert(CORE_WIDGETS.length === 2, "exactly two core widgets");
+assert(CORE_WIDGETS.length === 3, "exactly three core widgets");
+assert(isCoreWidget("scratchpad"), "scratchpad is a core widget");
+
+// the legacy settings.scratchpad toggle seeds the scratchpad widget's enabled
+// state EXACTLY ONCE: an install that had the panel off must not gain a
+// surprise scratchpad, and a later widget toggle must not be re-clobbered
+await db.delete();
+await db.open();
+await db.meta.put({ id: "settings", value: { scratchpad: false } });
+await ensureDefaultWidgets();
+assert((await listWidgets()).find((w) => w.id === "scratchpad")?.enabled === false, "legacy scratchpad=off seeds the widget disabled");
+await saveWidget({ ...(await listWidgets()).find((w) => w.id === "scratchpad")!, enabled: true, updatedAt: 5 });
+await ensureDefaultWidgets();
+assert((await listWidgets()).find((w) => w.id === "scratchpad")?.enabled === true, "the legacy seed runs once — a later toggle sticks");
+await db.delete();
+await db.open();
+await ensureDefaultWidgets();
+assert((await listWidgets()).find((w) => w.id === "scratchpad")?.enabled === true, "a fresh install (no settings) seeds the scratchpad enabled");
+widgets = await listWidgets();
 
 await saveWidget({
   id: "streak",
@@ -58,7 +80,7 @@ await saveWidget({
   updatedAt: Date.now(),
 });
 widgets = await listWidgets();
-assert(widgets.length === 3 && widgets[2].id === "streak", "listWidgets must sort ascending by order");
+assert(widgets.length === 4 && widgets[widgets.length - 1].id === "streak", "listWidgets must sort ascending by order");
 
 assert(isCoreWidget("calendar") && isCoreWidget("noted-days") && !isCoreWidget("streak"), "core ids are fixed");
 let coreDeleteThrew = false;
@@ -69,7 +91,7 @@ try {
 }
 assert(coreDeleteThrew, "deleting a core widget must throw");
 await deleteWidget("streak");
-assert((await listWidgets()).length === 2, "deleteWidget must remove custom rows");
+assert((await listWidgets()).length === 3, "deleteWidget must remove custom rows");
 assert((await readWidgetTombstones()).streak > 0, "deleteWidget must leave a tombstone");
 await saveWidget({ id: "streak", type: "counter", title: "streak", config: {}, order: 2, enabled: true, updatedAt: Date.now() });
 assert(!("streak" in (await readWidgetTombstones())), "re-saving an id must clear its tombstone");
@@ -136,6 +158,7 @@ import {
   isWidgetType,
   sanitizeCounterConfig,
   sanitizeDayListConfig,
+  sanitizeScratchpadConfig,
   sanitizeTaskRollupConfig,
   sanitizeTextConfig,
   sanitizeWidgetConfig,
@@ -144,8 +167,8 @@ import {
   widgetTypes,
 } from "../src/widgets/registry";
 
-assert(widgetTypes.length === 5 && isWidgetType("task-rollup") && !isWidgetType("iframe"), "exactly five declarative types");
-assert(Object.keys(widgetRegistry).length === 5, "registry covers every type");
+assert(widgetTypes.length === 6 && isWidgetType("scratchpad") && !isWidgetType("iframe"), "exactly six declarative types");
+assert(Object.keys(widgetRegistry).length === 6, "registry covers every type");
 for (const type of widgetTypes) {
   assert(widgetRegistry[type].label.length > 0 && widgetRegistry[type].description.length > 0, `registry entry for ${type} must be presentable`);
 }
@@ -159,6 +182,13 @@ assert(sanitizeCounterConfig({ source: "bogus", format: "" }).source === "streak
 
 assert(sanitizeTaskRollupConfig({ days: 0 }).days === 1 && sanitizeTaskRollupConfig({ days: 500 }).days === 90, "task-rollup days clamp 1–90");
 assert(sanitizeTextConfig({ content: 42 }).content === "", "non-string text content falls back to empty");
+
+assert(sanitizeScratchpadConfig({}).height === "full" && sanitizeScratchpadConfig({}).maxHeight === 480, "scratchpad defaults to full height, 480 max");
+assert(sanitizeScratchpadConfig({ height: "fixed", maxHeight: 300 }).height === "fixed" && sanitizeScratchpadConfig({ height: "fixed", maxHeight: 300 }).maxHeight === 300, "scratchpad keeps a fixed height and in-range maxHeight");
+assert(sanitizeScratchpadConfig({ maxHeight: 5000 }).maxHeight === 1200 && sanitizeScratchpadConfig({ maxHeight: 1 }).maxHeight === 160, "scratchpad maxHeight clamps to 160–1200");
+assert(sanitizeScratchpadConfig({ height: "weird" }).height === "full", "unknown scratchpad height falls back to full");
+assert((sanitizeWidgetConfig("scratchpad", { height: "fixed" }) as { height: string }).height === "fixed", "sanitizeWidgetConfig dispatches scratchpad");
+assert(widgetProblem({ type: "scratchpad", config: {} }) === null, "scratchpad has no special render problem");
 
 assert(sanitizeWidgetConfig("calendar", { junk: 1 }).junk === undefined, "calendar config is always empty");
 assert((sanitizeWidgetConfig("counter", { source: "open-tasks" }) as { source: string }).source === "open-tasks", "sanitizeWidgetConfig dispatches per type");
@@ -344,7 +374,7 @@ await ensureDefaultWidgets();
 await saveWidget({ id: "words", type: "counter", title: "words", config: { source: "words-total", format: "{n} words" }, order: 5, enabled: true, updatedAt: 10 });
 
 const exportPayload = await createExportPayload();
-assert(exportPayload.widgets.length === 3, "export must include widgets");
+assert(exportPayload.widgets.length === 4, "export must include widgets");
 
 const importResult = await importPayload({
   schemaVersion: 1,

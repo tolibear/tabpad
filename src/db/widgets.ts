@@ -1,11 +1,15 @@
 import { db, type WidgetRow } from "./db";
+import { getSettings } from "./settings";
 
-// the two widgets every install starts with — the rail's historical layout.
+// the widgets every install starts with — the rail's historical layout.
 // updatedAt 0 means any mirrored widgets/ file wins the first sync merge, so
-// a folder from another machine restores its widget setup cleanly
+// a folder from another machine restores its widget setup cleanly. calendar
+// and noted-days sit in the left rail; scratchpad is the sole right-rail seed,
+// replacing the old fixed right panel.
 export const CORE_WIDGETS: WidgetRow[] = [
   { id: "calendar", type: "calendar", title: "", config: {}, order: 0, enabled: true, column: "left", updatedAt: 0 },
   { id: "noted-days", type: "day-list", title: "noted days", config: {}, order: 1, enabled: true, column: "left", updatedAt: 0 },
+  { id: "scratchpad", type: "scratchpad", title: "scratchpad", config: {}, order: 0, enabled: true, column: "right", updatedAt: 0 },
 ];
 
 // slug ids double as mirror filenames (widgets/<id>.json)
@@ -24,10 +28,20 @@ export function isCoreWidget(id: string): boolean {
 // seed core widgets that have NO row at all — first run, or a core widget
 // added by an app update. never touches rows the user has edited or disabled
 export async function ensureDefaultWidgets(): Promise<void> {
+  // one-time carry-over: the scratchpad used to be a settings toggle. when its
+  // widget row is first seeded, inherit the user's legacy settings.scratchpad
+  // choice so an install that had it off doesn't gain a surprise scratchpad.
+  // read outside the write transaction (getSettings touches db.meta, which the
+  // rw block below doesn't scope) and only when the row is actually missing.
+  const scratchpadMissing = !(await db.widgets.get("scratchpad"));
+  const legacyScratchpadEnabled = scratchpadMissing ? (await getSettings()).scratchpad : true;
   await db.transaction("rw", db.widgets, async () => {
     for (const core of CORE_WIDGETS) {
       const existing = await db.widgets.get(core.id);
-      if (!existing) await db.widgets.put({ ...core });
+      if (!existing) {
+        const enabled = core.id === "scratchpad" ? legacyScratchpadEnabled : core.enabled;
+        await db.widgets.put({ ...core, enabled });
+      }
     }
     // one-time field backfill: rows written before `column` existed gain
     // "left" without touching updatedAt — this is a format fill, not a user
