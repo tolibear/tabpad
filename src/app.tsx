@@ -990,7 +990,7 @@ export function App() {
       }
       await loadDocuments();
       channelRef.current?.post({ type: "import", key: "all", updatedAt: Date.now() });
-      setDataMessage(`imported ${result.daysImported} days, ${result.panelsImported} panels`);
+      setDataMessage(`imported ${result.daysImported} days, ${result.panelsImported} panels, ${result.widgetsImported} widgets`);
     } catch (error) {
       console.warn("Tab Pad import failed", error);
       setDataMessage("import failed: not a valid tab pad export");

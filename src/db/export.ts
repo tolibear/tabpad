@@ -1,22 +1,31 @@
 import { dateFromKey } from "../lib/dates";
-import { db, defaultSettings, type DayRow, type PanelRow, type Settings } from "./db";
+import { db, defaultSettings, type DayRow, type PanelRow, type Settings, type WidgetRow } from "./db";
 import { getSettings } from "./settings";
+import { CORE_WIDGETS, WIDGET_ID_PATTERN } from "./widgets";
+import { isWidgetType, sanitizeWidgetConfig } from "../widgets/registry";
 
 export interface TabPadExport {
   schemaVersion: 1;
   exportedAt: number;
   days: DayRow[];
   panels: PanelRow[];
+  widgets: WidgetRow[];
   settings: Settings;
 }
 
 export async function createExportPayload(): Promise<TabPadExport> {
-  const [days, panels, settings] = await Promise.all([db.days.toArray(), db.panels.toArray(), getSettings()]);
+  const [days, panels, widgets, settings] = await Promise.all([
+    db.days.toArray(),
+    db.panels.toArray(),
+    db.widgets.toArray(),
+    getSettings(),
+  ]);
   return {
     schemaVersion: 1,
     exportedAt: Date.now(),
     days,
     panels,
+    widgets,
     settings,
   };
 }
@@ -25,12 +34,13 @@ export function serializeExport(payload: TabPadExport): string {
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
-export async function importPayload(payload: unknown): Promise<{ daysImported: number; panelsImported: number }> {
+export async function importPayload(payload: unknown): Promise<{ daysImported: number; panelsImported: number; widgetsImported: number }> {
   const parsed = parsePayload(payload);
   let daysImported = 0;
   let panelsImported = 0;
+  let widgetsImported = 0;
 
-  await db.transaction("rw", db.days, db.panels, db.meta, async () => {
+  await db.transaction("rw", db.days, db.panels, db.widgets, db.meta, async () => {
     for (const day of parsed.days) {
       const existing = await db.days.get(day.date);
       if (!existing || day.updatedAt >= existing.updatedAt) {
@@ -47,12 +57,20 @@ export async function importPayload(payload: unknown): Promise<{ daysImported: n
       }
     }
 
+    for (const widget of parsed.widgets) {
+      const existing = await db.widgets.get(widget.id);
+      if (!existing || widget.updatedAt >= existing.updatedAt) {
+        await db.widgets.put(widget);
+        widgetsImported += 1;
+      }
+    }
+
     if (parsed.hasSettings) {
       await db.meta.put({ id: "settings", value: { ...defaultSettings, ...parsed.settings } });
     }
   });
 
-  return { daysImported, panelsImported };
+  return { daysImported, panelsImported, widgetsImported };
 }
 
 function parsePayload(payload: unknown): TabPadExport & { hasSettings: boolean } {
@@ -69,6 +87,13 @@ function parsePayload(payload: unknown): TabPadExport & { hasSettings: boolean }
     days: Array.isArray(payload.days) ? payload.days.filter(isDayRow).map(clampDayTimestamps) : [],
     panels: Array.isArray(payload.panels)
       ? payload.panels.filter(isPanelRow).map((panel) => ({ ...panel, updatedAt: Math.min(panel.updatedAt, Date.now()) }))
+      : [],
+    widgets: Array.isArray(payload.widgets)
+      ? payload.widgets.filter(isWidgetRow).map((widget) => ({
+          ...widget,
+          config: sanitizeWidgetConfig(widget.type, widget.config),
+          updatedAt: Math.min(widget.updatedAt, Date.now()),
+        }))
       : [],
     settings: isObject(payload.settings) ? sanitizeSettings(payload.settings) : defaultSettings,
     hasSettings: isObject(payload.settings),
@@ -129,4 +154,24 @@ function isPanelRow(value: unknown): value is PanelRow {
     typeof value.content === "string" &&
     Number.isFinite(value.updatedAt)
   );
+}
+
+function isWidgetRow(value: unknown): value is WidgetRow {
+  if (
+    !isObject(value) ||
+    typeof value.id !== "string" ||
+    !WIDGET_ID_PATTERN.test(value.id) ||
+    !isWidgetType(value.type) ||
+    typeof value.title !== "string" ||
+    !isObject(value.config) ||
+    Array.isArray(value.config) || // isObject() alone lets arrays through
+    !Number.isFinite(value.order) ||
+    typeof value.enabled !== "boolean" ||
+    !Number.isFinite(value.updatedAt)
+  ) {
+    return false;
+  }
+  // a core id must keep its core type — otherwise the rail's built-ins mutate
+  const core = CORE_WIDGETS.find((widget) => widget.id === value.id);
+  return !core || core.type === value.type;
 }

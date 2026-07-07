@@ -299,5 +299,40 @@ widgetsDir!.files.delete("noted-days.json");
 await syncWithDisk(root.handle, undefined, undefined, () => {});
 assert(widgetsDir!.files.has("noted-days.json"), "deleting a widget file does not delete the widget — the file is recreated");
 
+// ---- export/import round-trip ----
+import { createExportPayload, importPayload } from "../src/db/export";
+
+await db.widgets.clear();
+await ensureDefaultWidgets();
+await saveWidget({ id: "words", type: "counter", title: "words", config: { source: "words-total", format: "{n} words" }, order: 5, enabled: true, updatedAt: 10 });
+
+const exportPayload = await createExportPayload();
+assert(exportPayload.widgets.length === 3, "export must include widgets");
+
+const importResult = await importPayload({
+  schemaVersion: 1,
+  exportedAt: Date.now(),
+  days: [],
+  panels: [],
+  widgets: [
+    // older than the live row — must not overwrite
+    { id: "words", type: "counter", title: "OLD", config: {}, order: 5, enabled: true, updatedAt: 1 },
+    // new custom widget — must import, future stamp clamped
+    { id: "phase", type: "text", title: "phase", config: { content: "waxing" }, order: 6, enabled: true, updatedAt: Date.now() + 100_000 },
+    // core id with the wrong type — must be skipped
+    { id: "calendar", type: "text", title: "calendar", config: { content: "x" }, order: 0, enabled: true, updatedAt: Date.now() + 100_000 },
+    // invalid id — must be skipped
+    { id: "Bad Id!", type: "text", title: "x", config: { content: "x" }, order: 7, enabled: true, updatedAt: 2 },
+  ],
+  settings: {},
+});
+assert(importResult.widgetsImported === 1, "exactly the one valid new widget imports");
+const imported = await listWidgets();
+assert(imported.find((w) => w.id === "words")?.title === "words", "older import must not overwrite newer widget");
+const phase = imported.find((w) => w.id === "phase");
+assert(phase !== undefined && phase.updatedAt <= Date.now(), "imported future timestamps are clamped");
+assert(imported.find((w) => w.id === "calendar")?.type === "calendar", "core type stays immutable through import");
+assert(!imported.some((w) => w.id === "Bad Id!"), "invalid ids are rejected");
+
 await db.delete();
 console.log("runtime asserts passed");
