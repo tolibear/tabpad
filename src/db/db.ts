@@ -27,6 +27,10 @@ export interface WidgetRow {
   config: Record<string, unknown>;
   order: number;
   enabled: boolean;
+  // which rail the widget sits in; optional on the type so rows written before
+  // the field existed (and drafts from the not-yet-wired settings picker) still
+  // compile — every read path sanitizes it to a concrete "left"/"right"
+  column?: "left" | "right";
   updatedAt: number;
 }
 

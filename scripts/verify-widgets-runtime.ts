@@ -7,6 +7,7 @@ import {
   isCoreWidget,
   listWidgets,
   readWidgetTombstones,
+  sanitizeColumn,
   saveWidget,
   WIDGET_ID_PATTERN,
 } from "../src/db/widgets";
@@ -27,6 +28,19 @@ assert(widgets[0].type === "calendar" && widgets[1].type === "day-list", "core w
 assert(widgets.every((w) => w.enabled), "core widgets must seed enabled");
 assert(widgets.every((w) => w.updatedAt === 0), "seeds must stamp updatedAt 0 so any disk copy wins the first merge");
 assert(widgets[1].title === "noted days", "noted-days must keep its heading");
+assert(widgets.every((w) => w.column === "left"), "core widgets seed into the left column");
+
+// sanitizeColumn: only the two known values pass; everything else defaults left
+assert(sanitizeColumn("right") === "right" && sanitizeColumn("left") === "left", "sanitizeColumn keeps known columns");
+assert(sanitizeColumn("middle") === "left" && sanitizeColumn(undefined) === "left" && sanitizeColumn(3) === "left", "sanitizeColumn defaults to left");
+
+// backfill: an EXISTING row missing column gains "left" without a user-edit
+// bump — the row's updatedAt is preserved so sync doesn't treat it as an edit
+await db.widgets.put({ id: "calendar", type: "calendar", title: "", config: {}, order: 0, enabled: true, updatedAt: 42 } as never);
+await ensureDefaultWidgets();
+const backfilled = await db.widgets.get("calendar");
+assert(backfilled?.column === "left", "ensureDefaultWidgets backfills column onto legacy rows");
+assert(backfilled?.updatedAt === 42, "column backfill preserves updatedAt (not a user edit)");
 
 await saveWidget({ ...widgets[1], enabled: false, updatedAt: 123 });
 await ensureDefaultWidgets();
@@ -239,6 +253,17 @@ const futureRewritten = "row" in futureParsed ? serializeWidgetFile({ ...futureP
 assert(JSON.parse(futureRewritten).column === "right" && JSON.parse(futureRewritten).futureFlag === 7, "unknown fields survive re-serialization");
 assert(!("id" in JSON.parse(futureRewritten)) && !("updatedAt" in JSON.parse(futureRewritten)), "id stays in the filename and updatedAt stays local");
 
+// column is a validated known field: "right" rides through, garbage and
+// absence both sanitize to "left" — while OTHER unknown fields still survive
+const colRight = parseWidgetFile("streak", JSON.stringify({ type: "counter", title: "s", enabled: true, order: 1, config: {}, column: "right", futureFlag: 7 }));
+assert("row" in colRight && colRight.row.column === "right", "parseWidgetFile keeps a valid column");
+assert("row" in colRight && (colRight.row as Record<string, unknown>).futureFlag === 7, "known column validation leaves other unknown fields intact");
+const colBad = parseWidgetFile("streak", JSON.stringify({ type: "counter", title: "s", enabled: true, order: 1, config: {}, column: "sideways" }));
+assert("row" in colBad && colBad.row.column === "left", "garbage column sanitizes to left");
+const colNone = parseWidgetFile("streak", JSON.stringify({ type: "counter", title: "s", enabled: true, order: 1, config: {} }));
+assert("row" in colNone && colNone.row.column === "left", "absent column defaults to left");
+assert(JSON.parse(serializeWidgetFile({ id: "streak", type: "counter", title: "s", config: {}, order: 1, enabled: true, column: "right", updatedAt: 1 })).column === "right", "serializeWidgetFile includes column explicitly");
+
 // app → disk: mirror writes every row as widgets/<id>.json
 const root = makeFakeDir();
 await writeWidgetsMirror(root.handle, await listWidgets());
@@ -345,6 +370,18 @@ const phase = imported.find((w) => w.id === "phase");
 assert(phase !== undefined && phase.updatedAt <= Date.now(), "imported future timestamps are clamped");
 assert(imported.find((w) => w.id === "calendar")?.type === "calendar", "core type stays immutable through import");
 assert(!imported.some((w) => w.id === "Bad Id!"), "invalid ids are rejected");
+
+// legacy backup: a widget row with no column at all imports as left, not rejected
+const legacyImport = await importPayload({
+  schemaVersion: 1,
+  exportedAt: Date.now(),
+  days: [],
+  panels: [],
+  widgets: [{ id: "legacy-col", type: "text", title: "old", config: { content: "hi" }, order: 8, enabled: true, updatedAt: Date.now() }],
+  settings: {},
+});
+assert(legacyImport.widgetsImported === 1, "a legacy row without column still imports");
+assert((await listWidgets()).find((w) => w.id === "legacy-col")?.column === "left", "an imported legacy row lands in the left column");
 
 await db.delete();
 console.log("runtime asserts passed");

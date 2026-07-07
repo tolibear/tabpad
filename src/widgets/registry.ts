@@ -22,6 +22,19 @@ export interface WidgetDefinition {
 
 export const widgetTypes: WidgetType[] = ["calendar", "day-list", "counter", "task-rollup", "text"];
 
+// every widget — whatever its type — also chooses a rail column. this is a
+// row-level field (not per-type config), so it lives here as one shared
+// WidgetField the settings picker renders once for all types.
+export const columnField: WidgetField = {
+  key: "column",
+  label: "column",
+  kind: "select",
+  options: [
+    { value: "left", label: "left" },
+    { value: "right", label: "right" },
+  ],
+};
+
 export function isWidgetType(value: unknown): value is WidgetType {
   return typeof value === "string" && (widgetTypes as string[]).includes(value);
 }

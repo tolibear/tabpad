@@ -1,7 +1,7 @@
 import { dateFromKey } from "../lib/dates";
 import { db, defaultSettings, type DayRow, type PanelRow, type Settings, type WidgetRow } from "./db";
 import { getSettings } from "./settings";
-import { CORE_WIDGETS, WIDGET_ID_PATTERN } from "./widgets";
+import { CORE_WIDGETS, sanitizeColumn, WIDGET_ID_PATTERN } from "./widgets";
 import { isWidgetType, sanitizeWidgetConfig } from "../widgets/registry";
 
 export interface TabPadExport {
@@ -92,6 +92,9 @@ function parsePayload(payload: unknown): TabPadExport & { hasSettings: boolean }
       ? payload.widgets.filter(isWidgetRow).map((widget) => ({
           ...widget,
           config: sanitizeWidgetConfig(widget.type, widget.config),
+          // older backups predate the column field — sanitize (missing → left)
+          // rather than reject the row
+          column: sanitizeColumn(widget.column),
           updatedAt: Math.min(widget.updatedAt, Date.now()),
         }))
       : [],

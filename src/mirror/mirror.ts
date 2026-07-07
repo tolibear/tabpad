@@ -2,7 +2,7 @@ import { dateFromKey } from "../lib/dates";
 import { db, type DayRow, type PanelRow, type WidgetRow } from "../db/db";
 import { hasDayContent } from "../db/days";
 import { getPanel } from "../db/panels";
-import { CORE_WIDGETS, clearWidgetTombstone, readWidgetTombstones } from "../db/widgets";
+import { CORE_WIDGETS, clearWidgetTombstone, readWidgetTombstones, sanitizeColumn } from "../db/widgets";
 import { isWidgetType, widgetTypes } from "../widgets/registry";
 
 const MIRROR_DIR_ID = "mirrorDir";
@@ -156,7 +156,7 @@ export function serializeWidgetFile(row: WidgetRow): string {
   // updatedAt is a local merge stamp — neither belongs on disk
   const { id: _id, updatedAt: _updatedAt, ...rest } = row as WidgetRow & Record<string, unknown>;
   return `${JSON.stringify(
-    { ...rest, type: row.type, title: row.title, enabled: row.enabled, order: row.order, config: row.config },
+    { ...rest, type: row.type, title: row.title, enabled: row.enabled, order: row.order, column: sanitizeColumn(row.column), config: row.config },
     null,
     2,
   )}\n`;
@@ -191,6 +191,9 @@ export function parseWidgetFile(id: string, text: string): { row: Omit<WidgetRow
         : {},
       order: Number.isFinite(raw.order) ? (raw.order as number) : 99,
       enabled: raw.enabled !== false,
+      // a validated known field: invalid/absent columns become "left" while
+      // OTHER unknown fields still ride through via the spread above
+      column: sanitizeColumn(raw.column),
     },
   };
 }
