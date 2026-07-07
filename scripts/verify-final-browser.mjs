@@ -99,7 +99,7 @@ async function connectPage(target) {
 
   async function waitForDaybookReady(label = "Daybook ready") {
     await waitFor(
-      `document.title === "Daybook" && !!document.querySelector(".day-section.today .cm-content")`,
+      `document.title === "Tab Pad" && !!document.querySelector(".day-section.today .cm-content")`,
       label,
       5000,
     );
@@ -129,7 +129,7 @@ async function connectPage(target) {
 
   async function getDay(date) {
     return asyncJson(`new Promise((resolve, reject) => {
-      const open = indexedDB.open("daybook");
+      const open = indexedDB.open("tabpad");
       open.onerror = () => reject(open.error);
       open.onsuccess = () => {
         const req = open.result.transaction("days").objectStore("days").get(${JSON.stringify(date)});
@@ -141,7 +141,7 @@ async function connectPage(target) {
 
   async function readStore(name) {
     return asyncJson(`new Promise((resolve, reject) => {
-      const open = indexedDB.open("daybook");
+      const open = indexedDB.open("tabpad");
       open.onerror = () => reject(open.error);
       open.onsuccess = () => {
         const req = open.result.transaction(${JSON.stringify(name)}).objectStore(${JSON.stringify(name)}).getAll();
@@ -154,7 +154,7 @@ async function connectPage(target) {
   async function putRows(payload) {
     await evaluate(`new Promise((resolve, reject) => {
       const payload = ${JSON.stringify(payload)};
-      const open = indexedDB.open("daybook");
+      const open = indexedDB.open("tabpad");
       open.onerror = () => reject(open.error);
       open.onsuccess = () => {
         const tx = open.result.transaction(["days", "panels", "meta"], "readwrite");
@@ -169,7 +169,7 @@ async function connectPage(target) {
 
   async function putSettings(settings) {
     await evaluate(`new Promise((resolve, reject) => {
-      const open = indexedDB.open("daybook");
+      const open = indexedDB.open("tabpad");
       open.onerror = () => reject(open.error);
       open.onsuccess = () => {
         const tx = open.result.transaction("meta", "readwrite");
@@ -231,7 +231,7 @@ async function stopChrome(session) {
 
 async function firstDaybookPage() {
   const targets = await fetchTargets();
-  const page = targets.find((target) => target.type === "page" && target.title === "Daybook")
+  const page = targets.find((target) => target.type === "page" && target.title === "Tab Pad")
     ?? targets.find((target) => target.type === "page");
   return connectPage(page);
 }
@@ -266,7 +266,9 @@ async function main() {
     await page2.send("Runtime.enable");
     await page2.send("Network.enable");
     await page2.waitForDaybookReady("second tab");
-    await page2.evaluate(`document.querySelector(".today-pill")?.focus()`);
+    // unfocus the auto-focused today editor — a focused editor correctly
+    // refuses remote overwrites, and the old .today-pill park target is gone
+    await page2.evaluate(`document.activeElement?.blur()`);
 
     await page1.insertIntoEditor(".day-section.today .cm-content", "two tab sync");
     const syncedRow = await page1.waitForDayMain(todayKey, (main) => main.includes("two tab sync"), "A14: first tab edit must save");

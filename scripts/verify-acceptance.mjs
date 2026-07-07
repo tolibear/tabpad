@@ -88,7 +88,7 @@ async function main() {
 
   try {
     const targets = await fetchTargets();
-    const page = targets.find((target) => target.type === "page" && target.title === "Daybook")
+    const page = targets.find((target) => target.type === "page" && target.title === "Tab Pad")
       ?? targets.find((target) => target.type === "page");
     assert(page?.webSocketDebuggerUrl, "No page target was available from Chrome for Testing.");
 
@@ -138,7 +138,8 @@ async function main() {
       await wait(120);
     }
 
-    async function choosePanelMode(label) {
+    // panel modes became independent layout toggles ("scratchpad", "per-day margins")
+    async function toggleLayoutOption(label) {
       await clickExpression(`document.querySelector(".rail-settings")`);
       await waitFor(`!!document.querySelector(".settings-sheet")`, "settings sheet");
       await clickExpression(`[...document.querySelectorAll(".mode-choice")].find((node) => node.textContent.includes(${JSON.stringify(label)}))`);
@@ -263,23 +264,23 @@ async function main() {
       throw new Error(`Timed out waiting for ${label}.`);
     }
 
-    async function waitForDaybookReady(label = "Daybook ready") {
+    async function waitForDaybookReady(label = "Tab Pad ready") {
       await waitFor(
-        `document.title === "Daybook"
+        `document.title === "Tab Pad"
           && !!document.querySelector(".day-section.today .cm-content")
-          && !!performance.getEntriesByName("daybook:shell-ready").length
-          && !!performance.getEntriesByName("daybook:today-content-ready").length`,
+          && !!performance.getEntriesByName("tabpad:shell-ready").length
+          && !!performance.getEntriesByName("tabpad:today-content-ready").length`,
         label,
         5000,
       );
     }
 
     async function warmNewTabProfile() {
-      await waitForDaybookReady("initial Daybook load");
+      await waitForDaybookReady("initial Tab Pad load");
       await send("Page.navigate", { url: "about:blank" });
       await waitFor(`location.href === "about:blank"`, "about:blank warm-up hop", 5000);
       await send("Page.navigate", { url: "chrome://newtab/" });
-      await waitForDaybookReady("warm Daybook new tab");
+      await waitForDaybookReady("warm Tab Pad new tab");
     }
 
     async function modKey(keyName, code) {
@@ -290,7 +291,7 @@ async function main() {
 
     async function getDay(date) {
       return asyncJson(`new Promise((resolve, reject) => {
-        const open = indexedDB.open("daybook");
+        const open = indexedDB.open("tabpad");
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
           const req = open.result.transaction("days").objectStore("days").get("${date}");
@@ -324,7 +325,7 @@ async function main() {
 
     async function getPanel(id) {
       return asyncJson(`new Promise((resolve, reject) => {
-        const open = indexedDB.open("daybook");
+        const open = indexedDB.open("tabpad");
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
           const req = open.result.transaction("panels").objectStore("panels").get("${id}");
@@ -375,7 +376,7 @@ async function main() {
 
     async function putDay(row) {
       await evaluate(`new Promise((resolve, reject) => {
-        const open = indexedDB.open("daybook");
+        const open = indexedDB.open("tabpad");
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
           const tx = open.result.transaction("days", "readwrite");
@@ -388,7 +389,7 @@ async function main() {
 
     async function putSettings(settings) {
       await evaluate(`new Promise((resolve, reject) => {
-        const open = indexedDB.open("daybook");
+        const open = indexedDB.open("tabpad");
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
           const tx = open.result.transaction("meta", "readwrite");
@@ -410,13 +411,14 @@ async function main() {
       manifest: chrome.runtime.getManifest(),
       activeToday: !!document.activeElement?.closest(".day-section.today"),
       todayKey: document.querySelector(".day-section.today")?.dataset.date,
-      firstVisible: [...document.querySelectorAll(".day-section")][0]?.dataset.date,
+      // future days render above today in the DOM; "first visible" means first in the viewport
+      firstVisible: [...document.querySelectorAll(".day-section")].find((node) => node.getBoundingClientRect().bottom > 80)?.dataset.date,
       navigation: performance.getEntriesByType("navigation")[0]?.duration ?? 0,
       marks: Object.fromEntries(performance.getEntriesByType("mark").map((entry) => [entry.name, entry.startTime])),
       paints: performance.getEntriesByType("paint").map((entry) => ({ name: entry.name, startTime: entry.startTime }))
     }`);
     assert(initial.href.startsWith("chrome-extension://"), "A18: new tab must load extension URL.");
-    assert(initial.title === "Daybook", "A18: new tab title must be Daybook.");
+    assert(initial.title === "Tab Pad", "A18: new tab title must be Tab Pad.");
     assert(initial.manifest.permissions.length === 0, "A18: runtime manifest must have zero permissions.");
     assert(!("background" in initial.manifest), "A18: runtime manifest must not have a background worker.");
     assert(!("content_scripts" in initial.manifest), "A18: runtime manifest must not have content scripts.");
@@ -424,15 +426,16 @@ async function main() {
       evidence.notes.push("A1 initial active element was not today's editor; no-click printable-key routing was exercised.");
     }
     assert(initial.todayKey === initial.firstVisible, "A1: today must be the first visible timeline day.");
-    assert(initial.marks["daybook:shell-ready"] < 100, `A1: warm shell readiness must be <100ms. ${JSON.stringify(initial)}`);
-    assert(initial.marks["daybook:today-content-ready"] < 150, `A1: warm today content readiness must be <150ms. ${JSON.stringify(initial)}`);
+    assert(initial.marks["tabpad:shell-ready"] < 100, `A1: warm shell readiness must be <100ms. ${JSON.stringify(initial)}`);
+    assert(initial.marks["tabpad:today-content-ready"] < 150, `A1: warm today content readiness must be <150ms. ${JSON.stringify(initial)}`);
     evidence.checks.a1Initial = initial;
 
     await installA1KeyProbe("x");
     const keyStart = Date.now();
     await printableKey("x", "KeyX");
     const keyElapsed = Date.now() - keyStart;
-    await waitForDayMain(initial.todayKey, (main) => main === "x", "A1/A6: first keystroke must save into today's note");
+    // first run seeds the onboarding note, so the keystroke lands at its head
+    await waitForDayMain(initial.todayKey, (main) => main.startsWith("x"), "A1/A6: first keystroke must save into today's note");
     const firstKeyProbe = await json(`window.__daybookA1 ?? {}`);
     const firstKeyLandingMs = firstKeyProbe.landed - firstKeyProbe.start;
     assert(firstKeyLandingMs < 200, `A1: first printable key must land in today's note <200ms. ${JSON.stringify({ firstKeyProbe, keyElapsed })}`);
@@ -465,7 +468,8 @@ async function main() {
     await wait(600);
     let taskSource = (await getDay(initial.todayKey))?.main ?? "";
     assert(taskSource.includes("- [ ] call max"), "A3: [] shortcut must create a markdown task.");
-    await clickCenter(`document.querySelector(".cm-task-widget input")`);
+    // scope to today: seeded onboarding notes on other days have checkboxes too
+    await clickCenter(`document.querySelector(".day-section.today .cm-task-widget input")`);
     await wait(650);
     taskSource = (await getDay(initial.todayKey))?.main ?? "";
     assert(taskSource.includes("- [x] call max"), "A3: clicking checkbox must update source to checked.");
@@ -492,7 +496,10 @@ async function main() {
     listSource = (await getDay(initial.todayKey))?.main ?? "";
     evidence.checks.a4List = { source: listSource };
 
-    await clickExpression(`document.querySelector(".today-pill")`);
+    // the today-pill is gone; first run opens in focus mode — exit it via the
+    // focus toggle so the timeline (and upward future-scroll) is available
+    await clickExpression(`document.querySelector(".day-section.today .focus-toggle")`);
+    await wait(400);
     await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: 700, y: 120, deltaX: 0, deltaY: -700 });
     await wait(600);
     const future = await json(`{
@@ -502,18 +509,22 @@ async function main() {
     assert(future.dates.some((date) => date > initial.todayKey), "A5: upward scroll must create future placeholders.");
     evidence.checks.a5Future = future;
 
-    await clickExpression(`document.querySelector(".today-pill")`);
+    // the today-pill is gone; first run opens in focus mode — exit it via the
+    // focus toggle so the timeline (and upward future-scroll) is available
+    await clickExpression(`document.querySelector(".day-section.today .focus-toggle")`);
+    await wait(400);
     await modKey("k", "KeyK");
     await submitPaletteValue("7/5");
     await waitFor(`!!document.querySelector('[data-date="2026-07-05"] .cm-content')`, "July 5 editor", 4000);
     await evaluate(`document.querySelector('[data-date="2026-07-05"] .cm-content')?.focus()`);
     await insertText("z");
     const july5 = await waitForDayMain("2026-07-05", (main) => main.includes("z"), "A6: jumped future day must save typed content");
+    // rail excerpts refresh on a 500ms typing-pause debounce, not per keystroke
+    await waitFor(`(document.querySelector(".noted-list")?.innerText ?? "").includes("z")`, "A6: noted-days list must update after the excerpt debounce", 3000);
     const rail = await json(`{
       hasDot: !![...document.querySelectorAll(".date-cell.noted")].find((node) => node.getAttribute("aria-label")?.includes("Jul 05") || node.textContent.trim() === "5"),
       noted: document.querySelector(".noted-list")?.innerText ?? ""
     }`);
-    assert(rail.noted.includes("z"), "A6: noted-days list must update immediately.");
     evidence.checks.a6Rail = rail;
 
     const now = Date.now();
@@ -539,7 +550,15 @@ async function main() {
 
     await modKey("k", "KeyK");
     await submitPaletteValue("6/15");
-    await wait(1200);
+    // the jump scrolls smoothly over thousands of px — poll until it lands
+    await waitFor(`(() => {
+      const node = document.querySelector('[data-date="2026-06-15"]');
+      const timeline = document.querySelector(".timeline");
+      if (!node || !timeline) return false;
+      const nodeRect = node.getBoundingClientRect();
+      const timelineRect = timeline.getBoundingClientRect();
+      return nodeRect.bottom > timelineRect.top && nodeRect.top < timelineRect.bottom;
+    })()`, "A8: June 15 scrolled into view", 5000);
     const palette = await json(`{
       visible: [...document.querySelectorAll(".day-section")].find((node) => Math.abs(node.getBoundingClientRect().top - document.querySelector(".timeline").getBoundingClientRect().top - 24) < 80)?.dataset.date,
       june15Top: (() => {
@@ -581,20 +600,16 @@ async function main() {
       yesterday: !!document.querySelector('[data-date="2026-07-02"]')
     }`);
 
-    await choosePanelMode("master list");
-    await insertIntoContentEditable(".right-panel .cm-content", "master");
-    const masterPanel = await waitForPanelContent("masterList", (content) => content.includes("master"), "A9: master list content must save");
-    await choosePanelMode("scratchpad");
+    // the master-list panel was removed; scratchpad is now a toggle (default on)
     await insertIntoContentEditable(".right-panel .cm-content", "scratch");
     const scratchPanel = await waitForPanelContent("scratchpad", (content) => content.includes("scratch"), "A9: scratchpad content must save");
-    await choosePanelMode("hidden");
-    assert(await evaluate(`!document.querySelector(".right-panel")`), "A9: hidden mode must remove the fixed right panel.");
-    await choosePanelMode("master list");
-    const panels = { scratchpad: scratchPanel, masterList: masterPanel };
-    assert(panels.scratchpad?.content.includes("scratch") && panels.masterList?.content.includes("master"), "A9: scratchpad and master list content must remain independent.");
-    evidence.checks.a9Modes = panels;
+    await toggleLayoutOption("scratchpad");
+    assert(await evaluate(`!document.querySelector(".right-panel")`), "A9: toggling scratchpad off must remove the fixed right panel.");
+    await toggleLayoutOption("scratchpad");
+    await waitFor(`(document.querySelector(".right-panel .cm-content")?.textContent ?? "").includes("scratch")`, "A9: scratchpad content must survive a hide/show cycle");
+    evidence.checks.a9Modes = { scratchpad: scratchPanel };
 
-    await choosePanelMode("per-day margin");
+    await toggleLayoutOption("per-day margin");
     assert(await evaluate(`!!document.querySelector(".day-margin .cm-content")`), "A10: margin mode must render per-day side editors.");
     await insertIntoContentEditable(`[data-date="${initial.todayKey}"] .day-margin .cm-content`, "margin note");
     const marginDate = initial.todayKey;
@@ -602,9 +617,21 @@ async function main() {
     assert(marginRow?.margin.includes("margin note"), "A10: margin text must save per day.");
     await modKey("k", "KeyK");
     await submitPaletteValue("6/13");
-    await waitFor(`!!document.querySelector('[data-date="2026-06-13"] .day-margin .cm-content')`, "June 13 margin editor");
+    // far days render as static shells; wait for the jump scroll to settle on
+    // June 13, then click its margin to activate the editor
+    await waitFor(`(() => {
+      const node = document.querySelector('[data-date="2026-06-13"]');
+      if (!node) return false;
+      const top = node.getBoundingClientRect().top;
+      return top > -40 && top < 300;
+    })()`, "June 13 settled at viewport top", 10000);
+    await wait(400);
+    await clickCenter(`document.querySelector('[data-date="2026-06-13"] .day-margin')`);
+    await waitFor(`!!document.querySelector('[data-date="2026-06-13"] .day-margin .cm-content')`, "June 13 margin editor", 8000);
     await insertIntoContentEditable('[data-date="2026-06-13"] .day-margin .cm-content', "only margin");
     const marginOnlyRow = await waitForDayMargin("2026-06-13", (margin) => margin.includes("only margin"), "A10: margin-only day must save");
+    // rail excerpts refresh on a 500ms typing-pause debounce
+    await waitFor(`(document.querySelector(".noted-list")?.innerText ?? "").includes("only margin")`, "A10: margin-only day reaches the noted list", 3000);
     const marginOnlyRail = await json(`{
       noted: document.querySelector(".noted-list")?.innerText ?? "",
       dotted: [...document.querySelectorAll(".date-cell.noted")].map((node) => node.textContent.trim())
@@ -622,7 +649,7 @@ async function main() {
       settings: ""
     }`);
     theme.settings = await asyncJson(`new Promise((resolve, reject) => {
-      const open = indexedDB.open("daybook");
+      const open = indexedDB.open("tabpad");
       open.onerror = () => reject(open.error);
       open.onsuccess = () => {
         const req = open.result.transaction("meta").objectStore("meta").get("settings");
@@ -651,7 +678,7 @@ async function main() {
     const mirrorInitial = {
       today: await waitForMirrorFile([`${initial.todayKey}.md`], (content) => content.trim().length > 0, "A12: existing day must mirror"),
       scratchpad: await waitForMirrorFile(["scratchpad.md"], (content) => content.includes("scratch"), "A12: scratchpad must mirror"),
-      masterList: await waitForMirrorFile(["master-list.md"], (content) => content.includes("master"), "A12: master list must mirror"),
+      // the master-list panel (and its master-list.md mirror) was removed
     };
     await clickExpression(`document.querySelector(".settings-head .icon-button")`);
     await waitFor(`!document.querySelector(".settings-sheet")`, "settings sheet close");

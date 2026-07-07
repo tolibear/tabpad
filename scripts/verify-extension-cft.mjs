@@ -90,7 +90,7 @@ async function main() {
 
   try {
     const targets = await fetchTargets();
-    const page = targets.find((target) => target.type === "page" && target.title === "Daybook")
+    const page = targets.find((target) => target.type === "page" && target.title === "Tab Pad")
       ?? targets.find((target) => target.type === "page" && target.url === "chrome://newtab/")
       ?? targets.find((target) => target.type === "page");
     assert(page?.webSocketDebuggerUrl, "No page target was available from Chrome for Testing.");
@@ -173,8 +173,8 @@ async function main() {
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
 
     assert(pageEvidence.href.startsWith("chrome-extension://"), "new tab must load the extension page.");
-    assert(pageEvidence.title === "Daybook", "new tab title must be Daybook.");
-    assert(pageEvidence.manifest.name === "Daybook", "runtime manifest must be Daybook.");
+    assert(pageEvidence.title === "Tab Pad", "new tab title must be Tab Pad.");
+    assert(pageEvidence.manifest.name === "Tab Pad", "runtime manifest must be Tab Pad.");
     assert(Array.isArray(pageEvidence.manifest.permissions) && pageEvidence.manifest.permissions.length === 0, "runtime manifest must have zero permissions.");
     assert(!("background" in pageEvidence.manifest), "runtime manifest must not define a background worker.");
     assert(!("content_scripts" in pageEvidence.manifest), "runtime manifest must not define content scripts.");
